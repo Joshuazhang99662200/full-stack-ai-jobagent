@@ -33,6 +33,7 @@ class NormalizedJob(ContractModel):
     published_at: datetime | None = None
     collected_at: datetime
     provenance: list[ProvenanceRecord] = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class RequirementPriority(StrEnum):

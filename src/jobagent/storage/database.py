@@ -8,7 +8,11 @@ from pathlib import Path
 
 from jobagent.errors import StorageError
 
-LATEST_SCHEMA_VERSION = 1
+LATEST_SCHEMA_VERSION = 2
+_MIGRATION_FILES = {
+    1: "0001_candidate.sql",
+    2: "0002_jobs.sql",
+}
 
 
 class Database:
@@ -46,10 +50,10 @@ class Database:
                             "supported_version": LATEST_SCHEMA_VERSION,
                         },
                     )
-                if current_version == 0:
+                for target_version in range(current_version + 1, LATEST_SCHEMA_VERSION + 1):
                     migration = (
                         resources.files("jobagent.storage.migrations")
-                        .joinpath("0001_candidate.sql")
+                        .joinpath(_MIGRATION_FILES[target_version])
                         .read_text(encoding="utf-8")
                     )
                     connection.executescript(migration)

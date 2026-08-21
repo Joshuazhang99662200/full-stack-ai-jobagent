@@ -1,0 +1,63 @@
+[
+  {
+    "schema_version": "1.0",
+    "source": "mock-alpha",
+    "source_job_id": "alpha-001",
+    "title": "Python Platform Engineer",
+    "company": "Example Labs",
+    "location": "Copenhagen",
+    "salary_text": "DKK 600000-720000 year",
+    "jd_raw": "Build Python API services, maintain platform reliability, and collaborate with product teams.",
+    "recruiter": {
+      "schema_version": "1.0",
+      "name": "Mira Jensen",
+      "title": "Technical Recruiter",
+      "contact_channel": null
+    },
+    "url": "https://jobs.example.test/mock-alpha/alpha-001",
+    "published_at": "2026-08-18T09:00:00Z",
+    "collected_at": "2026-08-21T08:00:00Z"
+  },
+  {
+    "schema_version": "1.0",
+    "source": "mock-alpha",
+    "source_job_id": "alpha-002",
+    "title": "Enterprise Sales Manager",
+    "company": "Example Commerce",
+    "location": "Berlin",
+    "salary_text": "EUR 80000-95000 year",
+    "jd_raw": "Lead enterprise sales, own commercial targets, and manage strategic accounts.",
+    "recruiter": null,
+    "url": "https://jobs.example.test/mock-alpha/alpha-002",
+    "published_at": "2026-08-17T09:00:00Z",
+    "collected_at": "2026-08-21T08:01:00Z"
+  },
+  {
+    "schema_version": "1.0",
+    "source": "mock-beta",
+    "source_job_id": "beta-991",
+    "title": "Python Platform Engineer",
+    "company": "Example Labs",
+    "location": "Copenhagen",
+    "salary_text": "DKK 610000-730000 year",
+    "jd_raw": "Build Python API services, maintain platform reliability, and collaborate closely with product teams.",
+    "recruiter": null,
+    "url": "https://jobs.example.test/mock-beta/beta-991",
+    "published_at": "2026-08-19T09:00:00Z",
+    "collected_at": "2026-08-21T08:02:00Z"
+  },
+  {
+    "schema_version": "1.0",
+    "source": "mock-gamma",
+    "source_job_id": "gamma-003",
+    "title": "Machine Learning Engineer",
+    "company": "Example AI",
+    "location": "Remote - Europe",
+    "salary_text": null,
+    "jd_raw": "Develop machine learning pipelines and production model monitoring in Python.",
+    "recruiter": null,
+    "url": "https://jobs.example.test/mock-gamma/gamma-003",
+    "published_at": "2026-08-20T09:00:00Z",
+    "collected_at": "2026-08-21T08:03:00Z"
+  }
+]

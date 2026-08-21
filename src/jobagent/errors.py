@@ -54,3 +54,7 @@ class StorageError(JobAgentError):
 
 class ResumeParseError(JobAgentError):
     code = "RESUME_PARSE_ERROR"
+
+
+class JobNotFoundError(JobAgentError):
+    code = "JOB_NOT_FOUND"

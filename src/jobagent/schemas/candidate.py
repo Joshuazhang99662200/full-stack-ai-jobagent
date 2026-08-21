@@ -1,6 +1,6 @@
 """Candidate knowledge-base and evidence contracts."""
 
-from datetime import date
+from datetime import datetime, date
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Any
@@ -275,6 +275,21 @@ class InterviewAnswer(ContractModel):
         if self.skipped == (self.answer is not None):
             raise ValueError("provide an answer or mark the question skipped")
         return self
+
+
+class InterviewEventType(StrEnum):
+    QUESTION = "question"
+    ANSWER = "answer"
+    SKIP = "skip"
+
+
+class InterviewEvent(ContractModel):
+    id: EntityId
+    candidate_id: CandidateId
+    event_type: InterviewEventType
+    question_id: QuestionId
+    payload: dict[str, Any]
+    created_at: datetime
 
 
 class CandidateStatus(ContractModel):

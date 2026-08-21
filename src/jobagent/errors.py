@@ -58,3 +58,7 @@ class ResumeParseError(JobAgentError):
 
 class JobNotFoundError(JobAgentError):
     code = "JOB_NOT_FOUND"
+
+
+class JobNormalizationError(JobAgentError):
+    code = "NORMALIZATION_ERROR"

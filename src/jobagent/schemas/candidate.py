@@ -1,6 +1,6 @@
 """Candidate knowledge-base and evidence contracts."""
 
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Any
@@ -290,6 +290,22 @@ class InterviewEvent(ContractModel):
     question_id: QuestionId
     payload: dict[str, Any]
     created_at: datetime
+
+
+class InterviewOutcome(ContractModel):
+    event: InterviewEvent
+    draft_evidence: EvidenceItem | None = None
+
+    @model_validator(mode="after")
+    def validate_event_evidence_pair(self) -> "InterviewOutcome":
+        if self.event.event_type is InterviewEventType.ANSWER and self.draft_evidence is None:
+            raise ValueError("answered interview event requires draft evidence")
+        if (
+            self.event.event_type is not InterviewEventType.ANSWER
+            and self.draft_evidence is not None
+        ):
+            raise ValueError("non-answer interview event cannot carry draft evidence")
+        return self
 
 
 class CandidateStatus(ContractModel):

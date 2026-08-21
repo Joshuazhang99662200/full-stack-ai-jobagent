@@ -50,3 +50,7 @@ class StaleApprovalError(JobAgentError):
 
 class StorageError(JobAgentError):
     code = "STORAGE_ERROR"
+
+
+class ResumeParseError(JobAgentError):
+    code = "RESUME_PARSE_ERROR"

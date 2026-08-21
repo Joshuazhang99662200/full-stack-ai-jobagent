@@ -135,6 +135,12 @@ class MatchThresholdPolicy(ContractModel):
         return self
 
 
+class JobIntelligencePolicies(ContractModel):
+    deduplication: DeduplicationPolicy = Field(default_factory=DeduplicationPolicy)
+    hard_filter: HardFilterPolicy = Field(default_factory=HardFilterPolicy)
+    match_thresholds: MatchThresholdPolicy = Field(default_factory=MatchThresholdPolicy)
+
+
 class JobAssessment(ContractModel):
     job_id: JobId
     filter_result: HardFilterResult

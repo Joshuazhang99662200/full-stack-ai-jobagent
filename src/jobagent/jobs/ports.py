@@ -3,7 +3,12 @@
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
-from jobagent.schemas.job_intelligence import JobSearchQuery, SourceJobRecord
+from jobagent.schemas.candidate import EvidenceItem
+from jobagent.schemas.job_intelligence import (
+    JobSearchQuery,
+    RequirementMatchSet,
+    SourceJobRecord,
+)
 from jobagent.schemas.jobs import (
     HardFilterResult,
     JobRequirementProfile,
@@ -69,3 +74,19 @@ class JobRepository(Protocol):
         requirements_digest: str,
         policy_digest: str,
     ) -> MatchResult | None: ...
+
+
+@runtime_checkable
+class JobRequirementExtractor(Protocol):
+    def extract(self, job: NormalizedJob) -> JobRequirementProfile: ...
+
+
+@runtime_checkable
+class JobEvidenceMatcher(Protocol):
+    def map(
+        self,
+        job: NormalizedJob,
+        requirements: JobRequirementProfile,
+        candidate_id: str,
+        evidence: Sequence[EvidenceItem],
+    ) -> RequirementMatchSet: ...

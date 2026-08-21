@@ -9,6 +9,7 @@ from jobagent.schemas.candidate import (
     CandidateProfile,
     EvidenceItem,
     InterviewEvent,
+    InterviewOutcome,
     ParsedResume,
 )
 from jobagent.storage.database import Database
@@ -100,20 +101,7 @@ class SqliteCandidateRepository:
     def append_interview_event(self, event: InterviewEvent) -> None:
         try:
             with self.database.connect() as connection, connection:
-                connection.execute(
-                    """
-                    INSERT INTO interview_events (
-                        event_id, candidate_id, event_type, payload_json, created_at
-                    ) VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        event.id,
-                        event.candidate_id,
-                        event.event_type.value,
-                        event.model_dump_json(),
-                        event.created_at.isoformat(),
-                    ),
-                )
+                self._insert_interview_event(connection, event)
         except sqlite3.Error as error:
             self._raise_storage_error("append interview event", error)
 
@@ -141,6 +129,30 @@ class SqliteCandidateRepository:
                     self._upsert_evidence(connection, draft.candidate_id, evidence, timestamp)
         except sqlite3.Error as error:
             self._raise_storage_error("save candidate onboarding", error)
+
+    def save_draft(self, draft: CandidateDraft) -> None:
+        timestamp = _now()
+        try:
+            with self.database.connect() as connection, connection:
+                self._upsert_profile(connection, draft.profile, timestamp)
+                for evidence in draft.evidence:
+                    self._upsert_evidence(connection, draft.candidate_id, evidence, timestamp)
+        except sqlite3.Error as error:
+            self._raise_storage_error("save candidate draft", error)
+
+    def save_interview_outcome(self, outcome: InterviewOutcome) -> None:
+        try:
+            with self.database.connect() as connection, connection:
+                self._insert_interview_event(connection, outcome.event)
+                if outcome.draft_evidence is not None:
+                    self._upsert_evidence(
+                        connection,
+                        outcome.event.candidate_id,
+                        outcome.draft_evidence,
+                        _now(),
+                    )
+        except sqlite3.Error as error:
+            self._raise_storage_error("save interview outcome", error)
 
     @staticmethod
     def _upsert_profile(
@@ -200,6 +212,26 @@ class SqliteCandidateRepository:
             VALUES (?, ?, ?, ?)
             """,
             (resume.id, resume.candidate_id, resume.model_dump_json(), timestamp),
+        )
+
+    @staticmethod
+    def _insert_interview_event(
+        connection: sqlite3.Connection,
+        event: InterviewEvent,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO interview_events (
+                event_id, candidate_id, event_type, payload_json, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                event.id,
+                event.candidate_id,
+                event.event_type.value,
+                event.model_dump_json(),
+                event.created_at.isoformat(),
+            ),
         )
 
     def _raise_storage_error(self, operation: str, error: sqlite3.Error) -> None:

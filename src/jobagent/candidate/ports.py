@@ -8,6 +8,7 @@ from jobagent.schemas.candidate import (
     CandidateProfile,
     EvidenceItem,
     InterviewEvent,
+    InterviewOutcome,
     ParsedResume,
 )
 
@@ -44,3 +45,6 @@ class CandidateRepository(Protocol):
 
     def save_onboarding(self, resume: ParsedResume, draft: CandidateDraft) -> None: ...
 
+    def save_draft(self, draft: CandidateDraft) -> None: ...
+
+    def save_interview_outcome(self, outcome: InterviewOutcome) -> None: ...

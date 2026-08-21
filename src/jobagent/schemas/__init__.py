@@ -1,5 +1,17 @@
 """Public schema exports for JobAgent domain contracts."""
 
+from jobagent.schemas.applications import (
+    ApplicationAudit,
+    ApplicationPackage,
+    ApplicationStatus,
+    ApprovalRecord,
+    BatchApplication,
+    BatchExecutionMode,
+    DeliveryRequest,
+    DeliveryResult,
+    InterventionReason,
+    SendResultStatus,
+)
 from jobagent.schemas.candidate import (
     Achievement,
     CandidateGap,
@@ -68,8 +80,14 @@ from jobagent.schemas.optimizer import (
 
 __all__ = [
     "Achievement",
+    "ApplicationAudit",
+    "ApplicationPackage",
+    "ApplicationStatus",
+    "ApprovalRecord",
     "BaseResumeDocument",
     "BaseResumeItem",
+    "BatchApplication",
+    "BatchExecutionMode",
     "CandidateGap",
     "CandidateProfile",
     "CandidateReadinessReport",
@@ -82,6 +100,8 @@ __all__ = [
     "Confidence",
     "Constraint",
     "ContractModel",
+    "DeliveryRequest",
+    "DeliveryResult",
     "Digest",
     "DimensionScore",
     "DomainExperience",
@@ -92,6 +112,7 @@ __all__ = [
     "FilterDecision",
     "FilterReason",
     "HardFilterResult",
+    "InterventionReason",
     "JobRequirement",
     "JobRequirementProfile",
     "KeywordCoverageReport",
@@ -116,6 +137,7 @@ __all__ = [
     "ResumeVariant",
     "RewriteOperation",
     "SectionOptimizationPlan",
+    "SendResultStatus",
     "Skill",
     "SourceReference",
     "SourceType",

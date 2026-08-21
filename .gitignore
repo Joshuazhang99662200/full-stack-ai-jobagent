@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Candidate-private data and generated artifacts
+candidate/private/
+candidate/variants/
+*.sqlite
+*.sqlite3
+*.db
+
+# Connector and research state
+.jobagent/cache/
+.jobagent/browser-profiles/
+.jobagent/sessions/

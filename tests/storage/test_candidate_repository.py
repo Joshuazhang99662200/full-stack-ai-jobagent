@@ -5,6 +5,7 @@ import pytest
 
 from jobagent.errors import StorageError
 from jobagent.schemas.candidate import (
+    CandidateDraft,
     CandidateProfile,
     Confidence,
     EvidenceItem,
@@ -99,3 +100,29 @@ def test_interview_events_are_append_only(tmp_path: Path) -> None:
         repository.append_interview_event(event)
 
     assert repository.list_interview_events("CAND_001") == [event]
+
+
+def test_onboarding_write_rolls_back_as_one_transaction(tmp_path: Path) -> None:
+    repository = repository_at(tmp_path / "candidate.sqlite3")
+    original = CandidateProfile(id="CAND_001", full_name="Original Name")
+    repository.save_profile(original)
+    parsed = ParsedResume(
+        id="RESUME_001",
+        candidate_id="CAND_001",
+        source_name="resume.pdf",
+        content_digest="sha256:abc123",
+        pages=[ResumePage(page_number=1, text="Experience")],
+    )
+    repository.save_resume(parsed)
+    candidate_evidence = evidence("EVID_001", "Built internal tooling.")
+    draft = CandidateDraft(
+        candidate_id="CAND_001",
+        profile=CandidateProfile(id="CAND_001", full_name="Updated Name"),
+        evidence=[candidate_evidence],
+    )
+
+    with pytest.raises(StorageError, match="save candidate onboarding"):
+        repository.save_onboarding(parsed, draft)
+
+    assert repository.get_profile("CAND_001") == original
+    assert repository.get_evidence("CAND_001", "EVID_001") is None

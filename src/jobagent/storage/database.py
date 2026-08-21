@@ -60,4 +60,3 @@ class Database:
                 "Could not migrate SQLite database.",
                 details={"path": str(self.path), "operation": "migrate"},
             ) from error
-

@@ -47,8 +47,7 @@ class AdaptiveInterview:
             candidate_id=candidate_id,
             primary_gap_id=selected.id,
             text=(
-                selected.suggested_question
-                or f"What can you confirm about {selected.field_path}?"
+                selected.suggested_question or f"What can you confirm about {selected.field_path}?"
             ),
             reason=selected.reason,
             expected_information=f"Verified detail for {selected.field_path}",

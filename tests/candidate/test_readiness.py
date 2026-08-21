@@ -92,7 +92,5 @@ def test_explicit_unknowns_reduce_completeness_and_remain_open_gaps() -> None:
     known = service.evaluate(candidate_profile(), evidence)
     unknown = service.evaluate(candidate_profile(unknown=True), evidence)
 
-    assert (
-        unknown.readiness.profile_completeness < known.readiness.profile_completeness
-    )
+    assert unknown.readiness.profile_completeness < known.readiness.profile_completeness
     assert unknown.open_gap_count > known.open_gap_count

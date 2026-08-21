@@ -7,11 +7,19 @@ from typing import Annotated, Any
 
 from pydantic import Field, model_validator
 
-from jobagent.schemas.common import ContractModel, NonEmptyString, SourceReference, TimeRange
+from jobagent.schemas.common import (
+    ContractModel,
+    Digest,
+    NonEmptyString,
+    SourceReference,
+    TimeRange,
+)
 
 EvidenceId = Annotated[str, Field(pattern=r"^EVID_[A-Z0-9_]+$")]
 CandidateId = Annotated[str, Field(pattern=r"^CAND_[A-Z0-9_]+$")]
 EntityId = Annotated[str, Field(pattern=r"^[A-Z]+_[A-Z0-9_]+$")]
+ResumeId = Annotated[str, Field(pattern=r"^RESUME_[A-Z0-9_]+$")]
+QuestionId = Annotated[str, Field(pattern=r"^QUESTION_[A-Z0-9_]+$")]
 
 
 class EvidenceType(StrEnum):
@@ -187,3 +195,90 @@ class CandidateProfile(ContractModel):
     preferences: list[Preference] = Field(default_factory=list)
     constraints: list[Constraint] = Field(default_factory=list)
     unknown_fields: list[UnknownField] = Field(default_factory=list)
+
+
+class ResumePage(ContractModel):
+    page_number: Annotated[int, Field(ge=1)]
+    text: str
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ParsedResume(ContractModel):
+    id: ResumeId
+    candidate_id: CandidateId
+    source_name: NonEmptyString
+    media_type: str = "application/pdf"
+    content_digest: Digest
+    pages: list[ResumePage] = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def require_ordered_unique_pages(self) -> "ParsedResume":
+        page_numbers = [page.page_number for page in self.pages]
+        if page_numbers != sorted(set(page_numbers)):
+            raise ValueError("resume pages must have unique ascending page numbers")
+        return self
+
+
+class CandidateDraft(ContractModel):
+    candidate_id: CandidateId
+    profile: CandidateProfile
+    evidence: list[EvidenceItem] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_candidate_and_evidence_references(self) -> "CandidateDraft":
+        if self.profile.id != self.candidate_id:
+            raise ValueError("draft candidate_id must match profile.id")
+        if any(item.user_confirmed for item in self.evidence):
+            raise ValueError("draft evidence cannot be user-confirmed")
+
+        available_ids = {item.id for item in self.evidence}
+        referenced_ids: set[str] = set()
+        evidence_bearing_groups = (
+            self.profile.experiences,
+            self.profile.education,
+            self.profile.skills,
+            self.profile.projects,
+            self.profile.achievements,
+            self.profile.domain_experience,
+            self.profile.management_experience,
+            self.profile.commercial_experience,
+            self.profile.languages,
+            self.profile.certifications,
+        )
+        for group in evidence_bearing_groups:
+            for item in group:
+                referenced_ids.update(item.evidence_ids)
+        missing_ids = sorted(referenced_ids - available_ids)
+        if missing_ids:
+            raise ValueError(f"profile references missing draft evidence: {missing_ids}")
+        return self
+
+
+class InterviewQuestion(ContractModel):
+    id: QuestionId
+    candidate_id: CandidateId
+    primary_gap_id: EntityId
+    text: NonEmptyString
+    reason: NonEmptyString
+    expected_information: NonEmptyString
+    score: Annotated[float, Field(ge=0, le=1)]
+
+
+class InterviewAnswer(ContractModel):
+    question_id: QuestionId
+    answer: NonEmptyString | None = None
+    skipped: bool = False
+
+    @model_validator(mode="after")
+    def require_answer_or_skip(self) -> "InterviewAnswer":
+        if self.skipped == (self.answer is not None):
+            raise ValueError("provide an answer or mark the question skipped")
+        return self
+
+
+class CandidateStatus(ContractModel):
+    candidate_id: CandidateId
+    readiness: CandidateReadinessReport
+    open_gap_count: Annotated[int, Field(ge=0)]
+    unconfirmed_evidence_count: Annotated[int, Field(ge=0)]

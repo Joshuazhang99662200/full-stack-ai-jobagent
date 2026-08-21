@@ -53,12 +53,8 @@ class HardFilterEngine:
             "WORK_AUTHORIZATION": lambda: self._work_authorization(
                 job, requirements, context, policy
             ),
-            "LANGUAGE_HARD_REQUIREMENT": lambda: self._language(
-                requirements, context, policy
-            ),
-            "EDUCATION_HARD_REQUIREMENT": lambda: self._education(
-                requirements, context, policy
-            ),
+            "LANGUAGE_HARD_REQUIREMENT": lambda: self._language(requirements, context, policy),
+            "EDUCATION_HARD_REQUIREMENT": lambda: self._education(requirements, context, policy),
             "COMPENSATION_MINIMUM": lambda: self._compensation(job, context, policy),
             "ROLE_EXCLUSION": lambda: self._role_exclusion(job, context),
         }
@@ -219,8 +215,7 @@ class HardFilterEngine:
             )
         available = " ".join(_normalized(value) for value in context.education_levels)
         if any(
-            any(_normalized(keyword) in available for keyword in item.keywords)
-            for item in required
+            any(_normalized(keyword) in available for keyword in item.keywords) for item in required
         ):
             return None
         return (

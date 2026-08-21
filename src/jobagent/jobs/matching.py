@@ -138,11 +138,7 @@ class MatchAggregator:
             ),
             (
                 "preferred",
-                [
-                    item
-                    for item in requirements
-                    if item.priority is RequirementPriority.PREFERRED
-                ],
+                [item for item in requirements if item.priority is RequirementPriority.PREFERRED],
             ),
         ]
         for category in sorted({item.category.casefold() for item in requirements}):
@@ -185,11 +181,7 @@ class MatchAggregator:
         policy: MatchThresholdPolicy,
     ) -> MatchDecision:
         if hard_gaps:
-            return (
-                MatchDecision.WEAK_MATCH
-                if overall >= policy.weak
-                else MatchDecision.NOT_A_MATCH
-            )
+            return MatchDecision.WEAK_MATCH if overall >= policy.weak else MatchDecision.NOT_A_MATCH
         if overall >= policy.strong:
             return MatchDecision.STRONG_MATCH
         if overall >= policy.possible:

@@ -74,9 +74,7 @@ def mappings(preferred: RequirementMatchOutcome) -> RequirementMatchSet:
 
 
 def test_admissibility_excludes_unconfirmed_and_weak_evidence() -> None:
-    weak = evidence("EVID_WEAK", confirmed=False).model_copy(
-        update={"confidence": Confidence.WEAK}
-    )
+    weak = evidence("EVID_WEAK", confirmed=False).model_copy(update={"confidence": Confidence.WEAK})
 
     result = admissible_evidence(
         [evidence("EVID_CONFIRMED"), evidence("EVID_DRAFT", confirmed=False), weak]

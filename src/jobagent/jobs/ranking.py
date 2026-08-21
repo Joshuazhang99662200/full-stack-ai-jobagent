@@ -35,8 +35,7 @@ class JobRanker:
         eligible = [
             assessment
             for assessment in assessments
-            if include_rejected
-            or assessment.filter_result.decision is not FilterDecision.REJECT
+            if include_rejected or assessment.filter_result.decision is not FilterDecision.REJECT
         ]
         ordered = sorted(eligible, key=self._sort_key)
         return [

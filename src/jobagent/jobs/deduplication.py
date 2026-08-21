@@ -129,9 +129,7 @@ class JobDeduplicator:
             sorted(f"{item.source.casefold()}:{item.source_id.casefold()}" for item in provenance)
         )
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
-        salary_values = {
-            job.salary.model_dump_json() for job in members if job.salary is not None
-        }
+        salary_values = {job.salary.model_dump_json() for job in members if job.salary is not None}
         recruiter_values = {
             job.recruiter.model_dump_json() for job in members if job.recruiter is not None
         }

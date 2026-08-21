@@ -86,9 +86,12 @@ def test_v1_database_upgrades_to_v2_without_losing_candidate(tmp_path: Path) -> 
     assert SqliteCandidateRepository(database).get_profile("CAND_001") == profile
     with database.connect() as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
-        assert connection.execute(
-            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='normalized_jobs'"
-        ).fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='normalized_jobs'"
+            ).fetchone()[0]
+            == 1
+        )
 
 
 def test_job_and_provenance_round_trip(tmp_path: Path) -> None:
@@ -104,9 +107,7 @@ def test_job_and_provenance_round_trip(tmp_path: Path) -> None:
             "SELECT source, source_id FROM job_provenance WHERE job_id = ?",
             (job.id,),
         ).fetchall()
-    assert [(row["source"], row["source_id"]) for row in rows] == [
-        ("mock-alpha", "alpha-001")
-    ]
+    assert [(row["source"], row["source_id"]) for row in rows] == [("mock-alpha", "alpha-001")]
 
 
 def test_requirements_filter_and_match_round_trip_with_digest_keys(tmp_path: Path) -> None:

@@ -5,11 +5,14 @@ from typer.testing import CliRunner
 
 from jobagent.cli.app import app
 from jobagent.connectors.mock import MockJobSource
+from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.schemas.candidate import CandidateProfile, Confidence, EvidenceItem, EvidenceType
 from jobagent.schemas.common import SourceReference, SourceType
 from jobagent.schemas.job_intelligence import (
     CandidateFilterContext,
+    DeduplicationPolicy,
+    JobSearchQuery,
     RequirementEvidenceMatch,
     RequirementMatchOutcome,
     RequirementMatchSet,
@@ -178,3 +181,84 @@ def test_fetch_unknown_job_returns_structured_error_without_fixture_body() -> No
     assert isinstance(payload, dict)
     assert payload["error"]["code"] == "JOB_NOT_FOUND"
     assert "Build Python API services" not in json.dumps(payload)
+
+
+def test_pipeline_consumes_job_keyed_reviewed_files(tmp_path: Path) -> None:
+    database_path = tmp_path / "jobagent.sqlite3"
+    seed_candidate(database_path)
+    reviewed_directory = tmp_path / "reviewed"
+    reviewed_directory.mkdir()
+    source = MockJobSource.from_path(FIXTURE)
+    normalized = [JobNormalizer().normalize(record) for record in source.search(JobSearchQuery())]
+    jobs = JobDeduplicator().deduplicate(normalized, DeduplicationPolicy()).jobs
+    for job in jobs:
+        if "Sales" in job.title:
+            statement, keyword = "Lead enterprise sales", "sales"
+        elif "Machine Learning" in job.title:
+            statement, keyword = "Develop machine learning pipelines", "machine learning"
+        else:
+            statement, keyword = "Build Python API services", "Python"
+        profile = JobRequirementProfile(
+            job_id=job.id,
+            requirements=[
+                JobRequirement(
+                    id="REQ_PRIMARY",
+                    statement=statement,
+                    category="skill",
+                    priority=RequirementPriority.MUST,
+                    source_span=statement,
+                    keywords=[keyword],
+                )
+            ],
+            must_have=[statement],
+            skills=[keyword],
+        )
+        (reviewed_directory / f"{job.id}.requirements.json").write_text(
+            profile.model_dump_json(), encoding="utf-8"
+        )
+        if "Sales" not in job.title:
+            supported = "Python Platform" in job.title
+            mappings = RequirementMatchSet(
+                job_id=job.id,
+                candidate_id="CAND_001",
+                matches=[
+                    RequirementEvidenceMatch(
+                        requirement_id="REQ_PRIMARY",
+                        outcome=(
+                            RequirementMatchOutcome.SUPPORTED
+                            if supported
+                            else RequirementMatchOutcome.UNCERTAIN
+                        ),
+                        evidence_ids=["EVID_PYTHON"] if supported else [],
+                        explanation="Reviewed requirement mapping.",
+                    )
+                ],
+            )
+            (reviewed_directory / f"{job.id}.matches.json").write_text(
+                mappings.model_dump_json(), encoding="utf-8"
+            )
+    context_path = tmp_path / "context.json"
+    context_path.write_text(
+        CandidateFilterContext(
+            candidate_id="CAND_001", excluded_role_terms=["sales"]
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+
+    exit_code, payload = invoke(
+        "jobs",
+        "pipeline",
+        "CAND_001",
+        str(context_path),
+        str(reviewed_directory),
+        "--database",
+        str(database_path),
+        "--fixture",
+        str(FIXTURE),
+    )
+
+    assert exit_code == 0
+    assert isinstance(payload, dict)
+    assert len(payload["normalized_jobs"]) == 3
+    assert len(payload["ranked_jobs"]) == 2
+    assert all(item["application_ready"] is False for item in payload["ranked_jobs"])

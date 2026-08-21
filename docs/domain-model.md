@@ -10,6 +10,24 @@ Adaptive interview operates on explicit `CandidateGap` records. An answer create
 
 `NormalizedJob` preserves the full JD and all cross-source provenance. `JobRequirementProfile` decomposes requirements without depending on a connector. `HardFilterResult` represents deterministic `PASS`, `REVIEW`, or reasoned `REJECT`. `MatchResult` evaluates the candidate against the job and always includes explanation lanes.
 
+The offline data flow is:
+
+```text
+SourceJobRecord
+-> NormalizedJob
+-> JobRequirementProfile
+-> HardFilterResult
+-> RequirementMatchSet
+-> MatchResult
+-> RankedJob
+```
+
+Normalization uses stable source-observation IDs. Deduplication may assign a canonical group ID, while retaining each source ID, URL, and collection timestamp in `provenance`. Conflicting source facts remain visible through warnings.
+
+Hard filtering runs before evidence matching. `REJECT` records contain stable rule IDs and never enter the matcher. `REVIEW` records may be matched for decision support, while their status remains `REVIEW`. Ranking orders eligible assessments deterministically and leaves `application_ready` false.
+
+`RequirementMatchSet` is a reviewed reasoning artifact. Its job ID, candidate ID, requirement coverage, and Evidence IDs are revalidated. Only confirmed, non-weak Evidence owned by the current Candidate can support or partially support a requirement. Missing Evidence creates a gap or uncertainty.
+
 ## Resume optimizer
 
 `ResumeOptimizationPlan` maps requirements to evidence and allowed rewrite operations. `ResumeVariant` contains selected evidence, optimized items, a `ClaimLedger`, verification, keyword coverage, and diff. Every substantive `ClaimRecord` has at least one `EVID_*` ID.

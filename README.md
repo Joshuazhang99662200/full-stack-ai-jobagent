@@ -85,6 +85,13 @@ jobagent optimizer capabilities --intent detect_candidate_evidence_gaps
 
 这个 Phase 1 命令是只读发现。它校验并报告 L0 索引,同时不加载被选中的策略与技能正文。后续的 Router 阶段才会只加载被选中的资源并补上可执行 adapter。投递审批、投递执行、连接器、浏览器、登录与 CAPTCHA 行为始终在 Resume Optimizer 边界之外。
 
+## 参与与安全
+
+- [贡献指南](CONTRIBUTING.md) —— 环境、质量门禁、架构不变式、新增能力的步骤
+- [面向编码智能体的说明](AGENTS.md) —— 在本仓库里工作的智能体先读这份
+- [安全策略](SECURITY.md) —— 漏洞报告通道与威胁模型边界
+- [隐私说明](PRIVACY.md) —— 简历数据去了哪里、推理提供方看到什么、如何删除
+
 ## 文档
 
 - [架构设计](docs/superpowers/specs/2026-08-21-jobagent-foundation-design.md)

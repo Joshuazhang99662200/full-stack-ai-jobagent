@@ -1,6 +1,6 @@
 # Pluggable Resume Optimizer Router and Atomic Skill Design
 
-**Status:** Conversation-approved design; written spec pending user review
+**Status:** Approved
 **Date:** 2026-08-22
 **Supersedes:** `2026-08-21-resume-optimizer-design.md`
 **Scope:** master-resume reconstruction, JD-specific tailoring, repository capability indexing, atomic Skill routing, evidence confirmation, verification, diffing, and resumable optimization sessions

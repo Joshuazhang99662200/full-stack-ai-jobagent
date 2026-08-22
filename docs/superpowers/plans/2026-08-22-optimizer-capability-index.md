@@ -337,7 +337,7 @@ All later tasks must follow the reviewed source contract rather than copying the
 - Create: `tests/optimizer/__init__.py`
 - Create: `tests/optimizer/test_index.py`
 
-- [ ] **Step 1: Write loader and compiler tests first**
+- [x] **Step 1: Write loader and compiler tests first**
 
 Create `tests/optimizer/test_index.py`:
 
@@ -446,7 +446,7 @@ def test_compiler_rejects_duplicates_and_missing_references(tmp_path: Path) -> N
 
 Before committing, simplify the duplicate fixture construction if readability suffers; preserve the asserted behavior.
 
-- [ ] **Step 2: Run the tests and confirm the expected failure**
+- [x] **Step 2: Run the tests and confirm the expected failure**
 
 Run:
 
@@ -456,7 +456,7 @@ python -m pytest tests/optimizer/test_index.py -q
 
 Expected: collection fails because `jobagent.optimizer.index` does not exist.
 
-- [ ] **Step 3: Implement loader and compiler**
+- [x] **Step 3: Implement loader and compiler**
 
 Create `src/jobagent/optimizer/__init__.py` as a package docstring only. Create `src/jobagent/optimizer/index.py` with this public surface:
 
@@ -478,7 +478,7 @@ Implement these exact rules:
 3. Resolve `(root / relative_path)` and require `resolved.is_relative_to(root)`.
 4. Read UTF-8 and parse with `yaml.safe_load`.
 5. Require a mapping and validate it with `CapabilityIndexDocument.model_validate`.
-6. Convert `OSError`, `yaml.YAMLError`, and `ValidationError` into `CapabilityRegistryError("Capability index document is invalid.", details={"path": relative_path.as_posix()})` using exception chaining.
+6. Convert `OSError`, `RuntimeError`, `UnicodeError`, `yaml.YAMLError`, and `ValidationError` into `CapabilityRegistryError("Capability index document is invalid.", details={"path": relative_path.as_posix()})` using `raise ... from None`; retaining a raw validation/YAML cause can leak private input through formatted tracebacks.
 7. Never put raw YAML or Pydantic input values into the error message/details.
 8. Compile all entries, sort them by `entry.id`, and reject duplicate IDs before building the snapshot.
 9. Require every ID in `dependencies` and `verifiers` to exist in the combined set.
@@ -488,7 +488,7 @@ Implement these exact rules:
 
 Do not resolve Python entrypoints here. Importing arbitrary modules during registry compilation would cross the read-only metadata boundary.
 
-- [ ] **Step 4: Run focused tests and static checks**
+- [x] **Step 4: Run focused tests and static checks**
 
 Run:
 
@@ -500,7 +500,7 @@ python -m mypy src/jobagent/optimizer
 
 Expected: all tests pass; Ruff and mypy report no errors.
 
-- [ ] **Step 5: Commit the loader/compiler**
+- [x] **Step 5: Commit the loader/compiler**
 
 ```powershell
 git add src/jobagent/optimizer tests/optimizer
@@ -647,6 +647,8 @@ Use these code entrypoints:
 | `repo.jobs.match-evidence` | `jobagent.reasoning.job_matcher:ReasoningJobMatcher.map` |
 | `repo.jobs.refresh-intelligence` | `jobagent.jobs.workflow:JobIntelligenceWorkflow.run` |
 | `repo.optimizer.contracts` | `references/optimizer/workflow.md` |
+
+Declare `repo.optimizer.contracts` as `kind: policy` with explicit null input/output schemas. It is a non-executable contract resource and must not be treated as a Python capability.
 
 For code entries, use schema names that describe the adapter boundary planned for Phase 2, even when those wrapper models do not exist yet. The catalog is declarative and the compiler must not import them.
 

@@ -1,12 +1,14 @@
 """Read-only discovery commands for Resume Optimizer capabilities."""
 
 import json
+from collections.abc import Callable
+from importlib import resources
 from pathlib import Path
 from typing import Annotated, Never
 
 import typer
 
-from jobagent.errors import CapabilityRegistryError
+from jobagent.errors import CapabilityRegistryError, ContractValidationError, JobAgentError
 from jobagent.optimizer.index import CapabilityIndexLoader, CapabilityRegistryCompiler
 from jobagent.schemas.optimizer_registry import CapabilityKind, CapabilityRegistrySnapshot
 
@@ -16,7 +18,23 @@ INDEX_PATHS = (
 )
 
 
-def _find_default_skill_root() -> Path:
+def _packaged_skill_root() -> Path | None:
+    try:
+        candidate = resources.files("jobagent.optimizer").joinpath(
+            "resources", "job-hunting"
+        )
+        if candidate.is_dir():
+            return Path(str(candidate))
+    except (ModuleNotFoundError, OSError, TypeError):
+        pass
+    return None
+
+
+def _default_skill_root() -> Path:
+    packaged = _packaged_skill_root()
+    if packaged is not None:
+        return packaged
+
     module_path = Path(__file__).resolve()
     for ancestor in module_path.parents:
         candidate = ancestor / "skills" / "job-hunting"
@@ -25,21 +43,22 @@ def _find_default_skill_root() -> Path:
     return module_path.parents[3] / "skills" / "job-hunting"
 
 
-DEFAULT_SKILL_ROOT = _find_default_skill_root()
-
 optimizer_app = typer.Typer(
     help="Inspect Resume Optimizer capabilities.",
     no_args_is_help=True,
 )
 
 
-def _snapshot() -> CapabilityRegistrySnapshot:
+def _compile_snapshot() -> CapabilityRegistrySnapshot:
     return CapabilityRegistryCompiler(
-        CapabilityIndexLoader(DEFAULT_SKILL_ROOT)
+        CapabilityIndexLoader(_default_skill_root())
     ).compile(INDEX_PATHS)
 
 
-def _fail(error: CapabilityRegistryError) -> Never:
+_snapshot_provider: Callable[[], CapabilityRegistrySnapshot] = _compile_snapshot
+
+
+def _fail(error: JobAgentError) -> Never:
     typer.echo(
         json.dumps(
             {
@@ -59,7 +78,11 @@ def _fail(error: CapabilityRegistryError) -> Never:
 def capabilities(
     kind: Annotated[
         CapabilityKind | None,
-        typer.Option("--kind", help="Return only entries of this capability kind."),
+        typer.Option(
+            "--kind",
+            help="Return only entries of this capability kind.",
+            case_sensitive=False,
+        ),
     ] = None,
     intent: Annotated[
         str | None,
@@ -68,7 +91,14 @@ def capabilities(
 ) -> None:
     """Inspect the checked-in capability index without loading indexed resources."""
     try:
-        snapshot = _snapshot()
+        if intent is not None:
+            intent = intent.strip()
+            if not intent:
+                raise ContractValidationError(
+                    "Capability intent filter is invalid.",
+                    details={"field": "intent"},
+                )
+        snapshot = _snapshot_provider()
         if kind is None and intent is None:
             typer.echo(snapshot.model_dump_json(indent=2))
             return
@@ -90,5 +120,5 @@ def capabilities(
                 indent=2,
             )
         )
-    except CapabilityRegistryError as error:
+    except (CapabilityRegistryError, ContractValidationError) as error:
         _fail(error)

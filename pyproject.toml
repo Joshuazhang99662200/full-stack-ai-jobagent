@@ -50,3 +50,6 @@ follow_imports = "skip"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jobagent"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"skills/job-hunting" = "jobagent/optimizer/resources/job-hunting"

@@ -1,9 +1,15 @@
 import json
+import tomllib
 from pathlib import Path
 
+import pytest
+import typer
+from typer.core import TyperGroup
 from typer.testing import CliRunner
 
+from jobagent.cli import optimizer as optimizer_cli
 from jobagent.cli.app import app
+from jobagent.errors import CapabilityRegistryError
 
 runner = CliRunner()
 
@@ -15,10 +21,12 @@ def invoke(*args: str) -> tuple[int, object]:
 
 
 def test_optimizer_help_exposes_discovery_only() -> None:
-    result = runner.invoke(app, ["optimizer", "--help"])
+    root_command = typer.main.get_command(app)
+    assert isinstance(root_command, TyperGroup)
+    optimizer_command = root_command.commands["optimizer"]
 
-    assert result.exit_code == 0
-    assert "capabilities" in result.stdout
+    assert isinstance(optimizer_command, TyperGroup)
+    assert set(optimizer_command.commands) == {"capabilities"}
     for forbidden in (
         "run",
         "rewrite",
@@ -28,7 +36,8 @@ def test_optimizer_help_exposes_discovery_only() -> None:
         "deliver",
         "browser",
     ):
-        assert forbidden not in result.stdout.casefold()
+        result = runner.invoke(app, ["optimizer", forbidden])
+        assert result.exit_code == 2
 
 
 def test_capabilities_emits_deterministic_snapshot_json() -> None:
@@ -36,6 +45,7 @@ def test_capabilities_emits_deterministic_snapshot_json() -> None:
 
     assert exit_code == 0
     assert isinstance(payload, dict)
+    assert set(payload) == {"schema_version", "digest", "entries"}
     assert payload["schema_version"] == "1.0"
     assert payload["digest"].startswith("sha256:")
     ids = [entry["id"] for entry in payload["entries"]]
@@ -54,12 +64,17 @@ def test_capabilities_filters_by_kind_and_intent_without_forging_digest() -> Non
     assert full_code == kind_code == intent_code == 0
     assert isinstance(snapshot, dict)
     assert isinstance(policies, dict)
+    assert set(policies) == {"schema_version", "source_digest", "entries"}
     assert policies["schema_version"] == "1.0"
     assert policies["source_digest"] == snapshot["digest"]
     assert "digest" not in policies
     assert len(policies["entries"]) == 6
+    assert [entry["id"] for entry in policies["entries"]] == sorted(
+        entry["id"] for entry in policies["entries"]
+    )
     assert all(entry["kind"] == "policy" for entry in policies["entries"])
     assert isinstance(matching, dict)
+    assert set(matching) == {"schema_version", "source_digest", "entries"}
     assert matching["source_digest"] == snapshot["digest"]
     assert [entry["id"] for entry in matching["entries"]] == [
         "repo.candidate.detect-gaps"
@@ -71,6 +86,7 @@ def test_unknown_filter_returns_an_empty_filtered_snapshot() -> None:
 
     assert exit_code == 0
     assert isinstance(payload, dict)
+    assert set(payload) == {"schema_version", "source_digest", "entries"}
     assert payload["schema_version"] == "1.0"
     assert payload["entries"] == []
     assert payload["source_digest"].startswith("sha256:")
@@ -78,9 +94,9 @@ def test_unknown_filter_returns_an_empty_filtered_snapshot() -> None:
 
 
 def test_default_skill_root_is_independent_of_working_directory(
-    tmp_path: Path, monkeypatch: object
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.chdir(tmp_path)  # type: ignore[attr-defined]
+    monkeypatch.chdir(tmp_path)
 
     exit_code, payload = invoke("optimizer", "capabilities")
 
@@ -89,23 +105,81 @@ def test_default_skill_root_is_independent_of_working_directory(
     assert len(payload["entries"]) == 14
 
 
-def test_registry_failure_is_structured_and_does_not_echo_yaml(
-    tmp_path: Path, monkeypatch: object
+def test_packaged_skill_root_has_priority(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    package_root = tmp_path / "jobagent" / "optimizer"
+    bundled_root = package_root / "resources" / "job-hunting"
+    bundled_root.mkdir(parents=True)
+    monkeypatch.setattr(optimizer_cli.resources, "files", lambda package: package_root)
+
+    assert optimizer_cli._default_skill_root() == bundled_root
+
+
+def test_wheel_maps_the_single_authoritative_skill_tree() -> None:
+    pyproject_path = Path(__file__).parents[2] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+
+    assert pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"] == {
+        "skills/job-hunting": "jobagent/optimizer/resources/job-hunting"
+    }
+
+
+@pytest.mark.parametrize("intent", ["", "   ", "\t"])
+def test_blank_intent_returns_a_structured_input_error_without_echoing_input(
+    intent: str,
 ) -> None:
-    index_root = tmp_path / "job-hunting"
-    index_directory = index_root / "optimizer" / "index"
-    index_directory.mkdir(parents=True)
-    private_body = "secret: do-not-echo"
-    (index_directory / "repository.yaml").write_text(private_body, encoding="utf-8")
-    (index_directory / "policies.yaml").write_text(private_body, encoding="utf-8")
-    monkeypatch.setattr(  # type: ignore[attr-defined]
-        "jobagent.cli.optimizer.DEFAULT_SKILL_ROOT", index_root
+    result = runner.invoke(app, ["optimizer", "capabilities", "--intent", intent])
+
+    assert result.exit_code == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "error": {
+            "code": "CONTRACT_VALIDATION_ERROR",
+            "message": "Capability intent filter is invalid.",
+            "details": {"field": "intent"},
+        }
+    }
+    if intent:
+        assert intent not in json.dumps(payload)
+
+
+def test_intent_matching_is_case_sensitive() -> None:
+    exit_code, payload = invoke(
+        "optimizer", "capabilities", "--intent", "DETECT_CANDIDATE_EVIDENCE_GAPS"
     )
 
-    exit_code, payload = invoke("optimizer", "capabilities")
-
-    assert exit_code == 1
+    assert exit_code == 0
     assert isinstance(payload, dict)
+    assert payload["entries"] == []
+
+
+def test_kind_filter_is_case_insensitive_and_invalid_kind_is_a_click_error() -> None:
+    policy_result = runner.invoke(app, ["optimizer", "capabilities", "--kind", "POLICY"])
+    invalid_result = runner.invoke(app, ["optimizer", "capabilities", "--kind", "invalid"])
+
+    assert policy_result.exit_code == 0
+    assert all(entry["kind"] == "policy" for entry in json.loads(policy_result.stdout)["entries"])
+    assert invalid_result.exit_code == 2
+    assert invalid_result.stdout == ""
+    assert "Invalid value" in invalid_result.stderr
+
+
+def test_registry_failure_is_structured_stdout_json_with_empty_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail() -> object:
+        raise CapabilityRegistryError(
+            "Capability index document is invalid.",
+            details={"path": "optimizer/index/repository.yaml"},
+        )
+
+    monkeypatch.setattr(optimizer_cli, "_snapshot_provider", fail)
+
+    result = runner.invoke(app, ["optimizer", "capabilities"])
+
+    assert result.exit_code == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
     assert payload["error"]["code"] == "CAPABILITY_REGISTRY_INVALID"
     assert payload["error"]["details"] == {"path": "optimizer/index/repository.yaml"}
-    assert "do-not-echo" not in json.dumps(payload)
+    assert set(payload["error"]) == {"code", "message", "details"}

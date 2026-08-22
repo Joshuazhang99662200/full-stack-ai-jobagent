@@ -263,8 +263,7 @@ entries:
     output_schema: null
     intents:
       - inspect_optimizer_contracts
-    required_context:
-      - optimizer_contracts
+    required_context: []
     permissions:
       read:
         - optimizer_contracts

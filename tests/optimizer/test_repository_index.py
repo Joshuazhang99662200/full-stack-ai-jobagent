@@ -235,7 +235,7 @@ def test_phase1_filters_every_future_adapter_contract() -> None:
 
 def test_policies_do_not_require_the_resource_they_are_loading() -> None:
     for entry in snapshot().entries:
-        if entry.id.startswith("policy.optimizer."):
+        if entry.kind is CapabilityKind.POLICY:
             assert entry.required_context == ()
 
 

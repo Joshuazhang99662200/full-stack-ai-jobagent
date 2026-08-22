@@ -20,7 +20,7 @@ Compose the project's atomic capabilities. Inspect outputs and preserve approval
 - For cross-domain boundaries, read [references/architecture-invariants.md](references/architecture-invariants.md) and [references/capability-catalog.md](references/capability-catalog.md).
 - For onboarding or interview work, read [references/candidate-kb.md](references/candidate-kb.md) and [references/evidence-policy.md](references/evidence-policy.md).
 - For normalization, filtering, matching, or ranking, read [references/job-intelligence.md](references/job-intelligence.md).
-- For resume work, read [references/resume-grounding.md](references/resume-grounding.md). For deep optimizer work, additionally read [references/optimizer/workflow.md](references/optimizer/workflow.md), [references/optimizer/evidence-contract.md](references/optimizer/evidence-contract.md), [references/optimizer/prompt-routing.md](references/optimizer/prompt-routing.md), [references/optimizer/quality-gates.md](references/optimizer/quality-gates.md), and [references/optimizer/failure-handling.md](references/optimizer/failure-handling.md).
+- For ordinary resume grounding, read [references/resume-grounding.md](references/resume-grounding.md). Route master-resume reconstruction and JD-specific tailoring through [optimizer/SKILL.md](optimizer/SKILL.md); that nested Skill owns further policy selection.
 - For preview, approval, send, batch, or audit, read [references/hitl-approval.md](references/hitl-approval.md).
 - For connector development, read [references/connector-contract.md](references/connector-contract.md) and [references/oss/source-manifest.yaml](references/oss/source-manifest.yaml), then load only the named upstream note needed for the task.
 

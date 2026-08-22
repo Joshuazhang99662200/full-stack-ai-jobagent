@@ -1,0 +1,254 @@
+schema_version: "1.0"
+entries:
+  - id: repo.candidate.parse-resume
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: extracts grounded resume items. Trigger: a candidate supplies a PDF resume. Excludes: inferred or invented candidate facts. Output: normalized resume items with source provenance."
+    entrypoint: jobagent.parsing.pdf_resume:PdfResumeParser.parse
+    input_schema: ResumeParseInput
+    output_schema: ResumeParseOutput
+    intents:
+      - parse_candidate_resume
+    required_context:
+      - resume_source
+    permissions:
+      read:
+        - resume_source
+      write: []
+    preconditions:
+      - readable_pdf_resume
+    dependencies: []
+    produces:
+      - resume_item
+    verifiers: []
+    failure_policy:
+      retry: never
+      fallback: return_typed_failure
+    trust: core
+
+  - id: repo.candidate.detect-gaps
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: identifies material evidence gaps. Trigger: candidate readiness is evaluated for a target role. Excludes: automatic evidence promotion. Output: prioritized gaps for an interview turn."
+    entrypoint: jobagent.candidate.gaps:GapDetector.detect
+    input_schema: CandidateGapDetectionInput
+    output_schema: CandidateGapDetectionOutput
+    intents:
+      - detect_candidate_evidence_gaps
+    required_context:
+      - candidate_profile
+      - evidence_summary
+      - target_role
+    permissions:
+      read:
+        - candidate_profile
+        - evidence_summary
+        - target_role
+      write: []
+    preconditions:
+      - candidate_profile_available
+    dependencies: []
+    produces:
+      - candidate_evidence_gap
+    verifiers: []
+    failure_policy:
+      retry: never
+      fallback: return_typed_failure
+    trust: core
+
+  - id: repo.candidate.ask-question
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: selects one focused evidence question. Trigger: a prioritized candidate gap needs clarification. Excludes: multi-question interrogation or fact promotion. Output: one recorded interview event."
+    entrypoint: jobagent.candidate.interview:AdaptiveInterview.next_question
+    input_schema: CandidateQuestionInput
+    output_schema: CandidateQuestionOutput
+    intents:
+      - ask_one_evidence_question
+    required_context:
+      - candidate_profile
+      - evidence_summary
+      - target_role
+    permissions:
+      read:
+        - candidate_profile
+        - evidence_summary
+        - target_role
+      write:
+        - interview_event
+    preconditions:
+      - prioritized_gap_available
+    dependencies: []
+    produces:
+      - interview_event
+    verifiers: []
+    failure_policy:
+      retry: never
+      fallback: pause_for_human
+    trust: core
+
+  - id: repo.candidate.add-draft-evidence
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: records an unconfirmed evidence proposal. Trigger: new candidate facts arrive through current feedback. Excludes: canonical promotion or truth assumptions. Output: draft evidence with provenance."
+    entrypoint: jobagent.candidate.evidence:CandidateEvidenceService.add_draft
+    input_schema: DraftEvidenceInput
+    output_schema: DraftEvidenceOutput
+    intents:
+      - record_draft_candidate_evidence
+    required_context:
+      - user_feedback
+    permissions:
+      read:
+        - user_feedback
+      write:
+        - draft_evidence
+    preconditions:
+      - candidate_fact_supplied
+    dependencies: []
+    produces:
+      - draft_evidence
+    verifiers: []
+    failure_policy:
+      retry: never
+      fallback: pause_for_human
+    trust: core
+
+  - id: repo.candidate.confirm-evidence
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: promotes verified facts into canonical evidence. Trigger: the candidate explicitly confirms a draft fact. Excludes: silent, inferred, or bulk promotion. Output: canonical evidence with confirmation provenance."
+    entrypoint: jobagent.candidate.evidence:CandidateEvidenceService.confirm
+    input_schema: ConfirmEvidenceInput
+    output_schema: ConfirmEvidenceOutput
+    intents:
+      - confirm_candidate_evidence
+    required_context:
+      - draft_evidence
+      - user_feedback
+    permissions:
+      read:
+        - draft_evidence
+        - user_feedback
+      write:
+        - canonical_evidence
+    preconditions:
+      - explicit_user_confirmation
+    dependencies: []
+    produces:
+      - canonical_evidence
+    verifiers: []
+    failure_policy:
+      retry: never
+      fallback: pause_for_human
+    trust: core
+
+  - id: repo.jobs.extract-requirements
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: extracts structured job requirements. Trigger: a normalized job record has usable JD text. Excludes: candidate scoring or resume rewriting. Output: a provenance-bound job requirement profile."
+    entrypoint: jobagent.reasoning.job_requirements:ReasoningJobRequirementExtractor.extract
+    input_schema: JobRequirementExtractionInput
+    output_schema: JobRequirementExtractionOutput
+    intents:
+      - extract_job_requirements
+    required_context:
+      - job_record
+    permissions:
+      read:
+        - job_record
+      write: []
+    preconditions:
+      - usable_job_description
+    dependencies: []
+    produces:
+      - job_requirements
+    verifiers: []
+    failure_policy:
+      retry: transient_once
+      fallback: return_typed_failure
+    trust: core
+
+  - id: repo.jobs.match-evidence
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: maps admissible candidate evidence to requirements. Trigger: a requirement profile and confirmed evidence are available. Excludes: claim invention or resume mutation. Output: explainable requirement matches."
+    entrypoint: jobagent.reasoning.job_matcher:ReasoningJobMatcher.map
+    input_schema: JobEvidenceMatchInput
+    output_schema: JobEvidenceMatchOutput
+    intents:
+      - match_evidence_to_requirements
+    required_context:
+      - candidate_evidence
+      - job_requirements
+    permissions:
+      read:
+        - candidate_evidence
+        - job_requirements
+      write: []
+    preconditions:
+      - confirmed_evidence_available
+      - job_requirements_available
+    dependencies: []
+    produces:
+      - requirement_matches
+    verifiers: []
+    failure_policy:
+      retry: transient_once
+      fallback: return_typed_failure
+    trust: core
+
+  - id: repo.jobs.refresh-intelligence
+    version: 1.0.0
+    kind: capability
+    description: "Outcome: refreshes the full job-intelligence artifact set. Trigger: job or candidate evidence digests change. Excludes: resume mutation and downstream action. Output: current requirements, matches, and intelligence digests."
+    entrypoint: jobagent.jobs.workflow:JobIntelligenceWorkflow.run
+    input_schema: JobIntelligenceRefreshInput
+    output_schema: JobIntelligenceRefreshOutput
+    intents:
+      - refresh_job_intelligence
+    required_context:
+      - job_record
+      - candidate_evidence
+    permissions:
+      read:
+        - job_record
+        - candidate_evidence
+      write: []
+    preconditions:
+      - normalized_job_available
+      - confirmed_evidence_available
+    dependencies:
+      - repo.jobs.extract-requirements
+      - repo.jobs.match-evidence
+    produces:
+      - job_intelligence
+    verifiers: []
+    failure_policy:
+      retry: transient_once
+      fallback: return_typed_failure
+    trust: core
+
+  - id: repo.optimizer.contracts
+    version: 1.0.0
+    kind: policy
+    description: "Outcome: defines the optimizer workflow contract. Trigger: optimizer orchestration needs lifecycle boundaries. Excludes: executable behavior or new authority. Output: workflow constraints for later routing."
+    entrypoint: references/optimizer/workflow.md
+    input_schema: null
+    output_schema: null
+    intents:
+      - inspect_optimizer_contracts
+    required_context:
+      - optimizer_contracts
+    permissions:
+      read:
+        - optimizer_contracts
+      write: []
+    preconditions: []
+    dependencies: []
+    produces: []
+    verifiers: []
+    failure_policy:
+      retry: never
+      fallback: return_typed_failure
+    trust: core

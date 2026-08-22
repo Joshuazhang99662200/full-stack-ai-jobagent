@@ -894,7 +894,7 @@ CLI distribution and contract review produced follow-up commit `22d4d0b`:
 - Modify: `tests/optimizer/test_index.py`
 - Modify: `README.md`
 
-- [ ] **Step 1: Add adversarial and description-contract tests**
+- [x] **Step 1: Add adversarial and description-contract tests**
 
 Extend `tests/optimizer/test_index.py` to prove:
 
@@ -915,7 +915,7 @@ Extend `tests/optimizer/test_repository_index.py` to prove:
 - the snapshot contains exactly one canonical Evidence writer;
 - compilation never imports any indexed entrypoint module (patch `importlib.import_module` and assert it is not called).
 
-- [ ] **Step 2: Run the new tests and observe any contract gaps**
+- [x] **Step 2: Run the new tests and observe any contract gaps**
 
 Run:
 
@@ -925,7 +925,7 @@ python -m pytest tests/optimizer/test_index.py tests/optimizer/test_repository_i
 
 Expected before hardening: at least the newly introduced adversarial or description test fails. If all already pass, record that result and do not create a dummy failure.
 
-- [ ] **Step 3: Make the minimum hardening changes**
+- [x] **Step 3: Make the minimum hardening changes**
 
 Modify only loader validation, index metadata, or descriptions required by the failing tests. Preserve these invariants:
 
@@ -935,7 +935,7 @@ Modify only loader validation, index metadata, or descriptions required by the f
 - no additional capability IDs;
 - no executable Optimizer action.
 
-- [ ] **Step 4: Document the discovery command**
+- [x] **Step 4: Document the discovery command**
 
 Add a short Resume Optimizer section to `README.md`:
 
@@ -947,7 +947,7 @@ jobagent optimizer capabilities --intent detect_evidence_gap
 
 Explain that this Phase 1 command is read-only discovery, that selected policy/Skill content is loaded later by the Router, and that application approval/delivery are outside the Optimizer.
 
-- [ ] **Step 5: Run the complete verification suite**
+- [x] **Step 5: Run the complete verification suite**
 
 Run in this order:
 
@@ -960,7 +960,7 @@ git diff --check
 
 Expected: all tests pass, Ruff and mypy report no errors, and `git diff --check` is silent.
 
-- [ ] **Step 6: Manually inspect the public surface**
+- [x] **Step 6: Manually inspect the public surface**
 
 Run:
 
@@ -977,7 +977,7 @@ Verify:
 - no raw resume, JD, Evidence body, prompt, or provider payload is printed;
 - the worktree contains only files intended by this task.
 
-- [ ] **Step 7: Commit final hardening and documentation**
+- [x] **Step 7: Commit final hardening and documentation**
 
 ```powershell
 git add README.md tests/optimizer src/jobagent/optimizer skills/job-hunting/optimizer
@@ -985,6 +985,17 @@ git commit -m "test: harden optimizer capability discovery"
 ```
 
 If source/index files were unchanged during hardening, stage only the files actually modified.
+
+### Task 5 verification record
+
+Commit `13860db` completed adversarial hardening and release documentation:
+
+- duplicate YAML mapping keys are rejected before safe construction can overwrite reviewed values;
+- malicious Python YAML tags, unknown fields, malformed documents, path escapes, invalid UTF-8, unstable references, permission violations, and routing-token violations are covered;
+- registry digest stability and content sensitivity are both tested;
+- the final Phase 1 registry contains 14 sorted entries with digest `sha256:73d01bc24af4acee745f76ec193ebd8f724dd3cc06549409cca359638e756f03`;
+- the fresh full gate passed with 229 tests, Ruff, strict mypy across 46 source files, and `git diff --check`;
+- wheel and sdist builds contain the single bundled Skill tree, policy resources, README, and Apache license; an isolated non-repository CLI smoke returned all 14 entries and the sole canonical Evidence writer.
 
 ---
 

@@ -746,7 +746,7 @@ Repository-behavior review produced follow-up commits `c3f4cec`, `65e732c`, and 
 - Modify: `src/jobagent/cli/app.py`
 - Create: `tests/cli/test_optimizer.py`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Create `tests/cli/test_optimizer.py`:
 
@@ -810,7 +810,7 @@ def test_unknown_filter_returns_an_empty_filtered_snapshot() -> None:
     assert payload["source_digest"].startswith("sha256:")
 ```
 
-- [ ] **Step 2: Run the CLI tests and confirm the expected failure**
+- [x] **Step 2: Run the CLI tests and confirm the expected failure**
 
 Run:
 
@@ -820,7 +820,7 @@ python -m pytest tests/cli/test_optimizer.py -q
 
 Expected: failures show that the `optimizer` command group is absent.
 
-- [ ] **Step 3: Implement the CLI group**
+- [x] **Step 3: Implement the CLI group**
 
 Create `src/jobagent/cli/optimizer.py`:
 
@@ -844,7 +844,7 @@ from jobagent.cli.optimizer import optimizer_app
 app.add_typer(optimizer_app, name="optimizer")
 ```
 
-- [ ] **Step 4: Run CLI tests and the installed entrypoint smoke test**
+- [x] **Step 4: Run CLI tests and the installed entrypoint smoke test**
 
 Run:
 
@@ -855,7 +855,7 @@ python -m jobagent.cli.app optimizer capabilities --kind policy
 
 Expected: tests pass; the smoke command prints JSON containing only policy entries and a `source_digest`.
 
-- [ ] **Step 5: Run static checks**
+- [x] **Step 5: Run static checks**
 
 Run:
 
@@ -866,12 +866,23 @@ python -m mypy src/jobagent/cli/optimizer.py src/jobagent/cli/app.py
 
 Expected: no Ruff or mypy errors.
 
-- [ ] **Step 6: Commit the CLI**
+- [x] **Step 6: Commit the CLI**
 
 ```powershell
 git add src/jobagent/cli/optimizer.py src/jobagent/cli/app.py tests/cli/test_optimizer.py
 git commit -m "feat: expose optimizer capability discovery"
 ```
+
+### Task 4 review amendment
+
+CLI distribution and contract review produced follow-up commit `22d4d0b`:
+
+- Hatch force-includes the single authoritative `skills/job-hunting` tree under the wheel package; no duplicate source catalog is maintained;
+- installed wheels prefer bundled resources, while source/editable runs fall back to the repository Skill root without depending on the current working directory;
+- full and filtered JSON shapes are exact, and filtered results retain the full registry as `source_digest`;
+- blank intents fail with a structured, redacted contract error; unknown non-empty intents return an empty successful result;
+- the Optimizer command tree exposes exactly `capabilities`;
+- an actual wheel build and isolated non-repository invocation proved that all nested Skill, index, and policy resources are present and discoverable.
 
 ---
 

@@ -6,9 +6,10 @@ from jobagent.schemas.optimizer_registry import (
     CapabilityIndexDocument,
     CapabilityIndexEntry,
     CapabilityKind,
-    CapabilityPermission,
     CapabilityPermissions,
+    CapabilityReadPermission,
     CapabilityRegistrySnapshot,
+    CapabilityWritePermission,
     FailureFallback,
     RetryMode,
     TrustLevel,
@@ -154,6 +155,91 @@ def test_permissions_reject_unknown_and_forbidden_resources(permission: str) -> 
         capability_entry(permissions={"read": [permission], "write": []})
 
 
+def test_third_party_cannot_write_canonical_evidence() -> None:
+    with pytest.raises(ValidationError, match="trust core"):
+        capability_entry(
+            id="repo.candidate.confirm-evidence",
+            kind="lens",
+            trust="third_party",
+            permissions={"read": ["candidate_evidence"], "write": ["canonical_evidence"]},
+            preconditions=["explicit_user_confirmation"],
+        )
+
+
+def test_write_permissions_reject_read_only_candidate_profile() -> None:
+    with pytest.raises(ValidationError, match="candidate_profile"):
+        capability_entry(
+            id="plugin.example.profile-writer",
+            kind="lens",
+            trust="third_party",
+            permissions={"read": [], "write": ["candidate_profile"]},
+        )
+
+
+def test_core_non_confirmation_capability_cannot_write_canonical_evidence() -> None:
+    with pytest.raises(ValidationError, match=r"repo\.candidate\.confirm-evidence"):
+        capability_entry(
+            id="repo.candidate.detect-gaps",
+            trust="core",
+            permissions={"read": ["candidate_evidence"], "write": ["canonical_evidence"]},
+            preconditions=["explicit_user_confirmation"],
+        )
+
+
+def test_confirmation_capability_requires_explicit_user_confirmation() -> None:
+    with pytest.raises(ValidationError, match="explicit_user_confirmation"):
+        capability_entry(
+            id="repo.candidate.confirm-evidence",
+            trust="core",
+            permissions={"read": ["draft_evidence"], "write": ["canonical_evidence"]},
+            preconditions=[],
+        )
+
+
+def test_core_confirmation_capability_may_write_canonical_evidence() -> None:
+    entry = capability_entry(
+        id="repo.candidate.confirm-evidence",
+        trust="core",
+        permissions={"read": ["draft_evidence"], "write": ["canonical_evidence"]},
+        preconditions=["explicit_user_confirmation"],
+    )
+
+    assert entry.permissions.write == (CapabilityWritePermission.CANONICAL_EVIDENCE,)
+
+
+@pytest.mark.parametrize(
+    "permission",
+    [
+        "interview_event",
+        "draft_evidence",
+        "optimization_session",
+        "claim_ledger",
+        "resume_diff",
+        "compatibility_report",
+    ],
+)
+def test_untrusted_capability_cannot_write_core_state(permission: str) -> None:
+    with pytest.raises(ValidationError, match="project and third_party"):
+        capability_entry(
+            id="plugin.example.state-writer",
+            kind="lens",
+            trust="third_party",
+            permissions={"read": [], "write": [permission]},
+        )
+
+
+def test_third_party_lens_may_write_perspective_finding() -> None:
+    entry = capability_entry(
+        id="plugin.example.perspective-lens",
+        kind="lens",
+        trust="third_party",
+        permissions={"read": ["candidate_profile"], "write": ["perspective_finding"]},
+        produces=["PerspectiveFinding"],
+    )
+
+    assert entry.permissions.write == (CapabilityWritePermission.PERSPECTIVE_FINDING,)
+
+
 def test_failure_policy_rejects_unapproved_fallback() -> None:
     with pytest.raises(ValidationError):
         capability_entry(failure_policy={"retry": "never", "fallback": "bypass_verifier"})
@@ -213,11 +299,13 @@ def test_snapshot_graph_is_frozen_and_uses_tuples() -> None:
     assert isinstance(entry.intents, tuple)
     assert isinstance(entry.permissions.read, tuple)
     with pytest.raises(AttributeError):
-        entry.permissions.read.append(CapabilityPermission.CANDIDATE_PROFILE)  # type: ignore[attr-defined]
+        entry.permissions.read.append(  # type: ignore[attr-defined]
+            CapabilityReadPermission.CANDIDATE_PROFILE
+        )
     with pytest.raises(ValidationError, match="frozen"):
         entry.description = "A replacement description that must be rejected after validation."
     with pytest.raises(ValidationError, match="frozen"):
-        entry.permissions.write = (CapabilityPermission.CANONICAL_EVIDENCE,)
+        entry.permissions.write = (CapabilityWritePermission.CANONICAL_EVIDENCE,)
     with pytest.raises(ValidationError, match="frozen"):
         snapshot.entries = ()
 
@@ -229,7 +317,7 @@ def test_public_enums_are_stable() -> None:
         "prompt-pack",
         "lens",
     }
-    assert {item.value for item in CapabilityPermission} == {
+    assert {item.value for item in CapabilityReadPermission} == {
         "candidate_profile",
         "candidate_evidence",
         "resume_source",
@@ -252,6 +340,19 @@ def test_public_enums_are_stable() -> None:
         "user_feedback",
         "policy_resource",
         "prompt_resource",
+        "claim_ledger",
+        "resume_diff",
+        "compatibility_report",
+    }
+    assert {item.value for item in CapabilityWritePermission} == {
+        "interview_event",
+        "draft_evidence",
+        "canonical_evidence",
+        "optimization_session",
+        "perspective_finding",
+        "strategy_proposal",
+        "rewrite_proposal",
+        "verification_finding",
         "claim_ledger",
         "resume_diff",
         "compatibility_report",

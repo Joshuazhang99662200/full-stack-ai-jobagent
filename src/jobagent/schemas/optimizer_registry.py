@@ -61,7 +61,7 @@ class CapabilityKind(StrEnum):
     LENS = "lens"
 
 
-class CapabilityPermission(StrEnum):
+class CapabilityReadPermission(StrEnum):
     CANDIDATE_PROFILE = "candidate_profile"
     CANDIDATE_EVIDENCE = "candidate_evidence"
     RESUME_SOURCE = "resume_source"
@@ -89,6 +89,30 @@ class CapabilityPermission(StrEnum):
     COMPATIBILITY_REPORT = "compatibility_report"
 
 
+class CapabilityWritePermission(StrEnum):
+    INTERVIEW_EVENT = "interview_event"
+    DRAFT_EVIDENCE = "draft_evidence"
+    CANONICAL_EVIDENCE = "canonical_evidence"
+    OPTIMIZATION_SESSION = "optimization_session"
+    PERSPECTIVE_FINDING = "perspective_finding"
+    STRATEGY_PROPOSAL = "strategy_proposal"
+    REWRITE_PROPOSAL = "rewrite_proposal"
+    VERIFICATION_FINDING = "verification_finding"
+    CLAIM_LEDGER = "claim_ledger"
+    RESUME_DIFF = "resume_diff"
+    COMPATIBILITY_REPORT = "compatibility_report"
+
+
+_PLUGIN_WRITE_PERMISSIONS = frozenset(
+    {
+        CapabilityWritePermission.PERSPECTIVE_FINDING,
+        CapabilityWritePermission.STRATEGY_PROPOSAL,
+        CapabilityWritePermission.REWRITE_PROPOSAL,
+        CapabilityWritePermission.VERIFICATION_FINDING,
+    }
+)
+
+
 class TrustLevel(StrEnum):
     CORE = "core"
     PROJECT = "project"
@@ -107,8 +131,8 @@ class FailureFallback(StrEnum):
 
 
 class CapabilityPermissions(RegistryContractModel):
-    read: tuple[CapabilityPermission, ...]
-    write: tuple[CapabilityPermission, ...]
+    read: tuple[CapabilityReadPermission, ...]
+    write: tuple[CapabilityWritePermission, ...]
 
     @field_validator("read", "write", mode="before")
     @classmethod
@@ -162,6 +186,23 @@ class CapabilityIndexEntry(RegistryContractModel):
             raise ValueError("non-executable entries forbid input_schema and output_schema")
         if not executable and self.permissions.write:
             raise ValueError("non-executable entries cannot write")
+        if CapabilityWritePermission.CANONICAL_EVIDENCE in self.permissions.write:
+            if self.id != "repo.candidate.confirm-evidence":
+                raise ValueError(
+                    "canonical_evidence write requires id repo.candidate.confirm-evidence"
+                )
+            if self.trust is not TrustLevel.CORE:
+                raise ValueError("canonical_evidence write requires trust core")
+            if "explicit_user_confirmation" not in self.preconditions:
+                raise ValueError(
+                    "canonical_evidence write requires explicit_user_confirmation precondition"
+                )
+        if self.trust in {TrustLevel.PROJECT, TrustLevel.THIRD_PARTY} and not set(
+            self.permissions.write
+        ).issubset(_PLUGIN_WRITE_PERMISSIONS):
+            raise ValueError(
+                "project and third_party writes are limited to approved plugin output permissions"
+            )
         return self
 
 

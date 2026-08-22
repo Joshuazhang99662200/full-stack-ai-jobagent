@@ -240,6 +240,39 @@ def test_third_party_lens_may_write_perspective_finding() -> None:
     assert entry.permissions.write == (CapabilityWritePermission.PERSPECTIVE_FINDING,)
 
 
+def test_core_capability_may_write_job_intelligence_artifacts() -> None:
+    entry = capability_entry(
+        id="repo.jobs.refresh-intelligence",
+        trust="core",
+        permissions={"read": ["job_record"], "write": ["job_intelligence"]},
+        produces=["JobIntelligenceRun"],
+    )
+
+    assert entry.permissions.write == (CapabilityWritePermission.JOB_INTELLIGENCE,)
+
+
+def test_third_party_cannot_write_job_intelligence_artifacts() -> None:
+    with pytest.raises(ValidationError, match="project and third_party"):
+        capability_entry(
+            id="plugin.example.intelligence-writer",
+            kind="lens",
+            trust="third_party",
+            permissions={"read": ["job_record"], "write": ["job_intelligence"]},
+            produces=["JobIntelligenceRun"],
+        )
+
+
+def test_candidate_gap_is_an_approved_read_permission() -> None:
+    permissions = CapabilityPermissions(read=["candidate_gap"], write=[])
+
+    assert permissions.read == (CapabilityReadPermission.CANDIDATE_GAP,)
+
+
+def test_candidate_gap_is_not_an_approved_write_permission() -> None:
+    with pytest.raises(ValidationError, match="candidate_gap"):
+        CapabilityPermissions(read=[], write=["candidate_gap"])
+
+
 def test_failure_policy_rejects_unapproved_fallback() -> None:
     with pytest.raises(ValidationError):
         capability_entry(failure_policy={"retry": "never", "fallback": "bypass_verifier"})
@@ -320,6 +353,7 @@ def test_public_enums_are_stable() -> None:
     assert {item.value for item in CapabilityReadPermission} == {
         "candidate_profile",
         "candidate_evidence",
+        "candidate_gap",
         "resume_source",
         "resume_item",
         "evidence_summary",
@@ -356,6 +390,7 @@ def test_public_enums_are_stable() -> None:
         "claim_ledger",
         "resume_diff",
         "compatibility_report",
+        "job_intelligence",
     }
     assert {item.value for item in FailureFallback} == {
         "return_typed_failure",

@@ -64,6 +64,7 @@ class CapabilityKind(StrEnum):
 class CapabilityReadPermission(StrEnum):
     CANDIDATE_PROFILE = "candidate_profile"
     CANDIDATE_EVIDENCE = "candidate_evidence"
+    CANDIDATE_GAP = "candidate_gap"
     RESUME_SOURCE = "resume_source"
     RESUME_ITEM = "resume_item"
     EVIDENCE_SUMMARY = "evidence_summary"
@@ -93,6 +94,7 @@ class CapabilityWritePermission(StrEnum):
     INTERVIEW_EVENT = "interview_event"
     DRAFT_EVIDENCE = "draft_evidence"
     CANONICAL_EVIDENCE = "canonical_evidence"
+    JOB_INTELLIGENCE = "job_intelligence"
     OPTIMIZATION_SESSION = "optimization_session"
     PERSPECTIVE_FINDING = "perspective_finding"
     STRATEGY_PROPOSAL = "strategy_proposal"

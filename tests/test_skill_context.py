@@ -41,3 +41,14 @@ def test_nested_optimizer_skill_declares_progressive_loading_and_boundaries() ->
         assert required in text
     for forbidden in ("send application", "bypass captcha", "perform login"):
         assert forbidden not in text.casefold()
+    assert "all indexed entrypoints are discoverable metadata" in text.casefold()
+    assert "phase2_refresh_adapter_available" in text
+    assert "Phase 1 may load only policy resources" in text
+
+
+def test_optimizer_workflow_preserves_candidate_core_evidence_authority() -> None:
+    text = (SKILL / "references/optimizer/workflow.md").read_text(encoding="utf-8")
+    assert "proposal" in text
+    assert "Candidate Core add_draft" in text
+    assert "Candidate Core confirm" in text
+    assert "canonical" in text

@@ -3,7 +3,7 @@ entries:
   - id: repo.candidate.parse-resume
     version: 1.0.0
     kind: capability
-    description: "Outcome: extracts grounded resume items. Trigger: a candidate supplies a PDF resume. Excludes: inferred or invented candidate facts. Output: normalized resume items with source provenance."
+    description: "Outcome: returns a typed ParsedResume with pages, warnings, and content digest. Trigger: a candidate supplies a PDF resume. Excludes: interpreting or inventing candidate facts. Output: one ParsedResume."
     entrypoint: jobagent.parsing.pdf_resume:PdfResumeParser.parse
     input_schema: ResumeParseInput
     output_schema: ResumeParseOutput
@@ -16,10 +16,13 @@ entries:
         - resume_source
       write: []
     preconditions:
+      - phase2_adapter_available
       - readable_pdf_resume
-    dependencies: []
+    dependencies:
+      - policy.optimizer.evidence
+      - policy.optimizer.failure-handling
     produces:
-      - resume_item
+      - ParsedResume
     verifiers: []
     failure_policy:
       retry: never
@@ -37,19 +40,22 @@ entries:
       - detect_candidate_evidence_gaps
     required_context:
       - candidate_profile
-      - evidence_summary
+      - candidate_evidence
       - target_role
     permissions:
       read:
         - candidate_profile
-        - evidence_summary
+        - candidate_evidence
         - target_role
       write: []
     preconditions:
+      - phase2_adapter_available
       - candidate_profile_available
-    dependencies: []
+    dependencies:
+      - policy.optimizer.evidence
+      - policy.optimizer.prompt-routing
     produces:
-      - candidate_evidence_gap
+      - CandidateGap
     verifiers: []
     failure_policy:
       retry: never
@@ -59,28 +65,29 @@ entries:
   - id: repo.candidate.ask-question
     version: 1.0.0
     kind: capability
-    description: "Outcome: selects one focused evidence question. Trigger: a prioritized candidate gap needs clarification. Excludes: multi-question interrogation or fact promotion. Output: one recorded interview event."
+    description: "Outcome: selects one focused evidence question. Trigger: a prioritized candidate gap needs clarification. Excludes: multi-question interrogation or fact promotion. Output: one InterviewQuestion."
     entrypoint: jobagent.candidate.interview:AdaptiveInterview.next_question
     input_schema: CandidateQuestionInput
     output_schema: CandidateQuestionOutput
     intents:
       - ask_one_evidence_question
     required_context:
-      - candidate_profile
-      - evidence_summary
+      - candidate_gap
       - target_role
+      - recent_gap_ids
     permissions:
       read:
-        - candidate_profile
-        - evidence_summary
+        - candidate_gap
         - target_role
-      write:
-        - interview_event
+      write: []
     preconditions:
+      - phase2_adapter_available
       - prioritized_gap_available
-    dependencies: []
+    dependencies:
+      - policy.optimizer.evidence
+      - policy.optimizer.prompt-routing
     produces:
-      - interview_event
+      - InterviewQuestion
     verifiers: []
     failure_policy:
       retry: never
@@ -104,8 +111,10 @@ entries:
       write:
         - draft_evidence
     preconditions:
+      - phase2_adapter_available
       - candidate_fact_supplied
-    dependencies: []
+    dependencies:
+      - policy.optimizer.evidence
     produces:
       - draft_evidence
     verifiers: []
@@ -117,7 +126,7 @@ entries:
   - id: repo.candidate.confirm-evidence
     version: 1.0.0
     kind: capability
-    description: "Outcome: promotes verified facts into canonical evidence. Trigger: the candidate explicitly confirms a draft fact. Excludes: silent, inferred, or bulk promotion. Output: canonical evidence with confirmation provenance."
+    description: "Outcome: promotes verified facts into canonical evidence. Trigger: the candidate explicitly confirms a draft fact. Excludes: silent, inferred, or bulk promotion. Output: a confirmed EvidenceItem retaining its original source."
     entrypoint: jobagent.candidate.evidence:CandidateEvidenceService.confirm
     input_schema: ConfirmEvidenceInput
     output_schema: ConfirmEvidenceOutput
@@ -133,8 +142,10 @@ entries:
       write:
         - canonical_evidence
     preconditions:
+      - phase2_adapter_available
       - explicit_user_confirmation
-    dependencies: []
+    dependencies:
+      - policy.optimizer.evidence
     produces:
       - canonical_evidence
     verifiers: []
@@ -159,8 +170,11 @@ entries:
         - job_record
       write: []
     preconditions:
+      - phase2_adapter_available
       - usable_job_description
-    dependencies: []
+    dependencies:
+      - policy.optimizer.prompt-routing
+      - policy.optimizer.workflow
     produces:
       - job_requirements
     verifiers: []
@@ -179,17 +193,21 @@ entries:
     intents:
       - match_evidence_to_requirements
     required_context:
+      - job_record
       - candidate_evidence
       - job_requirements
     permissions:
       read:
+        - job_record
         - candidate_evidence
         - job_requirements
       write: []
     preconditions:
-      - confirmed_evidence_available
+      - phase2_adapter_available
       - job_requirements_available
-    dependencies: []
+    dependencies:
+      - policy.optimizer.evidence
+      - policy.optimizer.quality-gates
     produces:
       - requirement_matches
     verifiers: []
@@ -201,24 +219,31 @@ entries:
   - id: repo.jobs.refresh-intelligence
     version: 1.0.0
     kind: capability
-    description: "Outcome: refreshes the full job-intelligence artifact set. Trigger: job or candidate evidence digests change. Excludes: resume mutation and downstream action. Output: current requirements, matches, and intelligence digests."
+    description: "Outcome: catalogs a future intelligence refresh adapter as Phase 1 metadata only. Trigger: existing-job optimizer scope requests fresh intelligence. Excludes: execution because the current workflow includes discovery and persistence. Output: job intelligence after the Phase 2 adapter exists."
     entrypoint: jobagent.jobs.workflow:JobIntelligenceWorkflow.run
     input_schema: JobIntelligenceRefreshInput
     output_schema: JobIntelligenceRefreshOutput
     intents:
       - refresh_job_intelligence
     required_context:
-      - job_record
+      - job_search_query
+      - candidate_profile
       - candidate_evidence
+      - filter_context
+      - policies
+      - source
     permissions:
       read:
-        - job_record
+        - candidate_profile
         - candidate_evidence
-      write: []
+      write:
+        - job_intelligence
     preconditions:
-      - normalized_job_available
-      - confirmed_evidence_available
+      - phase2_refresh_adapter_available
+      - existing_job_scope
     dependencies:
+      - policy.optimizer.failure-handling
+      - policy.optimizer.workflow
       - repo.jobs.extract-requirements
       - repo.jobs.match-evidence
     produces:
@@ -233,7 +258,7 @@ entries:
     version: 1.0.0
     kind: policy
     description: "Outcome: defines the optimizer workflow contract. Trigger: optimizer orchestration needs lifecycle boundaries. Excludes: executable behavior or new authority. Output: workflow constraints for later routing."
-    entrypoint: references/optimizer/workflow.md
+    entrypoint: references/optimizer/contracts.md
     input_schema: null
     output_schema: null
     intents:

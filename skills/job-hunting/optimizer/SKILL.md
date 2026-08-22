@@ -27,4 +27,6 @@ When confirmation is missing, keep the proposal visibly provisional and ask one 
 
 The router is limited to resume analysis, strategy, rewriting, evidence collection, and verification. It has no route to application submission, approval, delivery, connectors, browser control, authentication, CAPTCHA handling, or platform actions.
 
-In this phase, indexed Python entrypoints are discoverable metadata for planned adapters. The Optimizer Router cannot execute them yet.
+In Phase 1, all indexed entrypoints are discoverable metadata for planned adapters. Phase 1 may load only policy resources; every capability entrypoint must be excluded by deterministic precondition filtering and cannot be executed.
+
+The `phase2_refresh_adapter_available` precondition is unsatisfied throughout Phase 1. Deterministic filtering must therefore remove `repo.jobs.refresh-intelligence` from every selectable route.

@@ -153,6 +153,21 @@ def test_intent_matching_is_case_sensitive() -> None:
     assert payload["entries"] == []
 
 
+def test_intent_filter_strips_surrounding_whitespace_before_matching() -> None:
+    exit_code, payload = invoke(
+        "optimizer",
+        "capabilities",
+        "--intent",
+        "  detect_candidate_evidence_gaps\t",
+    )
+
+    assert exit_code == 0
+    assert isinstance(payload, dict)
+    assert [entry["id"] for entry in payload["entries"]] == [
+        "repo.candidate.detect-gaps"
+    ]
+
+
 def test_kind_filter_is_case_insensitive_and_invalid_kind_is_a_click_error() -> None:
     policy_result = runner.invoke(app, ["optimizer", "capabilities", "--kind", "POLICY"])
     invalid_result = runner.invoke(app, ["optimizer", "capabilities", "--kind", "invalid"])

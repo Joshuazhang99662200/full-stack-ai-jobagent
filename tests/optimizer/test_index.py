@@ -1,7 +1,9 @@
+import builtins
 import traceback
 from pathlib import Path
 
 import pytest
+import yaml
 
 from jobagent.errors import CapabilityRegistryError
 from jobagent.optimizer.index import (
@@ -115,6 +117,94 @@ def test_loader_wraps_invalid_utf8(tmp_path: Path) -> None:
     assert exc_info.value.__cause__ is None
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "",
+        "null\n",
+        "scalar-value\n",
+    ],
+)
+def test_loader_rejects_empty_null_and_scalar_documents(
+    tmp_path: Path,
+    body: str,
+) -> None:
+    index = tmp_path / "invalid-shape.yaml"
+    index.write_text(body, encoding="utf-8")
+
+    with pytest.raises(CapabilityRegistryError) as exc_info:
+        CapabilityIndexLoader(tmp_path).load(Path("invalid-shape.yaml"))
+
+    assert str(exc_info.value) == "Capability index document is invalid."
+    assert exc_info.value.details == {"path": "invalid-shape.yaml"}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        ENTRY + "unknown_document_key: forbidden\n",
+        ENTRY.replace(
+            "    trust: core\n",
+            "    trust: core\n    unknown_entry_key: forbidden\n",
+        ),
+    ],
+)
+def test_loader_rejects_unknown_yaml_keys(tmp_path: Path, body: str) -> None:
+    index = tmp_path / "unknown-key.yaml"
+    index.write_text(body, encoding="utf-8")
+
+    with pytest.raises(CapabilityRegistryError) as exc_info:
+        CapabilityIndexLoader(tmp_path).load(Path("unknown-key.yaml"))
+
+    assert str(exc_info.value) == "Capability index document is invalid."
+    assert exc_info.value.details == {"path": "unknown-key.yaml"}
+    assert "forbidden" not in str(exc_info.value)
+
+
+def test_loader_safe_load_rejects_python_object_tags_without_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+
+    def record_print(*args: object, **kwargs: object) -> None:
+        del kwargs
+        calls.append(args)
+
+    monkeypatch.setattr(builtins, "print", record_print)
+    index = tmp_path / "object-tag.yaml"
+    index.write_text(
+        "!!python/object/apply:builtins.print ['must-not-run']\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CapabilityRegistryError) as exc_info:
+        CapabilityIndexLoader(tmp_path).load(Path("object-tag.yaml"))
+
+    assert str(exc_info.value) == "Capability index document is invalid."
+    assert exc_info.value.details == {"path": "object-tag.yaml"}
+    assert exc_info.value.__cause__ is None
+    assert calls == []
+
+
+def test_loader_rejects_duplicate_mapping_keys(tmp_path: Path) -> None:
+    index = tmp_path / "duplicate-key.yaml"
+    index.write_text(
+        ENTRY.replace(
+            "    permissions:\n      read:",
+            "    permissions:\n      write: []\n      write: [canonical_evidence]\n      read:",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CapabilityRegistryError) as exc_info:
+        CapabilityIndexLoader(tmp_path).load(Path("duplicate-key.yaml"))
+
+    assert str(exc_info.value) == "Capability index document is invalid."
+    assert exc_info.value.details == {"path": "duplicate-key.yaml"}
+    assert "canonical_evidence" not in str(exc_info.value)
+
+
 def test_loader_wraps_path_resolution_failures(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -176,6 +266,42 @@ def test_compiler_sorts_entries_and_has_a_stable_digest(tmp_path: Path) -> None:
     assert left.digest == right.digest
     assert left.digest.startswith("sha256:")
     assert len(left.digest) == len("sha256:") + 64
+
+
+def test_compiler_digest_ignores_yaml_mapping_key_order(tmp_path: Path) -> None:
+    canonical = tmp_path / "canonical.yaml"
+    reordered = tmp_path / "reordered.yaml"
+    canonical.write_text(ENTRY, encoding="utf-8")
+    payload = yaml.safe_load(ENTRY)
+    assert isinstance(payload, dict)
+    entry = payload["entries"][0]
+    payload["entries"][0] = dict(reversed(entry.items()))
+    reordered.write_text(
+        yaml.safe_dump(dict(reversed(payload.items())), sort_keys=False),
+        encoding="utf-8",
+    )
+    compiler = CapabilityRegistryCompiler(CapabilityIndexLoader(tmp_path))
+
+    left = compiler.compile([Path("canonical.yaml")])
+    right = compiler.compile([Path("reordered.yaml")])
+
+    assert left.digest == right.digest
+
+
+def test_compiler_digest_changes_when_semantic_metadata_changes(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.yaml"
+    changed = tmp_path / "changed.yaml"
+    baseline.write_text(ENTRY, encoding="utf-8")
+    changed.write_text(
+        ENTRY.replace("detect_evidence_gap", "detect_candidate_evidence_gap"),
+        encoding="utf-8",
+    )
+    compiler = CapabilityRegistryCompiler(CapabilityIndexLoader(tmp_path))
+
+    left = compiler.compile([Path("baseline.yaml")])
+    right = compiler.compile([Path("changed.yaml")])
+
+    assert left.digest != right.digest
 
 
 def test_compiler_rejects_an_empty_document_set(tmp_path: Path) -> None:

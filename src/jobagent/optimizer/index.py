@@ -10,6 +10,7 @@ from typing import NoReturn
 
 import yaml
 from pydantic import ValidationError
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
 from jobagent.errors import CapabilityRegistryError
 from jobagent.schemas.optimizer_registry import (
@@ -17,6 +18,23 @@ from jobagent.schemas.optimizer_registry import (
     CapabilityIndexEntry,
     CapabilityRegistrySnapshot,
 )
+
+
+def _reject_duplicate_mapping_keys(node: Node | None) -> None:
+    """Reject literal duplicate keys before safe construction can overwrite them."""
+    if isinstance(node, MappingNode):
+        seen: set[tuple[str, str]] = set()
+        for key_node, value_node in node.value:
+            if isinstance(key_node, ScalarNode):
+                identity = (key_node.tag, key_node.value)
+                if identity in seen:
+                    raise yaml.YAMLError("duplicate mapping key")
+                seen.add(identity)
+            _reject_duplicate_mapping_keys(key_node)
+            _reject_duplicate_mapping_keys(value_node)
+    elif isinstance(node, SequenceNode):
+        for child in node.value:
+            _reject_duplicate_mapping_keys(child)
 
 
 class CapabilityIndexLoader:
@@ -38,6 +56,7 @@ class CapabilityIndexLoader:
             if not resolved.is_relative_to(self._root):
                 self._raise_invalid_document(relative_path)
             body = resolved.read_text(encoding="utf-8")
+            _reject_duplicate_mapping_keys(yaml.compose(body, Loader=yaml.SafeLoader))
             payload = yaml.safe_load(body)
             if not isinstance(payload, dict):
                 self._raise_invalid_document(relative_path)

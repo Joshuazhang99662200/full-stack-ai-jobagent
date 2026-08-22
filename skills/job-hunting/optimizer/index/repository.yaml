@@ -3,7 +3,7 @@ entries:
   - id: repo.candidate.parse-resume
     version: 1.0.0
     kind: capability
-    description: "Outcome: returns a typed ParsedResume with pages, warnings, and content digest. Trigger: a candidate supplies a PDF resume. Excludes: interpreting or inventing candidate facts. Output: one ParsedResume."
+    description: "Outcome: returns a typed ParsedResume with pages, warnings, and content digest. Trigger: a candidate supplies a PDF resume. Excludes: cannot interpret or invent candidate facts. Output: one ParsedResume."
     entrypoint: jobagent.parsing.pdf_resume:PdfResumeParser.parse
     input_schema: ResumeParseInput
     output_schema: ResumeParseOutput
@@ -32,7 +32,7 @@ entries:
   - id: repo.candidate.detect-gaps
     version: 1.0.0
     kind: capability
-    description: "Outcome: identifies material evidence gaps. Trigger: candidate readiness is evaluated for a target role. Excludes: automatic evidence promotion. Output: prioritized gaps for an interview turn."
+    description: "Outcome: identifies material evidence gaps. Trigger: candidate readiness is evaluated for a target role. Excludes: cannot promote evidence automatically. Output: prioritized gaps for an interview turn."
     entrypoint: jobagent.candidate.gaps:GapDetector.detect
     input_schema: CandidateGapDetectionInput
     output_schema: CandidateGapDetectionOutput
@@ -65,7 +65,7 @@ entries:
   - id: repo.candidate.ask-question
     version: 1.0.0
     kind: capability
-    description: "Outcome: selects one focused evidence question. Trigger: a prioritized candidate gap needs clarification. Excludes: multi-question interrogation or fact promotion. Output: one InterviewQuestion."
+    description: "Outcome: selects one focused evidence question. Trigger: a prioritized candidate gap needs clarification. Excludes: cannot ask multiple questions or promote facts. Output: one InterviewQuestion."
     entrypoint: jobagent.candidate.interview:AdaptiveInterview.next_question
     input_schema: CandidateQuestionInput
     output_schema: CandidateQuestionOutput
@@ -97,7 +97,7 @@ entries:
   - id: repo.candidate.add-draft-evidence
     version: 1.0.0
     kind: capability
-    description: "Outcome: records an unconfirmed evidence proposal. Trigger: new candidate facts arrive through current feedback. Excludes: canonical promotion or truth assumptions. Output: draft evidence with provenance."
+    description: "Outcome: records an unconfirmed evidence proposal. Trigger: new candidate facts arrive through current feedback. Excludes: cannot promote canonical evidence or assume truth. Output: draft evidence with provenance."
     entrypoint: jobagent.candidate.evidence:CandidateEvidenceService.add_draft
     input_schema: DraftEvidenceInput
     output_schema: DraftEvidenceOutput
@@ -126,7 +126,7 @@ entries:
   - id: repo.candidate.confirm-evidence
     version: 1.0.0
     kind: capability
-    description: "Outcome: promotes verified facts into canonical evidence. Trigger: the candidate explicitly confirms a draft fact. Excludes: silent, inferred, or bulk promotion. Output: a confirmed EvidenceItem retaining its original source."
+    description: "Outcome: promotes verified facts into canonical evidence. Trigger: the candidate explicitly confirms a draft fact. Excludes: never performs silent, inferred, or bulk promotion. Output: a confirmed EvidenceItem retaining its original source."
     entrypoint: jobagent.candidate.evidence:CandidateEvidenceService.confirm
     input_schema: ConfirmEvidenceInput
     output_schema: ConfirmEvidenceOutput
@@ -157,7 +157,7 @@ entries:
   - id: repo.jobs.extract-requirements
     version: 1.0.0
     kind: capability
-    description: "Outcome: extracts structured job requirements. Trigger: a normalized job record has usable JD text. Excludes: candidate scoring or resume rewriting. Output: a provenance-bound job requirement profile."
+    description: "Outcome: extracts structured job requirements. Trigger: a normalized job record has usable JD text. Excludes: cannot score candidates or rewrite resumes. Output: a provenance-bound job requirement profile."
     entrypoint: jobagent.reasoning.job_requirements:ReasoningJobRequirementExtractor.extract
     input_schema: JobRequirementExtractionInput
     output_schema: JobRequirementExtractionOutput
@@ -186,7 +186,7 @@ entries:
   - id: repo.jobs.match-evidence
     version: 1.0.0
     kind: capability
-    description: "Outcome: maps admissible candidate evidence to requirements. Trigger: a requirement profile and confirmed evidence are available. Excludes: claim invention or resume mutation. Output: explainable requirement matches."
+    description: "Outcome: maps admissible candidate evidence to requirements. Trigger: a requirement profile and confirmed evidence are available. Excludes: cannot invent claims or mutate resumes. Output: explainable requirement matches."
     entrypoint: jobagent.reasoning.job_matcher:ReasoningJobMatcher.map
     input_schema: JobEvidenceMatchInput
     output_schema: JobEvidenceMatchOutput
@@ -219,7 +219,7 @@ entries:
   - id: repo.jobs.refresh-intelligence
     version: 1.0.0
     kind: capability
-    description: "Outcome: catalogs a future intelligence refresh adapter as Phase 1 metadata only. Trigger: existing-job optimizer scope requests fresh intelligence. Excludes: execution because the current workflow includes discovery and persistence. Output: job intelligence after the Phase 2 adapter exists."
+    description: "Outcome: catalogs a future intelligence refresh adapter as Phase 1 metadata only. Trigger: existing-job optimizer scope requests fresh intelligence. Excludes: cannot execute because the current workflow includes discovery and persistence. Output: job intelligence after the Phase 2 adapter exists."
     entrypoint: jobagent.jobs.workflow:JobIntelligenceWorkflow.run
     input_schema: JobIntelligenceRefreshInput
     output_schema: JobIntelligenceRefreshOutput
@@ -257,7 +257,7 @@ entries:
   - id: repo.optimizer.contracts
     version: 1.0.0
     kind: policy
-    description: "Outcome: defines the optimizer workflow contract. Trigger: optimizer orchestration needs lifecycle boundaries. Excludes: executable behavior or new authority. Output: workflow constraints for later routing."
+    description: "Outcome: defines the optimizer workflow contract. Trigger: optimizer orchestration needs lifecycle boundaries. Excludes: cannot execute behavior or grant new authority. Output: workflow constraints for later routing."
     entrypoint: references/optimizer/contracts.md
     input_schema: null
     output_schema: null

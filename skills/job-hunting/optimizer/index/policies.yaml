@@ -3,7 +3,7 @@ entries:
   - id: policy.optimizer.workflow
     version: 1.0.0
     kind: policy
-    description: "Outcome: constrains optimizer lifecycle sequencing. Trigger: a rewrite session selects its next stage. Excludes: granting action authority. Output: workflow invariants for the selected route."
+    description: "Outcome: constrains optimizer lifecycle sequencing. Trigger: a rewrite session selects its next stage. Excludes: cannot grant action authority. Output: workflow invariants for the selected route."
     entrypoint: references/optimizer/workflow.md
     input_schema: null
     output_schema: null
@@ -26,7 +26,7 @@ entries:
   - id: policy.optimizer.evidence
     version: 1.0.0
     kind: policy
-    description: "Outcome: constrains claims to admissible evidence. Trigger: facts enter a draft or final resume variant. Excludes: silent evidence promotion. Output: evidence provenance and confirmation rules."
+    description: "Outcome: constrains claims to admissible evidence. Trigger: facts enter a draft or final resume variant. Excludes: never permits silent evidence promotion. Output: evidence provenance and confirmation rules."
     entrypoint: references/optimizer/evidence-contract.md
     input_schema: null
     output_schema: null
@@ -49,7 +49,7 @@ entries:
   - id: policy.optimizer.prompt-routing
     version: 1.0.0
     kind: policy
-    description: "Outcome: limits context selected for a reasoning turn. Trigger: the router prepares atomic capability input. Excludes: broad context ingestion or extra authority. Output: progressive-loading rules."
+    description: "Outcome: limits context selected for a reasoning turn. Trigger: the router prepares atomic capability input. Excludes: cannot ingest broad context or grant extra authority. Output: progressive-loading rules."
     entrypoint: references/optimizer/prompt-routing.md
     input_schema: null
     output_schema: null
@@ -72,7 +72,7 @@ entries:
   - id: policy.optimizer.quality-gates
     version: 1.0.0
     kind: policy
-    description: "Outcome: defines checks for optimizer artifacts. Trigger: a proposal or final variant reaches verification. Excludes: overriding failed gates. Output: required quality verdicts and pause conditions."
+    description: "Outcome: defines checks for optimizer artifacts. Trigger: a proposal or final variant reaches verification. Excludes: cannot override failed gates. Output: required quality verdicts and pause conditions."
     entrypoint: references/optimizer/quality-gates.md
     input_schema: null
     output_schema: null
@@ -95,7 +95,7 @@ entries:
   - id: policy.optimizer.failure-handling
     version: 1.0.0
     kind: policy
-    description: "Outcome: makes optimizer failures explicit and recoverable. Trigger: capability validation or execution cannot continue safely. Excludes: hidden fallback or expanded authority. Output: typed failure and pause rules."
+    description: "Outcome: makes optimizer failures explicit and recoverable. Trigger: capability validation or execution cannot continue safely. Excludes: never hides fallback or expands authority. Output: typed failure and pause rules."
     entrypoint: references/optimizer/failure-handling.md
     input_schema: null
     output_schema: null

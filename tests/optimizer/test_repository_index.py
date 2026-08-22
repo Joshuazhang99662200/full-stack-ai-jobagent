@@ -1,6 +1,7 @@
-from importlib import import_module
+import importlib
 from pathlib import Path
 
+import pytest
 import yaml
 
 from jobagent.optimizer.index import CapabilityIndexLoader, CapabilityRegistryCompiler
@@ -127,6 +128,29 @@ def test_every_index_entry_declares_the_complete_reviewed_contract() -> None:
             assert set(entry["failure_policy"]) == {"retry", "fallback"}
             for marker in ("Outcome:", "Trigger:", "Excludes:", "Output:"):
                 assert marker in entry["description"]
+
+
+def test_descriptions_state_an_explicit_exclusion_boundary() -> None:
+    exclusion_terms = ("do not", "only", "cannot", "never")
+    for entry in snapshot().entries:
+        description = entry.description.casefold()
+        exclusion = description.split("excludes:", maxsplit=1)[1].split(
+            "output:", maxsplit=1
+        )[0]
+        assert any(term in exclusion for term in exclusion_terms), entry.id
+
+
+def test_executable_entries_declare_routing_and_output_contracts() -> None:
+    for entry in snapshot().entries:
+        if entry.kind is not CapabilityKind.CAPABILITY:
+            continue
+        assert entry.intents, entry.id
+        assert entry.produces, entry.id
+        assert entry.entrypoint.count(":") == 1, entry.id
+        module_name, attribute_path = entry.entrypoint.split(":")
+        assert module_name, entry.id
+        assert attribute_path, entry.id
+        assert all(segment for segment in attribute_path.split(".")), entry.id
 
 
 def test_confirm_evidence_is_the_only_canonical_writer() -> None:
@@ -267,10 +291,24 @@ def test_core_python_entrypoints_resolve_to_declared_methods() -> None:
         if entry.kind is not CapabilityKind.CAPABILITY:
             continue
         module_name, object_path = entry.entrypoint.split(":", 1)
-        resolved: object = import_module(module_name)
+        resolved: object = importlib.import_module(module_name)
         for attribute in object_path.split("."):
             resolved = getattr(resolved, attribute)
         assert callable(resolved)
+
+
+def test_compilation_does_not_import_indexed_entrypoint_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_import(name: str, package: str | None = None) -> object:
+        del name, package
+        raise AssertionError("registry compilation must not import entrypoints")
+
+    monkeypatch.setattr(importlib, "import_module", fail_import)
+
+    compiled = snapshot()
+
+    assert {entry.id for entry in compiled.entries} == EXPECTED_IDS
 
 
 def test_policy_paths_exist_inside_the_skill_root() -> None:

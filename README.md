@@ -15,7 +15,8 @@ risk-control states stop the workflow for human intervention.
 
 ## Current phase
 
-The architecture contracts, Candidate Core, and offline Job Intelligence are implemented.
+The architecture contracts, Candidate Core, offline Job Intelligence, and the Resume
+Optimizer Phase 1 capability index are implemented.
 Candidate Core can parse PDF resumes with page provenance, persist private candidate
 knowledge in local SQLite, import structured reasoning drafts, detect gaps, ask one adaptive
 interview question, record draft evidence, confirm evidence explicitly, and report readiness.
@@ -23,8 +24,8 @@ interview question, record draft evidence, confirm evidence explicitly, and repo
 Job Intelligence searches the bundled synthetic source, normalizes and deduplicates jobs,
 preserves every source observation, validates reviewed requirement and evidence mappings,
 runs deterministic hard filters, computes explainable match results, ranks eligible jobs, and
-stores artifacts in SQLite. Real platform connectors, runtime optimizer prompts, and delivery
-gates remain separate later phases.
+stores artifacts in SQLite. Real platform connectors, executable Optimizer adapters and
+runtime prompts, and delivery gates remain separate later phases.
 
 ## Candidate Core quickstart
 
@@ -90,6 +91,22 @@ because deterministic filtering stops it before matching. Pipeline output always
 Search and Job Intelligence are read-only. They do not expose platform navigation,
 application preparation, approval, or delivery operations.
 
+## Resume Optimizer capability discovery
+
+Inspect the checked-in Optimizer capability and policy metadata without executing an
+indexed entrypoint:
+
+```powershell
+jobagent optimizer capabilities
+jobagent optimizer capabilities --kind policy
+jobagent optimizer capabilities --intent detect_candidate_evidence_gaps
+```
+
+This Phase 1 command is read-only discovery. It validates and reports the L0 index while
+leaving selected policy and Skill content unloaded. A later Router phase will load only the
+selected resources and add executable adapters. Application approval, delivery, connector,
+browser, login, and CAPTCHA behavior remain outside the Resume Optimizer boundary.
+
 See [the architecture design](docs/superpowers/specs/2026-08-21-jobagent-foundation-design.md)
 [the Job Intelligence design](docs/superpowers/specs/2026-08-21-job-intelligence-design.md),
-and [the optimizer design](docs/superpowers/specs/2026-08-21-resume-optimizer-design.md).
+and [the optimizer design](docs/superpowers/specs/2026-08-22-resume-optimizer-router-skill-design.md).

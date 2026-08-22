@@ -1,6 +1,7 @@
 # Evidence-grounded Resume Optimizer Design
 
-**Status:** Approved design baseline  
+**Status:** Superseded design baseline
+**Superseded by:** `2026-08-22-resume-optimizer-router-skill-design.md`
 **Date:** 2026-08-21  
 **Scope:** JD-to-CV optimization, verification, explanation, and compatibility  
 **Out of scope:** candidate fact creation, human evidence confirmation, application approval, and delivery

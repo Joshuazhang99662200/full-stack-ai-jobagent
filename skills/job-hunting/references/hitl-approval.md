@@ -1,7 +1,7 @@
-# Human approval and audit
+# 人工审批与审计
 
-Prepare an `ApplicationPackage` containing the full job, recruiter information when available, match report, resume variant, diff, message, and risks.
+准备一个 `ApplicationPackage`,内含完整职位信息、可获取时的招聘方信息、匹配报告、简历变体、diff、消息与风险项。
 
-Approval binds human identity and timestamp to the exact job, resume, message, and policy digests. Any change invalidates approval. Preview never implies approval; approval never implies delivery.
+审批把人的身份与时间戳,绑定到当次确切的职位、简历、消息与策略摘要上。任何一处变更都会使审批失效。预览绝不意味着审批;审批绝不意味着投递。
 
-Batch flow is compatibility proposal, user selection, batch preview, human approval, sequential delivery, and audit. Stop on login, CAPTCHA, verification, risk control, or platform change.
+批量流程依次是:兼容性提案、用户选择、批量预览、人工审批、顺序投递、审计。遇到登录、CAPTCHA、验证、风控或平台变更时立即停止。

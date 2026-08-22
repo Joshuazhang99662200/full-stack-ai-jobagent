@@ -1,5 +1,5 @@
-# Optimizer failure handling
+# 优化器失败处理
 
-Use typed failures for missing evidence, evidence conflict, invalid provider output, unsupported claim, unsupported metric, semantic exaggeration, contradiction, context limits, render validation, and human review requirements.
+对以下情形使用类型化失败:证据缺失、证据冲突、提供方输出非法、主张无支撑、指标无支撑、语义夸大、自相矛盾、上下文超限、渲染校验失败,以及需要人工评审。
 
-Attempt structured-output repair once. Retry only provider-declared transient transport failures. Never retry evidence or policy failures with looser instructions.
+结构化输出修复最多尝试一次。只对提供方明确声明为暂时性的传输故障做重试。绝不用放宽后的指令去重试证据类或策略类失败。

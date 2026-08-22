@@ -1,13 +1,13 @@
-# Optimizer quality gates
+# 优化器质量门禁
 
 ```text
-unsupported claims = 0
-unsupported metrics = 0
-contradicted claims = 0
-semantic exaggerations = 0
-evidence coverage = 100% of substantive claims
-diff coverage = 100% of changed substantive claims
-schema validity = 100%
+无证据支撑的主张 = 0
+无证据支撑的指标 = 0
+被证据反驳的主张 = 0
+语义夸大 = 0
+证据覆盖率 = 实质性主张的 100%
+diff 覆盖率 = 被改动的实质性主张的 100%
+schema 合法率 = 100%
 ```
 
-The verifier can reject fluent drafting. Keyword or ATS goals never override factual grounding. Prompt changes must run against the versioned golden dataset.
+校验器有权否决行文流畅的草稿。关键词或 ATS 目标绝不凌驾于事实接地之上。提示词一旦变更,必须对照带版本的黄金数据集重新跑一遍。

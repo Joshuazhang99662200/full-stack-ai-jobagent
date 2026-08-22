@@ -1,23 +1,23 @@
-# Candidate knowledge base
+# 候选人知识库
 
-Treat the candidate knowledge base as canonical and every resume as a projection. Keep profile facts, evidence, preferences, constraints, search strategy, and unknown fields separate.
+把候选人知识库视为唯一权威,把每一份简历视为它的一个投影。将档案事实、证据、偏好、约束、搜索策略与未知字段分开存放。
 
-Adaptive interview questions target one current gap at a time. Rank gaps by ambiguity, evidence weakness, target-role relevance, and expected information gain. The user may skip; unknown remains a valid state.
+自适应面试每次只针对当前的一个缺口提问。按歧义度、证据薄弱程度、目标岗位相关性与预期信息增益对缺口排序。用户可以跳过;"未知"始终是一个合法状态。
 
-Answers create draft evidence. Only explicit or user-confirmed admissible evidence may support a final substantive resume claim.
+答案生成草稿证据。只有显式确认或经用户确认的可采信证据,才能支撑最终简历中的实质性主张。
 
-## Implemented Candidate Core routing
+## 已落地的 Candidate Core 路由
 
-Use the atomic Python services when composing a workflow:
+组合工作流时,使用这些原子 Python 服务:
 
-- `PdfResumeParser.parse` extracts ordered PDF pages and a SHA-256 source digest.
-- `ReasoningCandidateDraftExtractor.extract` requests `CandidateDraft` with prompt ID `candidate.extract_draft.v1` and revalidates candidate and page provenance.
-- `CandidateOnboardingService.ingest_resume` performs parse, extract, then one transactional repository write.
-- `GapDetector.detect` derives current gaps from profile, evidence, unknowns, and target role.
-- `AdaptiveInterview.next_question` returns zero or one question and respects recent gap IDs.
-- `AdaptiveInterview.record_answer` returns an `InterviewOutcome`; an answer contains unconfirmed interview evidence, while a skip contains only an event.
-- `CandidateReadinessService.evaluate` reports descriptive completeness and evidence readiness.
+- `PdfResumeParser.parse` 抽取有序的 PDF 页面与一个 SHA-256 源摘要。
+- `ReasoningCandidateDraftExtractor.extract` 以提示词 ID `candidate.extract_draft.v1` 请求 `CandidateDraft`,并重新校验候选人与页码溯源。
+- `CandidateOnboardingService.ingest_resume` 依次执行解析、抽取,然后做一次事务性仓库写入。
+- `GapDetector.detect` 从档案、证据、未知项与目标岗位推导出当前缺口。
+- `AdaptiveInterview.next_question` 返回零个或一个问题,并尊重最近的缺口 ID。
+- `AdaptiveInterview.record_answer` 返回 `InterviewOutcome`;回答会带出一条未确认的面试证据,而跳过只带出一个事件。
+- `CandidateReadinessService.evaluate` 报告描述完整度与证据就绪度。
 
-For local operator workflows, route to `jobagent candidate ingest`, `import-draft`, `question`, `answer`, `confirm`, and `status`. Commands emit JSON and use SQLite through `--database`.
+面向本地操作者的工作流,路由到 `jobagent candidate ingest`、`import-draft`、`question`、`answer`、`confirm` 与 `status`。这些命令输出 JSON,并通过 `--database` 使用 SQLite。
 
-Do not treat PDF text extraction as fact interpretation. If no production reasoning provider is configured, use a human-reviewed `CandidateDraft` JSON import instead of heuristic claim generation.
+不要把 PDF 文本抽取当作事实解读。若没有配置生产级推理提供方,请改用经人工评审的 `CandidateDraft` JSON 导入,而不是用启发式规则生成主张。

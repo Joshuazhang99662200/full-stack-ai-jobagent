@@ -1,5 +1,5 @@
-# Resume grounding
+# 简历接地
 
-Consume the base resume, confirmed candidate evidence, normalized job requirements, target language, and template policy. Produce an optimization plan, resume variant, claim ledger, verification report, keyword coverage, and human-readable diff.
+消费基础简历、已确认的候选人证据、归一化后的职位需求、目标语言与模板策略。产出优化方案、简历变体、主张台账(Claim Ledger)、校验报告、关键词覆盖度,以及人类可读的 diff。
 
-Every changed substantive item records original text, optimized text, reason, requirement IDs, evidence IDs, rewrite operations, and risks. A variant with unsupported claims, metrics, contradictions, semantic exaggeration, or incomplete evidence coverage fails.
+每一条被改动的实质性条目都要记录原文、优化后文本、改动理由、需求 ID、证据 ID、改写操作与风险。若一个变体存在无证据支撑的主张、无支撑的指标、矛盾、语义夸大,或证据覆盖不完整,则该变体不通过。

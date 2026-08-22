@@ -1,18 +1,18 @@
-# Evidence policy
+# 证据策略
 
-Every substantive claim must cite one or more `EVID_*` identifiers. Preserve source, confidence, confirmation state, chronology, ownership, scope, and metric meaning.
+每一条实质性主张都必须引用一个或多个 `EVID_*` 标识符。保全来源、置信度、确认状态、时序、归属、范围与指标含义。
 
-Allowed transformations include faithful paraphrase, compression, reordering, translation, emphasis, omission, and combination that does not broaden meaning.
+允许的改写包括:忠实转述、压缩、重排、翻译、强调、省略,以及不扩大语义的合并。
 
-Do not create metrics, strengthen participation into leadership, turn conceptual knowledge into production experience, or represent inferred evidence as fact. Missing evidence returns `MISSING_EVIDENCE` and may propose an interview question.
+不得凭空造出指标、不得把参与拔高为主导、不得把概念性认知说成生产经验、不得把推断出来的证据表述为事实。证据缺失时返回 `MISSING_EVIDENCE`,并可提出一个面试问题。
 
-## Candidate Core enforcement
+## Candidate Core 的强制约束
 
-- Resume reasoning output must be a valid `CandidateDraft` bound to the same Candidate ID and exact `RESUME_*:page:N` sources.
-- A provider response carrying `user_confirmed=true`, a different Candidate ID, a different Resume ID, or a nonexistent page is invalid provider output.
-- `CandidateEvidenceService.add_draft` refuses preconfirmed input.
-- `CandidateEvidenceService.confirm` is the only Candidate Core operation that promotes admissible evidence to confirmed state; weak evidence is rejected.
-- A user edit changes provenance to `user_edit`, preserves the Evidence ID, and returns the item to unconfirmed state.
-- An interview answer has `interview` provenance and remains unconfirmed. A skipped question creates no EvidenceItem.
+- 简历推理的输出必须是一个合法的 `CandidateDraft`,绑定同一个 Candidate ID 与确切的 `RESUME_*:page:N` 来源。
+- 若提供方的响应携带 `user_confirmed=true`、不同的 Candidate ID、不同的 Resume ID,或指向不存在的页码,则属于非法的提供方输出。
+- `CandidateEvidenceService.add_draft` 拒绝接收已预先标记为确认的输入。
+- `CandidateEvidenceService.confirm` 是 Candidate Core 中唯一能把可采信证据提升为已确认状态的操作;弱证据会被拒绝。
+- 用户编辑会把溯源改为 `user_edit`,保留原 Evidence ID,并把该条目退回未确认状态。
+- 面试答案的溯源为 `interview` 且保持未确认。被跳过的问题不产生任何 EvidenceItem。
 
-The local SQLite repository stores private operational records, but logs and CLI errors must not echo resume bodies or raw provider payloads.
+本地 SQLite 仓库存放私密的运行记录,但日志与 CLI 错误信息不得回显简历正文或提供方的原始载荷。

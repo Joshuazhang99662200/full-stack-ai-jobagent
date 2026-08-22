@@ -1,5 +1,5 @@
-# Optimizer workflow
+# 优化器工作流
 
-Run requirement decomposition, priority and risk analysis, evidence retrieval, evidence ranking, positioning, section planning, constrained drafting, claim extraction, entailment verification, metric and exaggeration checks, keyword and ATS audit, diff generation, variant assembly, and resume compatibility assessment.
+依次执行:需求拆解、优先级与风险分析、证据检索、证据排序、定位、章节规划、受约束起草、主张抽取、蕴含校验、指标与夸大检查、关键词与 ATS 审计、diff 生成、变体组装、简历兼容性评估。
 
-Validate each structured artifact before the next stage. The Optimizer may produce a rewrite proposal and route a new fact to Candidate Core add_draft. Only Candidate Core confirm, after explicit user confirmation, may promote that fact to canonical Evidence. The Optimizer cannot authorize application approval or delivery.
+在进入下一阶段之前,先校验当前阶段的结构化产物。优化器可以产出一份改写提案,并把一条新事实路由给 Candidate Core add_draft。只有 Candidate Core confirm 才能在取得显式用户确认之后,把该事实提升为 canonical Evidence。优化器无权授权投递审批或投递执行。

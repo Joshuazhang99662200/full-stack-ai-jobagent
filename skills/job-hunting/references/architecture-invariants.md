@@ -1,4 +1,4 @@
-# Architecture invariants
+# 架构不变式
 
 ```text
 CandidateProfile != Resume
@@ -14,4 +14,4 @@ Review != Auto Promote
 CAPTCHA != Retry
 ```
 
-Irreversible operations are separate capabilities. Domain code cannot depend on DOM selectors, browser profiles, platform SDK models, or connector internals.
+不可逆操作各自是独立的能力。领域代码不得依赖 DOM 选择器、浏览器配置、平台 SDK 模型或连接器内部实现。

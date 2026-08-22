@@ -1,24 +1,24 @@
-# Architecture
+# 架构
 
-JobAgent is an evidence-grounded, human-approved collection of atomic job-hunting capabilities. The architecture keeps reasoning, workflow, contracts, platform integrations, and irreversible decisions in separate layers.
+JobAgent 是一组证据接地、经人工审批的原子求职能力。架构把推理、工作流、契约、平台集成与不可逆决策分层隔离。
 
-## Dependency direction
+## 依赖方向
 
 ```text
 Typer CLI / MCP / job-hunting Skill
                 |
-        Application capabilities
+        应用层能力
                 |
-       Domain schemas and services
+        领域 schema 与服务
                 |
-       Repository/provider ports
+        仓库/提供方端口
                 |
-SQLite / reasoning providers / renderers / JobSource connectors
+SQLite / 推理提供方 / 渲染器 / JobSource 连接器
 ```
 
-Domain modules do not import Typer, SQLite, browser automation, DOM selectors, Chrome profile paths, platform SDK models, LangChain, or LangGraph. Platform adapters translate external behavior into the contracts exposed by `jobagent.capabilities.JobSource`.
+领域模块不 import Typer、SQLite、浏览器自动化、DOM 选择器、Chrome 配置路径、平台 SDK 模型、LangChain 或 LangGraph。平台适配层把外部行为翻译成 `jobagent.capabilities.JobSource` 所暴露的契约。
 
-## Invariants
+## 不变式
 
 ```text
 CandidateProfile != Resume
@@ -34,14 +34,14 @@ Review != Auto Promote
 CAPTCHA != Retry
 ```
 
-Each public capability has one typed input, one typed output, explicit errors, and no hidden neighboring operation. Search cannot send. Preview cannot approve. Approval cannot send. A connector cannot convert platform verification into bypass behavior.
+每一个公开能力都有一个类型化输入、一个类型化输出、显式错误,以及零个隐藏的邻接操作。搜索不能投递。预览不能审批。审批不能投递。连接器不能把平台验证转化为绕过行为。
 
-## Safety stop states
+## 安全停止态
 
-Connectors translate login, CAPTCHA, verification, risk-control, and platform-change conditions into `USER_INTERVENTION_REQUIRED`. These states are not transient retry signals. The user completes the platform action before a later explicit resume operation.
+连接器把登录、CAPTCHA、验证、风控与平台变更翻译为 `USER_INTERVENTION_REQUIRED`。这些不是可重试的瞬时信号。由用户先在平台上完成操作,之后再显式发起恢复。
 
-## Delivery order
+## 交付顺序
 
-The mock connector comes before real platform connectors. The first vertical workflow must run offline from candidate knowledge through matching, optimizer verification, review, approval, mock delivery, compatibility, batch approval, and audit.
+先有 mock 连接器,再有真实平台连接器。第一条纵向工作流必须能离线跑通:从候选人知识出发,经匹配、优化器校验、评审、审批、mock 投递、兼容性、批量审批,直到审计。
 
-See the [foundation design](superpowers/specs/2026-08-21-jobagent-foundation-design.md) for the complete phase map.
+完整阶段图见[基础设计文档](superpowers/specs/2026-08-21-jobagent-foundation-design.md)。

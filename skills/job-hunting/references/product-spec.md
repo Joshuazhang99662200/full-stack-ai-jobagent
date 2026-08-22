@@ -1,11 +1,11 @@
-# Product contract
+# 产品契约
 
-Build atomic, composable, testable, and auditable job-hunting capabilities for coding agents, CLI, MCP, and Python callers. The intended workflow is resume onboarding, adaptive evidence interview, target confirmation, multi-source job search, full JD retrieval, dedupe, hard filtering, explainable matching, evidence-grounded resume optimization, message generation, human review, digest-bound approval, delivery, compatibility clustering, batch approval, sequential batch delivery, and audit feedback.
+为编码智能体、CLI、MCP 与 Python 调用方构建原子、可组合、可测试、可审计的求职能力。目标工作流是:简历入库、自适应证据面试、目标确认、多源职位搜索、完整 JD 抓取、去重、硬过滤、可解释匹配、证据接地的简历优化、消息生成、人工评审、摘要绑定的审批、投递、兼容性聚类、批量审批、顺序批量投递、审计回流。
 
-The product is an evidence-grounded, human-approved job hunting agent. It is not an automatic mass-application bot.
+本产品是一个证据接地、经人工审批的求职智能体。它不是自动批量投递机器人。
 
-The first complete workflow must run offline through `MockJobSource`. At least one later real connector must search, fetch full JD, retrieve recruiter details when available, preview, and submit only after valid approval.
+第一条完整工作流必须能通过 `MockJobSource` 离线跑通。后续至少要有一个真实连接器能够搜索、抓取完整 JD、在可获取时取回招聘方信息、预览,并且只在拿到有效审批之后才提交。
 
-The local-first baseline is Python 3.11+, Pydantic v2, Typer, SQLite, and pytest. Domain logic stays ordinary Python and does not initially depend on LangChain or LangGraph.
+本地优先的技术基线是 Python 3.11+、Pydantic v2、Typer、SQLite 与 pytest。领域逻辑保持为普通 Python,初期不依赖 LangChain 或 LangGraph。
 
-Private resumes, contact details, browser profiles, cookies, session tokens, secrets, local databases, and generated variants remain outside Git.
+私人简历、联系方式、浏览器配置、Cookie、会话令牌、密钥、本地数据库以及生成的简历变体一律不进入 Git。

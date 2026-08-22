@@ -1,3 +1,3 @@
-# Auto-JobHunter research note
+# Auto-JobHunter 研究笔记
 
-Reference only the high-level SQLite to rules to LLM evaluation to RPA pipeline. Its current license restricts use to personal, educational, and non-commercial purposes. Do not copy source code, prompts, or implementation structure into this project.
+只参考其 SQLite → 规则 → LLM 评估 → RPA 这条高层管线。它当前的许可证把使用限制在个人、教育与非商业用途。不要把其源代码、提示词或实现结构复制进本项目。

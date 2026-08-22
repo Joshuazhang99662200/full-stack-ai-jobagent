@@ -1,3 +1,3 @@
-# open-boss research note
+# open-boss 研究笔记
 
-Study real-JD requirements, two-stage review, dry-run, explicit approval, local private profile handling, browser-profile isolation, one-online-task-per-account, privacy scans, and stop conditions. Keep platform selectors and browser mechanics inside a connector.
+研究其真实 JD 需求处理、两阶段评审、dry-run、显式审批、本地私密档案处理、浏览器配置隔离、单账号单在线任务、隐私扫描,以及停止条件。把平台选择器与浏览器机制全部关在连接器内部。

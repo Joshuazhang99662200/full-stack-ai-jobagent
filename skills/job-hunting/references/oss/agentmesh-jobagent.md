@@ -1,3 +1,3 @@
-# AgentMesh-JobAgent research note
+# AgentMesh-JobAgent 研究笔记
 
-Study platform isolation, signed decision artifacts, preview/delivery separation, audit, resumable workflows, and connector boundaries. Prefer an adapter or subprocess integration pinned through the source manifest. Recheck LICENSE and NOTICE before introducing compatible code.
+研究其平台隔离、签名决策产物、预览与投递分离、审计、可恢复工作流,以及连接器边界。优先采用经源清单锁定版本的 adapter 或子进程集成方式。在引入任何兼容代码之前,重新核对 LICENSE 与 NOTICE。

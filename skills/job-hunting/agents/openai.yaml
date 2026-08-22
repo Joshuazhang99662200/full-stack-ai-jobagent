@@ -1,6 +1,6 @@
 interface:
-  display_name: "Human-approved Job Hunting"
-  short_description: "Evidence-grounded job search and resume workflows"
-  default_prompt: "Use $job-hunting to review this job opportunity with evidence and human approval gates."
+  display_name: "人工审批的求职工作流"
+  short_description: "证据接地的职位搜索与简历工作流"
+  default_prompt: "使用 $job-hunting,以证据接地和人工审批门禁来评估这个职位机会。"
 policy:
   allow_implicit_invocation: true

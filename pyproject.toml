@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "human-approved-jobagent"
+name = "full-stack-ai-jobagent"
 version = "0.1.0"
 description = "Evidence-grounded, human-approved AI job hunting capabilities"
 readme = "README.md"

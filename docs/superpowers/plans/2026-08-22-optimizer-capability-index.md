@@ -520,7 +520,7 @@ git commit -m "feat: compile optimizer capability indexes"
 - Create: `tests/optimizer/test_repository_index.py`
 - Modify: `tests/test_skill_context.py`
 
-- [ ] **Step 1: Write failing repository-index tests**
+- [x] **Step 1: Write failing repository-index tests**
 
 Create `tests/optimizer/test_repository_index.py`:
 
@@ -620,7 +620,7 @@ def test_nested_optimizer_skill_declares_progressive_loading_and_boundaries() ->
         assert forbidden not in text.casefold()
 ```
 
-- [ ] **Step 2: Run the tests and confirm missing-file failures**
+- [x] **Step 2: Run the tests and confirm missing-file failures**
 
 Run:
 
@@ -630,7 +630,7 @@ python -m pytest tests/optimizer/test_repository_index.py tests/test_skill_conte
 
 Expected: failures identify the absent Optimizer index and nested `SKILL.md`.
 
-- [ ] **Step 3: Author the repository capability index**
+- [x] **Step 3: Author the repository capability index**
 
 Create `skills/job-hunting/optimizer/index/repository.yaml`. Include exactly the nine `repo.*` entries in `EXPECTED_IDS`.
 
@@ -655,14 +655,15 @@ For code entries, use schema names that describe the adapter boundary planned fo
 Apply these permission rules:
 
 - parse, gap detection, requirement extraction, matching, refresh, and contracts are read-only;
-- ask-question writes only `interview_event`;
+- ask-question is a pure selector that writes nothing and produces `InterviewQuestion`;
 - add-draft-evidence writes only `draft_evidence`;
 - confirm-evidence writes only `canonical_evidence` and requires `explicit_user_confirmation`;
+- refresh-intelligence declares core `job_intelligence` writes and remains excluded by its unsatisfied Phase 2 adapter precondition;
 - none may read/write application, approval, delivery, connector, browser, authentication, or CAPTCHA resources.
 
 Every description must follow: outcome + trigger + exclusion + output. Avoid catch-all phrases such as “handle optimization” or “improve resume.”
 
-- [ ] **Step 4: Author the policy index**
+- [x] **Step 4: Author the policy index**
 
 Create `skills/job-hunting/optimizer/index/policies.yaml` with the five `policy.optimizer.*` entries and these relative resources:
 
@@ -676,7 +677,7 @@ Create `skills/job-hunting/optimizer/index/policies.yaml` with the five `policy.
 
 Set each entry to `kind: policy`, no write permissions, explicit `input_schema: null` and `output_schema: null`, `trust: core`, and a description that names when the policy is needed and what it cannot authorize.
 
-- [ ] **Step 5: Create the nested Optimizer Skill**
+- [x] **Step 5: Create the nested Optimizer Skill**
 
 Create `skills/job-hunting/optimizer/SKILL.md` with valid frontmatter:
 
@@ -700,11 +701,11 @@ The body must specify:
 9. never route to approval, delivery, connector, browser, login, CAPTCHA, or application-send behavior;
 10. in this phase, explain that indexed Python entrypoints are discoverable metadata and cannot yet be executed by the Optimizer Router.
 
-- [ ] **Step 6: Route the product Skill to the nested Skill**
+- [x] **Step 6: Route the product Skill to the nested Skill**
 
 In `skills/job-hunting/SKILL.md`, replace the long deep-optimizer reference list with a concise route to `[optimizer/SKILL.md](optimizer/SKILL.md)`. Keep `references/resume-grounding.md` for ordinary resume grounding. The nested Skill owns further policy selection.
 
-- [ ] **Step 7: Run repository-index tests and linters**
+- [x] **Step 7: Run repository-index tests and linters**
 
 Run:
 
@@ -715,12 +716,25 @@ python -m ruff check tests/optimizer/test_repository_index.py tests/test_skill_c
 
 Expected: all tests pass and Ruff reports no errors.
 
-- [ ] **Step 8: Commit the catalog and Skill routing**
+- [x] **Step 8: Commit the catalog and Skill routing**
 
 ```powershell
 git add skills/job-hunting/optimizer skills/job-hunting/SKILL.md tests/optimizer/test_repository_index.py tests/test_skill_context.py
 git commit -m "feat: index repository optimizer capabilities"
 ```
+
+### Task 3 review amendment
+
+Repository-behavior review produced follow-up commits `c3f4cec`, `65e732c`, and `5a5942d`:
+
+- `candidate_gap` is a read-only registry resource and `job_intelligence` is a core-only writable artifact;
+- all eight Python capabilities carry an unsatisfied Phase 2 adapter precondition and cannot enter a Phase 1 route;
+- Phase 1 may load only confined policy resources;
+- Python entrypoints are verified completely in tests, while the compiler remains import-free;
+- capability dependencies cover all five L2 policies;
+- all six policy entries have empty `required_context`, preventing pre-load eligibility cycles;
+- `repo.jobs.refresh-intelligence` truthfully declares `job_intelligence` persistence and records that the current workflow also performs discovery; it remains unavailable until a scoped existing-job adapter replaces the metadata entrypoint and schemas;
+- the reviewed registry contains 14 entries with digest `sha256:dc19c964475adcbfb08ba68e43a1b3f9a3aa6d84265cb84228910a1f0ec1a7e8`.
 
 ---
 

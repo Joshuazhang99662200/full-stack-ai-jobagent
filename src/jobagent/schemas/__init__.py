@@ -94,6 +94,17 @@ from jobagent.schemas.optimizer import (
     VerificationReport,
     VerificationStatus,
 )
+from jobagent.schemas.optimizer_registry import (
+    CapabilityFailurePolicy,
+    CapabilityIndexDocument,
+    CapabilityIndexEntry,
+    CapabilityKind,
+    CapabilityPermissions,
+    CapabilityRegistrySnapshot,
+    CapabilityRole,
+    RetryMode,
+    TrustLevel,
+)
 
 __all__ = [
     "Achievement",
@@ -109,6 +120,13 @@ __all__ = [
     "CandidateGap",
     "CandidateProfile",
     "CandidateReadinessReport",
+    "CapabilityFailurePolicy",
+    "CapabilityIndexDocument",
+    "CapabilityIndexEntry",
+    "CapabilityKind",
+    "CapabilityPermissions",
+    "CapabilityRegistrySnapshot",
+    "CapabilityRole",
     "Certification",
     "ClaimLedger",
     "ClaimRecord",
@@ -161,6 +179,7 @@ __all__ = [
     "RequirementMatchOutcome",
     "RequirementMatchSet",
     "RequirementPriority",
+    "RetryMode",
     "ResumeCompatibilityResult",
     "ResumeDiff",
     "ResumeDiffItem",
@@ -174,6 +193,7 @@ __all__ = [
     "SourceReference",
     "SourceType",
     "TimeRange",
+    "TrustLevel",
     "UnknownField",
     "VerificationIssue",
     "VerificationReport",

@@ -62,3 +62,7 @@ class JobNotFoundError(JobAgentError):
 
 class JobNormalizationError(JobAgentError):
     code = "NORMALIZATION_ERROR"
+
+
+class CapabilityRegistryError(JobAgentError):
+    code = "CAPABILITY_REGISTRY_INVALID"

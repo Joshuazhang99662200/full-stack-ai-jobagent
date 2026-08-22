@@ -52,7 +52,7 @@ This plan deliberately defers:
 - Modify: `src/jobagent/schemas/__init__.py`
 - Create: `tests/schemas/test_optimizer_registry.py`
 
-- [ ] **Step 1: Add the failing schema tests**
+- [x] **Step 1: Add the failing schema tests**
 
 Create `tests/schemas/test_optimizer_registry.py`:
 
@@ -66,7 +66,6 @@ from jobagent.schemas.optimizer_registry import (
     CapabilityKind,
     CapabilityPermissions,
     CapabilityRegistrySnapshot,
-    CapabilityRole,
     RetryMode,
     TrustLevel,
 )
@@ -77,7 +76,6 @@ def capability_entry(**overrides: object) -> CapabilityIndexEntry:
         "id": "repo.candidate.detect-gaps",
         "version": "1.0.0",
         "kind": "capability",
-        "role": "enrich",
         "description": (
             "Detect missing or weak candidate knowledge before rewriting. "
             "Output CandidateGap records only; do not create or confirm evidence."
@@ -109,7 +107,6 @@ def test_policy_cannot_request_write_permission() -> None:
         capability_entry(
             id="policy.optimizer.workflow",
             kind="policy",
-            role="support",
             entrypoint="references/optimizer/workflow.md",
             input_schema=None,
             output_schema=None,
@@ -139,22 +136,13 @@ def test_public_enums_are_stable() -> None:
         "prompt-pack",
         "lens",
     }
-    assert {item.value for item in CapabilityRole} == {
-        "analyze",
-        "enrich",
-        "strategy",
-        "rewrite",
-        "verify",
-        "interaction",
-        "support",
-    }
     assert {item.value for item in TrustLevel} == {"core", "project", "third_party"}
     assert {item.value for item in RetryMode} == {"never", "transient_once"}
     assert CapabilityPermissions(read=[], write=[]).write == []
     assert CapabilityFailurePolicy().retry is RetryMode.NEVER
 ```
 
-- [ ] **Step 2: Run the schema test and confirm the expected failure**
+- [x] **Step 2: Run the schema test and confirm the expected failure**
 
 Run:
 
@@ -164,7 +152,7 @@ python -m pytest tests/schemas/test_optimizer_registry.py -q
 
 Expected: collection fails with `ModuleNotFoundError: No module named 'jobagent.schemas.optimizer_registry'`.
 
-- [ ] **Step 3: Add the YAML runtime and typing dependencies**
+- [x] **Step 3: Add the YAML runtime and typing dependencies**
 
 In `pyproject.toml`, add:
 
@@ -188,7 +176,7 @@ dev = [
 
 Do not hand-edit a lock file; this repository currently has none.
 
-- [ ] **Step 4: Add the stable registry error**
+- [x] **Step 4: Add the stable registry error**
 
 Append to `src/jobagent/errors.py`:
 
@@ -197,7 +185,7 @@ class CapabilityRegistryError(JobAgentError):
     code = "CAPABILITY_REGISTRY_INVALID"
 ```
 
-- [ ] **Step 5: Implement the strict contracts**
+- [x] **Step 5: Implement the strict contracts**
 
 Create `src/jobagent/schemas/optimizer_registry.py` with:
 
@@ -228,16 +216,6 @@ class CapabilityKind(StrEnum):
     LENS = "lens"
 
 
-class CapabilityRole(StrEnum):
-    ANALYZE = "analyze"
-    ENRICH = "enrich"
-    STRATEGY = "strategy"
-    REWRITE = "rewrite"
-    VERIFY = "verify"
-    INTERACTION = "interaction"
-    SUPPORT = "support"
-
-
 class TrustLevel(StrEnum):
     CORE = "core"
     PROJECT = "project"
@@ -263,7 +241,6 @@ class CapabilityIndexEntry(ContractModel):
     id: CapabilityId
     version: SemanticVersion
     kind: CapabilityKind
-    role: CapabilityRole
     description: Annotated[str, Field(min_length=40)]
     entrypoint: NonEmptyString | None = None
     input_schema: NonEmptyString | None = None
@@ -311,11 +288,11 @@ class CapabilityRegistrySnapshot(ContractModel):
 
 Keep `schema_version` inherited from `ContractModel`; do not add timestamps or mutable runtime status to this contract.
 
-- [ ] **Step 6: Export the contracts**
+- [x] **Step 6: Export the contracts**
 
-Add the new imports and names to `src/jobagent/schemas/__init__.py`. Export all nine public types used by the registry: `CapabilityFailurePolicy`, `CapabilityIndexDocument`, `CapabilityIndexEntry`, `CapabilityKind`, `CapabilityPermissions`, `CapabilityRegistrySnapshot`, `CapabilityRole`, `RetryMode`, and `TrustLevel`.
+Add the new imports and names to `src/jobagent/schemas/__init__.py`. Export the public registry contracts and permission/failure enums used by callers. The reviewed contract intentionally omits a `role` field.
 
-- [ ] **Step 7: Run focused validation**
+- [x] **Step 7: Run focused validation**
 
 Run:
 
@@ -327,12 +304,27 @@ python -m mypy src/jobagent/schemas/optimizer_registry.py
 
 Expected: all tests pass; Ruff and mypy report no errors.
 
-- [ ] **Step 8: Commit the contracts**
+- [x] **Step 8: Commit the contracts**
 
 ```powershell
 git add pyproject.toml src/jobagent/errors.py src/jobagent/schemas/optimizer_registry.py src/jobagent/schemas/__init__.py tests/schemas/test_optimizer_registry.py
 git commit -m "feat: add optimizer capability index contracts"
 ```
+
+### Task 1 review amendment
+
+Independent spec and security review produced two follow-up commits. The reviewed source and tests in commits `76d5b1d` and `a52f8ef` supersede the illustrative Task 1 snippets above:
+
+- `role` is not part of `CapabilityIndexEntry`; routing uses `kind`, `intents`, ID, trust, preconditions, and permissions;
+- index documents must declare `schema_version: "1.0"` and contain at least one entry;
+- registry strings are normalized, SemVer is validated, and registry digests require a complete lowercase SHA-256 value;
+- collections and registry models are immutable;
+- read and write permissions use separate closed enums;
+- only the core `repo.candidate.confirm-evidence` capability may write canonical Evidence, with `explicit_user_confirmation`;
+- project/third-party entries may write only the four approved plugin artifact kinds;
+- executable and non-executable resource boundaries are validated in both directions.
+
+All later tasks must follow the reviewed source contract rather than copying the original Task 1 sample verbatim.
 
 ---
 
@@ -364,7 +356,6 @@ entries:
   - id: repo.candidate.detect-gaps
     version: 1.0.0
     kind: capability
-    role: enrich
     description: Detect evidence gaps before rewriting; output findings only and never edit text.
     entrypoint: jobagent.candidate.gaps:GapDetector.detect
     input_schema: CandidateGapDetectionInput
@@ -593,7 +584,7 @@ def test_repository_index_exposes_the_approved_initial_surface() -> None:
 def test_confirm_evidence_is_the_only_canonical_writer() -> None:
     writers = [entry for entry in snapshot().entries if "canonical_evidence" in entry.permissions.write]
     assert [entry.id for entry in writers] == ["repo.candidate.confirm-evidence"]
-    assert writers[0].preconditions == ["explicit_user_confirmation"]
+    assert writers[0].preconditions == ("explicit_user_confirmation",)
 
 
 def test_python_entrypoint_modules_exist_without_importing_them() -> None:
@@ -681,7 +672,7 @@ Create `skills/job-hunting/optimizer/index/policies.yaml` with the five `policy.
 | `policy.optimizer.quality-gates` | `references/optimizer/quality-gates.md` |
 | `policy.optimizer.failure-handling` | `references/optimizer/failure-handling.md` |
 
-Set each entry to `kind: policy`, `role: support`, no write permissions, no input/output schema, `trust: core`, and a description that names when the policy is needed and what it cannot authorize.
+Set each entry to `kind: policy`, no write permissions, explicit `input_schema: null` and `output_schema: null`, `trust: core`, and a description that names when the policy is needed and what it cannot authorize.
 
 - [ ] **Step 5: Create the nested Optimizer Skill**
 

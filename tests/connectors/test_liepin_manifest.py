@@ -5,13 +5,23 @@ from typing import Any
 
 import pytest
 
-from jobagent.connectors.liepin_detail import LiepinJobDetailFetcher
+from jobagent.connectors.public_pages import PublicPageJobDetailFetcher
 from jobagent.errors import (
     ContractValidationError,
     InvalidProviderOutputError,
     UserInterventionRequiredError,
 )
 from jobagent.schemas.job_intelligence import JobListing
+from jobagent.sources import SourceRegistry
+
+# The liepin manifest's `detail` section drives extraction; nothing here is
+# hardcoded per platform any more.
+LIEPIN = SourceRegistry.default().get("liepin")
+
+
+def fetcher(opener: object) -> PublicPageJobDetailFetcher:
+    return PublicPageJobDetailFetcher(LIEPIN, opener=opener)
+
 
 LISTING = JobListing(
     source="liepin",
@@ -73,7 +83,7 @@ def opener_for(body: str):
 
 
 def test_jd_is_extracted_and_bounded_at_the_next_section() -> None:
-    record = LiepinJobDetailFetcher(opener=opener_for(PAGE)).fetch(LISTING)
+    record = fetcher(opener_for(PAGE)).fetch(LISTING)
 
     assert "负责大模型产品设计工作" in record.jd_raw
     assert "优化Prompt和智能体机制" in record.jd_raw
@@ -83,7 +93,7 @@ def test_jd_is_extracted_and_bounded_at_the_next_section() -> None:
 
 
 def test_listing_fields_are_carried_into_the_full_record() -> None:
-    record = LiepinJobDetailFetcher(opener=opener_for(PAGE)).fetch(LISTING)
+    record = fetcher(opener_for(PAGE)).fetch(LISTING)
 
     assert record.source_job_id == "1976319881"
     assert record.title == "大模型产品经理（投研方向）"
@@ -98,21 +108,21 @@ def test_gated_page_requires_a_human_instead_of_saving_a_partial_jd(marker: str)
     page = f"<html><body><div>{marker}</div></body></html>"
 
     with pytest.raises(UserInterventionRequiredError):
-        LiepinJobDetailFetcher(opener=opener_for(page)).fetch(LISTING)
+        fetcher(opener_for(page)).fetch(LISTING)
 
 
 def test_missing_jd_section_is_not_silently_accepted() -> None:
     page = "<html><body><div>公司简介 宁波银行</div></body></html>"
 
     with pytest.raises(InvalidProviderOutputError, match="no job description"):
-        LiepinJobDetailFetcher(opener=opener_for(page)).fetch(LISTING)
+        fetcher(opener_for(page)).fetch(LISTING)
 
 
 def test_suspiciously_short_jd_is_rejected() -> None:
     page = "<html><body><h2>职位介绍</h2><p>详见沟通</p><h2>其他信息</h2></body></html>"
 
     with pytest.raises(InvalidProviderOutputError, match="too short"):
-        LiepinJobDetailFetcher(opener=opener_for(page)).fetch(LISTING)
+        fetcher(opener_for(page)).fetch(LISTING)
 
 
 @pytest.mark.parametrize("status", [403, 429, 404])
@@ -121,7 +131,7 @@ def test_http_gating_is_user_intervention_not_a_retry(status: int) -> None:
         raise urllib.error.HTTPError(str(LISTING.url), status, "blocked", {}, None)  # type: ignore[arg-type]
 
     with pytest.raises(UserInterventionRequiredError) as caught:
-        LiepinJobDetailFetcher(opener=opener).fetch(LISTING)
+        fetcher(opener).fetch(LISTING)
 
     assert caught.value.details["status_code"] == status
 
@@ -130,4 +140,4 @@ def test_non_liepin_listing_is_rejected() -> None:
     other = LISTING.model_copy(update={"source": "mock-alpha"})
 
     with pytest.raises(ContractValidationError):
-        LiepinJobDetailFetcher(opener=opener_for(PAGE)).fetch(other)
+        fetcher(opener_for(PAGE)).fetch(other)

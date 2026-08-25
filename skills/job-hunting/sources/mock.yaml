@@ -1,0 +1,6 @@
+schema_version: "1.0"
+id: mock
+display_name: 合成数据源
+kind: fixture
+onboarding_tier: 0
+notes: 内置合成 fixture,供离线开发与测试使用,不对应任何真实平台。

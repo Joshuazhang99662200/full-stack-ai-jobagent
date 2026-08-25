@@ -321,7 +321,8 @@ def test_unknown_source_connector_is_rejected() -> None:
     assert code == 1
     assert isinstance(payload, dict)
     assert payload["error"]["code"] == "CONTRACT_VALIDATION_ERROR"
-    assert payload["error"]["details"]["known"] == ["mock", "liepin"]
+    assert "liepin" in payload["error"]["details"]["known"]
+    assert "mock" in payload["error"]["details"]["known"]
 
 
 def test_liepin_cannot_be_used_where_a_full_job_observation_is_required() -> None:

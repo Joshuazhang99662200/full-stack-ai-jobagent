@@ -1,0 +1,17 @@
+schema_version: "1.0"
+id: linkedin
+display_name: LinkedIn
+kind: public_page
+onboarding_tier: 4
+notes: >-
+  访客视图的职位页含完整描述,无需登录。LinkedIn 服务条款较中文平台更严,
+  批量扫描明确不在范围内;仅支持单条、由人触发的取回。
+detail:
+  start_headings: ["About the job", "Job description", "role at"]
+  stop_headings:
+    - "Show more"
+    - "Seniority level"
+    - "Referrals increase"
+    - "Featured Benefits"
+    - "See who you know"
+  gate_markers: [authwall, "Sign in to view", "Join LinkedIn to", unavailable]

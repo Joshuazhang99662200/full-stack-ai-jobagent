@@ -11,9 +11,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from jobagent.capabilities import ReasoningOutputT
 from jobagent.connectors.extraction import MIN_JD_LENGTH
-from jobagent.connectors.liepin import LiepinCliJobSource
-from jobagent.connectors.liepin_detail import LiepinJobDetailFetcher
-from jobagent.connectors.mock import MockJobSource
+from jobagent.connectors.factory import build_detail_fetcher, build_listing_source
 from jobagent.errors import ContractValidationError, JobAgentError, JobNotFoundError
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
@@ -38,6 +36,7 @@ from jobagent.schemas.job_intelligence import (
     SourceJobRecord,
 )
 from jobagent.schemas.jobs import JobRequirementProfile, NormalizedJob
+from jobagent.sources import SourceRegistry
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
 from jobagent.storage.job_repository import SqliteJobRepository
@@ -48,7 +47,11 @@ DatabaseOption = Annotated[Path, typer.Option("--database", help="Local SQLite p
 FixtureOption = Annotated[Path, typer.Option("--fixture", help="Synthetic source JSON path.")]
 
 MOCK_CONNECTOR = "mock"
-LIEPIN_CONNECTOR = "liepin"
+DEFAULT_LISTING_SOURCE = "liepin"
+SourcesDirOption = Annotated[
+    Path | None,
+    typer.Option("--sources-dir", help="Extra directory of source manifests to load."),
+]
 SourceOption = Annotated[
     str,
     typer.Option(
@@ -112,28 +115,33 @@ def _emit_models(values: Sequence[ContractModel]) -> None:
     )
 
 
-def _source(path: Path, connector: str = MOCK_CONNECTOR) -> JobDiscoverySource:
-    if connector == MOCK_CONNECTOR:
-        return MockJobSource.from_path(path)
-    if connector == LIEPIN_CONNECTOR:
+def _registry(extra: Path | None = None) -> SourceRegistry:
+    return SourceRegistry.default(extra)
+
+
+def _source(
+    path: Path, connector: str = MOCK_CONNECTOR, extra_dir: Path | None = None
+) -> JobDiscoverySource:
+    manifest = _registry(extra_dir).get(connector)
+    built = build_listing_source(manifest, fixture=path)
+    if not isinstance(built, JobDiscoverySource):
         raise ContractValidationError(
-            "Liepin publishes no JD text in search results, so it cannot produce a "
-            "full job observation. Use `jobagent jobs listings` instead.",
-            details={"connector": connector, "use_instead": "jobs listings"},
+            "This source publishes no JD text in search results, so it cannot produce "
+            "a full job observation. Use `jobagent jobs listings` instead.",
+            details={"source": connector, "use_instead": "jobs listings"},
         )
-    raise ContractValidationError(
-        "Unknown job discovery connector.",
-        details={"connector": connector, "known": [MOCK_CONNECTOR, LIEPIN_CONNECTOR]},
-    )
+    return built
 
 
-def _listing_source(connector: str) -> JobListingSource:
-    if connector == LIEPIN_CONNECTOR:
-        return LiepinCliJobSource()
-    raise ContractValidationError(
-        "Unknown job listing connector.",
-        details={"connector": connector, "known": [LIEPIN_CONNECTOR]},
-    )
+def _listing_source(connector: str, extra_dir: Path | None = None) -> JobListingSource:
+    manifest = _registry(extra_dir).get(connector)
+    built = build_listing_source(manifest)
+    if not isinstance(built, JobListingSource):
+        raise ContractValidationError(
+            "This source declares no listing route.",
+            details={"source": connector, "kind": manifest.kind.value},
+        )
+    return built
 
 
 def _normalized_job(
@@ -202,7 +210,7 @@ def _validated_requirements(
 @jobs_app.command("listings")
 def listings(
     query: Annotated[str, typer.Argument(help="Job-title keyword.")] = "",
-    source: SourceOption = LIEPIN_CONNECTOR,
+    source: SourceOption = DEFAULT_LISTING_SOURCE,
     location: Annotated[str | None, typer.Option("--location")] = None,
     company: Annotated[str | None, typer.Option("--company")] = None,
 ) -> None:
@@ -230,7 +238,7 @@ def fetch_jd(
     """
     try:
         listing = _load_model(listing_path, JobListing)
-        _emit_model(LiepinJobDetailFetcher().fetch(listing))
+        _emit_model(build_detail_fetcher(_registry().get(listing.source)).fetch(listing))
     except JobAgentError as error:
         _fail(error)
 

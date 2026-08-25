@@ -40,6 +40,13 @@ class JobListingSource(Protocol):
 
 
 @runtime_checkable
+class JobDetailFetcher(Protocol):
+    """Turn a listing into a full observation by reading the posting itself."""
+
+    def fetch(self, listing: JobListing) -> SourceJobRecord: ...
+
+
+@runtime_checkable
 class JobRepository(Protocol):
     def save_job(self, job: NormalizedJob) -> None: ...
 

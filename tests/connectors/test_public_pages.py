@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from jobagent.connectors.extraction import ExtractionRules, extract_bounded
-from jobagent.connectors.gated import GATED_SOURCES, gated_source
+from jobagent.connectors.gated import GatedJobSource
 from jobagent.connectors.public_pages import PublicPageJobDetailFetcher
 from jobagent.errors import (
     ContractValidationError,
@@ -11,6 +11,21 @@ from jobagent.errors import (
     UserInterventionRequiredError,
 )
 from jobagent.schemas.job_intelligence import JobListing
+from jobagent.schemas.sources import SourceKind
+from jobagent.sources import SourceRegistry
+
+REGISTRY = SourceRegistry.default()
+GATED_IDS = sorted(m.id for m in REGISTRY.all() if m.kind is SourceKind.GATED)
+
+
+def fetcher_for(source: str, opener: object) -> PublicPageJobDetailFetcher:
+    return PublicPageJobDetailFetcher(REGISTRY.get(source), opener=opener)
+
+
+def gated_source(name: str) -> GatedJobSource | None:
+    manifest = REGISTRY.get(name)
+    return GatedJobSource(manifest) if manifest.kind is SourceKind.GATED else None
+
 
 RULES = ExtractionRules(
     source="test",
@@ -87,7 +102,7 @@ def test_zhaopin_fetcher_reads_a_public_posting() -> None:
         "<p>2、优化 Prompt 与智能体机制,提升输出的专业性与可靠性。</p>"
         "<div>职位福利</div><p>五险一金</p>"
     )
-    fetcher = PublicPageJobDetailFetcher("zhaopin", opener=_opener_for(body))
+    fetcher = fetcher_for("zhaopin", _opener_for(body))
 
     record = fetcher.fetch(listing("zhaopin"))
 
@@ -101,7 +116,7 @@ def test_linkedin_fetcher_reads_the_guest_posting() -> None:
         "<div>About the job</div><p>Own the roadmap for our agent platform team.</p>"
         "<div>Seniority level</div><p>Mid-Senior</p>"
     )
-    fetcher = PublicPageJobDetailFetcher("linkedin", opener=_opener_for(body))
+    fetcher = fetcher_for("linkedin", _opener_for(body))
 
     record = fetcher.fetch(listing("linkedin"))
 
@@ -110,17 +125,17 @@ def test_linkedin_fetcher_reads_the_guest_posting() -> None:
 
 
 def test_fetcher_rejects_a_listing_from_another_source() -> None:
-    fetcher = PublicPageJobDetailFetcher("zhaopin", opener=_opener_for(page("x")))
+    fetcher = fetcher_for("zhaopin", _opener_for(page("x")))
     with pytest.raises(ContractValidationError, match="does not handle"):
         fetcher.fetch(listing("linkedin"))
 
 
 def test_unknown_source_has_no_rules() -> None:
-    with pytest.raises(ContractValidationError, match="No public-page extraction rules"):
-        PublicPageJobDetailFetcher("nope")
+    with pytest.raises(ContractValidationError, match="Unknown job source"):
+        fetcher_for("nope", None)
 
 
-@pytest.mark.parametrize("name", sorted(GATED_SOURCES))
+@pytest.mark.parametrize("name", GATED_IDS)
 def test_gated_sources_pause_and_offer_a_manual_route(name: str) -> None:
     """A bot-detection gate is a handover, never something to work around."""
     source = gated_source(name)
@@ -143,7 +158,7 @@ def test_gated_source_never_returns_a_record() -> None:
 
 
 def test_unknown_source_is_not_gated() -> None:
-    assert gated_source("liepin") is None
+    assert gated_source("liepin") is None  # liepin has an automated route
 
 
 def _opener_for(body: str):

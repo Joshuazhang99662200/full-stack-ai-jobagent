@@ -1,0 +1,12 @@
+schema_version: "1.0"
+id: boss
+display_name: BOSS 直聘
+kind: gated
+onboarding_tier: 5
+notes: >-
+  按接入阶梯逐档评估后判定不可自动接入。社区方案依赖指纹伪装、模拟点击与
+  账号轮换,与本项目停止条件冲突,不移植。
+gate:
+  gate: security_verification_redirect
+  detail: 未登录的职位详情请求会被 302 到 web/passport/zp/security.html 安全验证页。
+  manual_route: 在自己的浏览器中打开职位页,复制 JD 正文,用 `jobagent jobs ingest-jd` 提交。

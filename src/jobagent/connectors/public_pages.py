@@ -1,62 +1,32 @@
-"""Job-description fetchers for boards that serve the JD publicly.
+"""Fetch a job description from a board that serves it in public HTML.
 
-Verified by probing real postings: 智联招聘 renders the JD server-side under
-「职位描述」, and LinkedIn's guest posting endpoint carries the full description.
-Neither requires login, browser automation or cookie reuse.
+Behaviour comes from the source manifest's `detail` section, so supporting a new
+board is a YAML file rather than a new rules constant here.
 
-One posting at a time, triggered by a person. This is not a crawler. LinkedIn's
-terms are stricter than the Chinese boards', so batch scanning is out of scope
-there in particular.
+One posting at a time, triggered by a person. This is not a crawler. Boards differ
+in how strict their terms are; batch scanning is out of scope for all of them.
 """
 
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 
-from jobagent.connectors.extraction import ExtractionRules, extract_bounded
+from jobagent.connectors.extraction import extract_bounded
 from jobagent.errors import ContractValidationError, UserInterventionRequiredError
 from jobagent.schemas.job_intelligence import JobListing, SourceJobRecord
+from jobagent.schemas.sources import SourceManifest
 
 _USER_AGENT = "Mozilla/5.0 (compatible; JobAgent/1.0; +human-triggered single fetch)"
 _TIMEOUT_SECONDS = 30
-
-ZHAOPIN_RULES = ExtractionRules(
-    source="zhaopin",
-    start_headings=("职位描述", "岗位职责", "职位信息"),
-    stop_headings=("职位福利", "公司介绍", "公司简介", "工作地址", "举报", "猜你喜欢", "相似职位"),
-)
-
-LINKEDIN_RULES = ExtractionRules(
-    source="linkedin",
-    start_headings=("About the job", "Job description", "role at"),
-    stop_headings=(
-        "Show more",
-        "Seniority level",
-        "Referrals increase",
-        "Featured Benefits",
-        "See who you know",
-    ),
-    # LinkedIn's own wording when it withholds a posting from guests.
-    gate_markers=("authwall", "Sign in to view", "Join LinkedIn to", "unavailable"),
-)
-
-_RULES: dict[str, ExtractionRules] = {
-    ZHAOPIN_RULES.source: ZHAOPIN_RULES,
-    LINKEDIN_RULES.source: LINKEDIN_RULES,
-}
 
 
 class PublicPageJobDetailFetcher:
     """Turn a `JobListing` into a full `SourceJobRecord` from a public page."""
 
-    def __init__(self, source: str, *, opener: object | None = None) -> None:
-        rules = _RULES.get(source)
-        if rules is None:
-            raise ContractValidationError(
-                "No public-page extraction rules are registered for this source.",
-                details={"source": source, "known": sorted(_RULES)},
-            )
-        self._rules = rules
+    def __init__(self, manifest: SourceManifest, *, opener: object | None = None) -> None:
+        from jobagent.connectors.factory import extraction_rules
+
+        self._rules = extraction_rules(manifest)
         self._opener = opener
 
     @property

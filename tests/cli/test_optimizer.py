@@ -7,6 +7,7 @@ import typer
 from typer.core import TyperGroup
 from typer.testing import CliRunner
 
+from jobagent import skill_resources
 from jobagent.cli import optimizer as optimizer_cli
 from jobagent.cli.app import app
 from jobagent.errors import CapabilityRegistryError
@@ -109,7 +110,8 @@ def test_packaged_skill_root_has_priority(monkeypatch: pytest.MonkeyPatch, tmp_p
     package_root = tmp_path / "jobagent" / "optimizer"
     bundled_root = package_root / "resources" / "job-hunting"
     bundled_root.mkdir(parents=True)
-    monkeypatch.setattr(optimizer_cli.resources, "files", lambda package: package_root)
+    # Resolution lives in jobagent.skill_resources; the CLI delegates to it.
+    monkeypatch.setattr(skill_resources.resources, "files", lambda package: package_root)
 
     assert optimizer_cli._default_skill_root() == bundled_root
 

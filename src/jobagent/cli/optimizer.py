@@ -2,7 +2,6 @@
 
 import json
 from collections.abc import Callable
-from importlib import resources
 from pathlib import Path
 from typing import Annotated, Never
 
@@ -11,6 +10,7 @@ import typer
 from jobagent.errors import CapabilityRegistryError, ContractValidationError, JobAgentError
 from jobagent.optimizer.index import CapabilityIndexLoader, CapabilityRegistryCompiler
 from jobagent.schemas.optimizer_registry import CapabilityKind, CapabilityRegistrySnapshot
+from jobagent.skill_resources import default_skill_root
 
 INDEX_PATHS = (
     Path("optimizer/index/repository.yaml"),
@@ -18,29 +18,8 @@ INDEX_PATHS = (
 )
 
 
-def _packaged_skill_root() -> Path | None:
-    try:
-        candidate = resources.files("jobagent.optimizer").joinpath(
-            "resources", "job-hunting"
-        )
-        if candidate.is_dir():
-            return Path(str(candidate))
-    except (ModuleNotFoundError, OSError, TypeError):
-        pass
-    return None
-
-
 def _default_skill_root() -> Path:
-    packaged = _packaged_skill_root()
-    if packaged is not None:
-        return packaged
-
-    module_path = Path(__file__).resolve()
-    for ancestor in module_path.parents:
-        candidate = ancestor / "skills" / "job-hunting"
-        if candidate.is_dir():
-            return candidate
-    return module_path.parents[3] / "skills" / "job-hunting"
+    return default_skill_root()
 
 
 optimizer_app = typer.Typer(

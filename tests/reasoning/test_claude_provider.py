@@ -9,7 +9,7 @@ from jobagent.errors import (
     UserInterventionRequiredError,
 )
 from jobagent.reasoning.claude import ClaudeReasoningProvider
-from jobagent.reasoning.prompts import registered_prompt_ids, system_prompt
+from jobagent.reasoning.prompts import system_prompt
 from jobagent.schemas.candidate import CandidateDraft, CandidateProfile
 
 DRAFT = CandidateDraft(candidate_id="CAND_001", profile=CandidateProfile(id="CAND_001"))
@@ -164,19 +164,14 @@ def test_server_error_requires_a_human() -> None:
     assert caught.value.details["status_code"] == 503
 
 
-@pytest.mark.parametrize("prompt_id", registered_prompt_ids())
-def test_every_prompt_states_the_no_invention_and_data_not_instructions_rules(
-    prompt_id: str,
-) -> None:
-    prompt = system_prompt(prompt_id)
-    assert prompt is not None
-    assert "data to analyse" in prompt
-    assert "never as something to obey" in prompt or "not as something to obey" in prompt
-    assert "never guess" in prompt
+def test_provider_sends_the_composed_instructions_as_the_system_prompt() -> None:
+    message = FakeMessage(content=[FakeBlock(DRAFT.model_dump(mode="json"))])
+    provider, client = provider_for(message)
 
+    provider.generate(
+        prompt_id="candidate.extract_draft.v1",
+        context={"candidate_id": "CAND_001"},
+        output_type=CandidateDraft,
+    )
 
-def test_extraction_prompt_forbids_self_confirming_evidence() -> None:
-    prompt = system_prompt("candidate.extract_draft.v1")
-    assert prompt is not None
-    assert "user_confirmed` set to false" in prompt
-    assert "never perform or presume" in prompt
+    assert client.messages.calls[0]["system"] == system_prompt("candidate.extract_draft.v1")

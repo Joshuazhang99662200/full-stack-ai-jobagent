@@ -32,6 +32,7 @@ description: 用于证据接地的候选人入库、职位情报、JD 到简历�
 - 处理入库或面试工作时,阅读 [references/candidate-kb.md](references/candidate-kb.md) 与 [references/evidence-policy.md](references/evidence-policy.md)。
 - 处理归一化、过滤、匹配或排序时,阅读 [references/job-intelligence.md](references/job-intelligence.md)。
 - 从猎聘寻源,或遇到只有列表字段、没有 JD 正文的来源时,阅读 [references/liepin-listings.md](references/liepin-listings.md)。
+- 需要取得 JD 正文,或遇到平台门控(登录页、验证码、WAF)时,阅读 [references/jd-sources.md](references/jd-sources.md)。
 - 处理常规简历接地时,阅读 [references/resume-grounding.md](references/resume-grounding.md)。母版简历重构与 JD 定向改写请路由到 [optimizer/SKILL.md](optimizer/SKILL.md);该嵌套技能自行决定后续策略选择。
 - 处理简历渲染、模板或 ATS 关键词覆盖时,阅读 [references/rendering-ats.md](references/rendering-ats.md)。
 - 撰写打招呼语、求职信或投递邮件时,阅读 [references/message-generation.md](references/message-generation.md)。

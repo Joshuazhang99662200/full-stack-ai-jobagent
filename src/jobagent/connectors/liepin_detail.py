@@ -10,17 +10,12 @@ requirement extraction, so a truncated or missing block fails loudly instead.
 One job at a time, triggered by a person. This is not a crawler.
 """
 
-import html
-import re
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 
-from jobagent.errors import (
-    ContractValidationError,
-    InvalidProviderOutputError,
-    UserInterventionRequiredError,
-)
+from jobagent.connectors.extraction import ExtractionRules, extract_bounded, strip_markup
+from jobagent.errors import ContractValidationError, UserInterventionRequiredError
 from jobagent.jobs.recruiter import RecruiterClassifier
 from jobagent.schemas.job_intelligence import JobListing, SourceJobRecord
 from jobagent.schemas.jobs import RecruiterInfo
@@ -29,15 +24,11 @@ SOURCE_NAME = "liepin"
 _USER_AGENT = "Mozilla/5.0 (compatible; JobAgent/1.0; +human-triggered single fetch)"
 _TIMEOUT_SECONDS = 30
 
-# The JD sits under this heading; everything from the first trailing heading on
-# belongs to other page sections and must not enter jd_raw.
-_JD_HEADING = "职位介绍"
-_TRAILING_HEADINGS = ("其他信息", "公司简介", "猎聘温馨提示", "猜你喜欢", "举报")
-
-# Markers that mean the page withheld the JD. Never save a partial JD.
-_WITHHELD_MARKERS = ("登录查看", "请登录", "登录后查看", "安全验证", "验证码", "访问过于频繁")
-
-_MIN_JD_LENGTH = 30
+LIEPIN_RULES = ExtractionRules(
+    source=SOURCE_NAME,
+    start_headings=("职位介绍",),
+    stop_headings=("其他信息", "公司简介", "猎聘温馨提示", "猜你喜欢", "举报"),
+)
 
 # The job's own recruiter card. Recommended-job cards render the same markup, so
 # extraction is bounded to this block rather than searching the whole page.
@@ -47,15 +38,6 @@ _RECRUITER_BLOCK_LIMIT = 2000
 _RECRUITER_STOP_TOKENS = ("聊一聊", "立即沟通", "收藏")
 # Presence badges are not part of the recruiter's identity.
 _RECRUITER_NOISE = ("在线", "已认证", "刚刚活跃")
-
-
-def _strip_markup(fragment: str) -> str:
-    without_scripts = re.sub(r"<(script|style)\b.*?</\1>", " ", fragment, flags=re.S | re.I)
-    with_breaks = re.sub(r"<(br|/p|/div|/li)\s*/?>", "\n", without_scripts, flags=re.I)
-    text = re.sub(r"<[^>]+>", "", with_breaks)
-    text = html.unescape(text)
-    lines = [" ".join(line.split()) for line in text.split("\n")]
-    return "\n".join(line for line in lines if line and not line.startswith("-->"))
 
 
 class LiepinJobDetailFetcher:
@@ -103,7 +85,7 @@ class LiepinJobDetailFetcher:
         # Class selectors proved brittle here, so read that sequence instead.
         lines = [
             line
-            for line in (part.strip() for part in _strip_markup(block).split("\n"))
+            for line in (part.strip() for part in strip_markup(block).split("\n"))
             if line and "<" not in line and not line.startswith("class=")
         ]
         tokens: list[str] = []
@@ -151,33 +133,4 @@ class LiepinJobDetailFetcher:
 
     @staticmethod
     def _extract_jd(page: str, listing: JobListing) -> str:
-        text = _strip_markup(page)
-        start = text.find(_JD_HEADING)
-        if start < 0:
-            withheld = [marker for marker in _WITHHELD_MARKERS if marker in text]
-            if withheld:
-                raise UserInterventionRequiredError(
-                    "Liepin withheld the job description behind a gate.",
-                    details={"source": SOURCE_NAME, "job_id": listing.source_job_id},
-                )
-            raise InvalidProviderOutputError(
-                "The Liepin detail page contained no job description section.",
-                details={"source": SOURCE_NAME, "job_id": listing.source_job_id},
-            )
-
-        body = text[start + len(_JD_HEADING) :]
-        cuts = [index for index in (body.find(h) for h in _TRAILING_HEADINGS) if index > 0]
-        if cuts:
-            body = body[: min(cuts)]
-
-        jd_raw = body.strip()
-        if len(jd_raw) < _MIN_JD_LENGTH:
-            raise InvalidProviderOutputError(
-                "The extracted Liepin job description was too short to trust.",
-                details={
-                    "source": SOURCE_NAME,
-                    "job_id": listing.source_job_id,
-                    "length": len(jd_raw),
-                },
-            )
-        return jd_raw
+        return extract_bounded(page, LIEPIN_RULES, job_id=listing.source_job_id)

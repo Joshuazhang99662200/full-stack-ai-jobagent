@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Never, TypeVar
 
@@ -9,6 +10,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.connectors.extraction import MIN_JD_LENGTH
 from jobagent.connectors.liepin import LiepinCliJobSource
 from jobagent.connectors.liepin_detail import LiepinJobDetailFetcher
 from jobagent.connectors.mock import MockJobSource
@@ -33,6 +35,7 @@ from jobagent.schemas.job_intelligence import (
     JobSearchQuery,
     MatchThresholdPolicy,
     RequirementMatchSet,
+    SourceJobRecord,
 )
 from jobagent.schemas.jobs import JobRequirementProfile, NormalizedJob
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
@@ -228,6 +231,48 @@ def fetch_jd(
     try:
         listing = _load_model(listing_path, JobListing)
         _emit_model(LiepinJobDetailFetcher().fetch(listing))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("ingest-jd")
+def ingest_jd(
+    listing_path: Annotated[Path, typer.Argument(help="JobListing JSON from `jobs listings`.")],
+    jd_path: Annotated[Path, typer.Argument(help="Plain-text JD you copied from the posting.")],
+) -> None:
+    """Attach a hand-supplied JD to a listing, producing a full job observation.
+
+    This is the route for platforms that gate their detail pages: open the posting
+    in your own browser, copy the description, and supply it here. Nothing is
+    scraped and no gate is worked around.
+    """
+    try:
+        listing = _load_model(listing_path, JobListing)
+        try:
+            jd_raw = jd_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            raise ContractValidationError(
+                "The JD text file could not be read.",
+                details={"path": str(jd_path)},
+            ) from None
+        if len(jd_raw) < MIN_JD_LENGTH:
+            raise ContractValidationError(
+                "The supplied JD is too short to trust.",
+                details={"length": len(jd_raw), "minimum": MIN_JD_LENGTH},
+            )
+        _emit_model(
+            SourceJobRecord(
+                source=listing.source,
+                source_job_id=listing.source_job_id,
+                title=listing.title,
+                company=listing.company,
+                location=listing.location or "未标注",
+                salary_text=listing.salary_text,
+                jd_raw=jd_raw,
+                url=listing.url,
+                collected_at=datetime.now(UTC),
+            )
+        )
     except JobAgentError as error:
         _fail(error)
 

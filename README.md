@@ -71,17 +71,19 @@ jobagent jobs match alpha-001 .\reviewed\requirements.json `
 
 使用 `jobs pipeline` 时,把已评审文件按 `JOB_ID.requirements.json` 与 `JOB_ID.matches.json` 放在同一个目录下。被拒绝的职位不需要 mappings 文件,因为确定性过滤会在匹配之前把它拦下。pipeline 输出的 `application_ready` 恒为 `false`;`REVIEW` 保持可见,交由人来裁决。
 
-### 结构化抽取(需要 Claude 凭证)
+### 结构化抽取(默认无需凭证)
 
-`ClaudeReasoningProvider` 实现 `ReasoningProvider` 端口,是仓库里唯一感知厂商的推理模块。它把 PDF 页面文本转成结构化 `CandidateDraft`:
+拉下本仓库执行它的**编码智能体就是推理引擎**。默认的 `--provider agent` 不调用任何模型 API,也不需要厂商凭证:
 
 ```powershell
 jobagent candidate onboard CAND_001 .\candidate\private\source_resume.pdf
 ```
 
-需要 `ANTHROPIC_API_KEY`,或用 `ant auth login` 建立配置档。**抽取出的证据一律未确认**——提升为 canonical 证据仍需对每个 `EVID_*` 显式执行 `candidate confirm`。提示词禁止模型自行确认证据、禁止编造未写明的指标与规模,并把简历正文当作数据而非指令。
+命令不会失败,而是输出一个 `AGENT_HANDOFF_REQUIRED` 载荷,并在 `.jobagent/handoff/` 下写一份自足的请求:任务指令、逐页简历正文,以及目标契约的完整 JSON Schema。智能体据此写出 JSON,再执行载荷里的 `resume_command` 完成校验与入库。解析这类确定性结果在暂停前已落库,因此中断安全。完整循环见[智能体推理](skills/job-hunting/references/agent-reasoning.md)。
 
-没有凭证时返回 `USER_INTERVENTION_REQUIRED`;模型拒答、输出被截断或不满足契约时分别返回对应的类型化错误,绝不返回半成品草稿。
+`--provider claude` 走真实 Claude API,只为无人值守场景保留,需要 `ANTHROPIC_API_KEY` 或 `ant auth login`。
+
+两条路径都受同一套约束:**抽取出的证据一律未确认**——提升为 canonical 证据仍需对每个 `EVID_*` 显式执行 `candidate confirm`,契约本身也会拒收已确认的草稿证据。指令禁止编造未写明的指标与规模,并把简历正文当作数据而非指令。
 
 ### 补齐 JD 正文
 

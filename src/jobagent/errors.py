@@ -66,3 +66,13 @@ class JobNormalizationError(JobAgentError):
 
 class CapabilityRegistryError(JobAgentError):
     code = "CAPABILITY_REGISTRY_INVALID"
+
+
+class AgentHandoffRequiredError(JobAgentError):
+    """A reasoning step is waiting for the calling agent to produce typed output.
+
+    This is a pause, not a failure: the workflow emitted a complete request and
+    will resume once the agent writes the requested contract back.
+    """
+
+    code = "AGENT_HANDOFF_REQUIRED"

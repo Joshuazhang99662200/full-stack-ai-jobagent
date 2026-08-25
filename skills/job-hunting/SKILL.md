@@ -28,6 +28,7 @@ description: 用于证据接地的候选人入库、职位情报、JD 到简历�
 
 - 需要完整产品契约时,阅读 [references/product-spec.md](references/product-spec.md)。
 - 需要跨域边界时,阅读 [references/architecture-invariants.md](references/architecture-invariants.md) 与 [references/capability-catalog.md](references/capability-catalog.md)。
+- 任何步骤返回 `AGENT_HANDOFF_REQUIRED`,或需要模型判断而你不想配置厂商凭证时,阅读 [references/agent-reasoning.md](references/agent-reasoning.md)。**你自己就是推理引擎**,这是默认路径。
 - 处理入库或面试工作时,阅读 [references/candidate-kb.md](references/candidate-kb.md) 与 [references/evidence-policy.md](references/evidence-policy.md)。
 - 处理归一化、过滤、匹配或排序时,阅读 [references/job-intelligence.md](references/job-intelligence.md)。
 - 从猎聘寻源,或遇到只有列表字段、没有 JD 正文的来源时,阅读 [references/liepin-listings.md](references/liepin-listings.md)。

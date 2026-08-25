@@ -13,7 +13,7 @@
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | `parse_resume` | 已落地 | `jobagent candidate ingest` · `PdfResumeParser.parse` |
-| `extract_draft` | 已落地 | `jobagent candidate onboard`(解析 + Claude 结构化抽取,证据仍未确认) |
+| `extract_draft` | 已落地 | `jobagent candidate onboard`(默认 `--provider agent`,由调用方智能体产出,无需凭证;`--provider claude` 走 API。证据仍未确认) |
 | `update_profile` | 已落地 | `jobagent candidate import-draft`(整份草稿写入;暂无字段级编辑) |
 | `detect_gaps` | 已落地 | `jobagent candidate status` · `GapDetector.detect` |
 | `ask_question` | 已落地 | `jobagent candidate question` · `AdaptiveInterview.next_question` |

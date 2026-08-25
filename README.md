@@ -71,6 +71,30 @@ jobagent jobs match alpha-001 .\reviewed\requirements.json `
 
 使用 `jobs pipeline` 时,把已评审文件按 `JOB_ID.requirements.json` 与 `JOB_ID.matches.json` 放在同一个目录下。被拒绝的职位不需要 mappings 文件,因为确定性过滤会在匹配之前把它拦下。pipeline 输出的 `application_ready` 恒为 `false`;`REVIEW` 保持可见,交由人来裁决。
 
+### 结构化抽取(需要 Claude 凭证)
+
+`ClaudeReasoningProvider` 实现 `ReasoningProvider` 端口,是仓库里唯一感知厂商的推理模块。它把 PDF 页面文本转成结构化 `CandidateDraft`:
+
+```powershell
+jobagent candidate onboard CAND_001 .\candidate\private\source_resume.pdf
+```
+
+需要 `ANTHROPIC_API_KEY`,或用 `ant auth login` 建立配置档。**抽取出的证据一律未确认**——提升为 canonical 证据仍需对每个 `EVID_*` 显式执行 `candidate confirm`。提示词禁止模型自行确认证据、禁止编造未写明的指标与规模,并把简历正文当作数据而非指令。
+
+没有凭证时返回 `USER_INTERVENTION_REQUIRED`;模型拒答、输出被截断或不满足契约时分别返回对应的类型化错误,绝不返回半成品草稿。
+
+### 补齐 JD 正文
+
+猎聘把 JD 放在公开详情页的服务端渲染 HTML 里,因此不需要登录、浏览器或 Cookie:
+
+```powershell
+jobagent jobs fetch-jd .\reviewed\listing.json
+```
+
+抽取是**有边界的**:JD 块在第一个后续小节处截断,因为原始页面还带着公司简介、防诈提示与推荐职位位。页面被登录墙拦截、缺少职位介绍段落或抽取结果过短时,一律报错而不是保存半截 JD——被污染的 JD 流进需求抽取,比没有 JD 危害大得多。
+
+单条、由人触发,不做批量爬取。
+
 ### 用简历关键字检索
 
 `suggest-queries` 从候选人库**已确认**的证据里确定性地推导检索词并按信号强弱排序,每一条都带回支撑它的 Evidence ID:

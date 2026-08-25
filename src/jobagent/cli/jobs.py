@@ -10,6 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from jobagent.capabilities import ReasoningOutputT
 from jobagent.connectors.liepin import LiepinCliJobSource
+from jobagent.connectors.liepin_detail import LiepinJobDetailFetcher
 from jobagent.connectors.mock import MockJobSource
 from jobagent.errors import ContractValidationError, JobAgentError, JobNotFoundError
 from jobagent.jobs.deduplication import JobDeduplicator
@@ -28,6 +29,7 @@ from jobagent.schemas.job_intelligence import (
     DeduplicationPolicy,
     JobAssessment,
     JobIntelligencePolicies,
+    JobListing,
     JobSearchQuery,
     MatchThresholdPolicy,
     RequirementMatchSet,
@@ -210,6 +212,22 @@ def listings(
             JobSearchQuery(query=query, company=company, location=location)
         )
         _emit_models(list(results))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("fetch-jd")
+def fetch_jd(
+    listing_path: Annotated[Path, typer.Argument(help="A JobListing JSON file.")],
+) -> None:
+    """Read one public detail page and complete a listing into a full observation.
+
+    Single, human-triggered fetch. Gated or truncated pages fail instead of
+    yielding a partial JD.
+    """
+    try:
+        listing = _load_model(listing_path, JobListing)
+        _emit_model(LiepinJobDetailFetcher().fetch(listing))
     except JobAgentError as error:
         _fail(error)
 

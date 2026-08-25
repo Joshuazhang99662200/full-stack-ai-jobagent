@@ -13,6 +13,7 @@
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | `parse_resume` | 已落地 | `jobagent candidate ingest` · `PdfResumeParser.parse` |
+| `extract_draft` | 已落地 | `jobagent candidate onboard`(解析 + Claude 结构化抽取,证据仍未确认) |
 | `update_profile` | 已落地 | `jobagent candidate import-draft`(整份草稿写入;暂无字段级编辑) |
 | `detect_gaps` | 已落地 | `jobagent candidate status` · `GapDetector.detect` |
 | `ask_question` | 已落地 | `jobagent candidate question` · `AdaptiveInterview.next_question` |
@@ -25,6 +26,7 @@
 | `suggest_queries` | 已落地 | `jobagent jobs suggest-queries`(从已确认证据确定性推导检索词) |
 | `search` | 已落地 | `jobagent jobs search`(`--source mock` 合成 fixture,产出含 JD 的 `SourceJobRecord`) |
 | `search_listings` | 已落地 | `jobagent jobs listings`(`--source liepin`,产出**不含 JD** 的 `JobListing`) |
+| `fetch_jd` | 已落地 | `jobagent jobs fetch-jd`(读公开详情页,把 `JobListing` 补齐为 `SourceJobRecord`) |
 | `fetch` | 已落地 | `jobagent jobs fetch` |
 | `normalize` | 已落地 | `jobagent jobs normalize` |
 | `dedupe` | 已落地 | `jobagent jobs dedupe` |

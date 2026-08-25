@@ -138,14 +138,19 @@ class Certification(ContractModel):
     evidence_ids: list[EvidenceId] = Field(default_factory=list)
 
 
+# A concrete union rather than Any: these models are emitted by structured model
+# output, and an untyped schema node is rejected by strict JSON-schema validation.
+SettingValue = str | bool | int | float | list[str]
+
+
 class Preference(ContractModel):
     key: NonEmptyString
-    value: Any
+    value: SettingValue
 
 
 class Constraint(ContractModel):
     key: NonEmptyString
-    value: Any
+    value: SettingValue
     hard: bool = True
 
 

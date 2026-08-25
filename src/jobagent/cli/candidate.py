@@ -12,9 +12,12 @@ from pydantic import ValidationError
 from jobagent.candidate.evidence import CandidateEvidenceService
 from jobagent.candidate.gaps import GapDetector
 from jobagent.candidate.interview import AdaptiveInterview
+from jobagent.candidate.onboarding import CandidateOnboardingService
 from jobagent.candidate.readiness import CandidateReadinessService
 from jobagent.errors import ContractValidationError, JobAgentError
 from jobagent.parsing.pdf_resume import PdfResumeParser
+from jobagent.reasoning.candidate_extractor import ReasoningCandidateDraftExtractor
+from jobagent.reasoning.claude import ClaudeReasoningProvider
 from jobagent.schemas.candidate import (
     CandidateDraft,
     CandidateProfile,
@@ -85,6 +88,33 @@ def ingest(
         parsed = PdfResumeParser().parse(resume_path, candidate_id)
         repository.save_resume(parsed)
         _emit(parsed)
+    except JobAgentError as error:
+        _fail(error)
+
+
+@candidate_app.command("onboard")
+def onboard(
+    candidate_id: str,
+    resume_path: Path,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    effort: Annotated[str, typer.Option("--effort")] = "high",
+) -> None:
+    """Parse a PDF and extract a structured draft with the Claude reasoning provider.
+
+    Extracted evidence stays unconfirmed. Promoting it to canonical evidence still
+    requires an explicit `candidate confirm` per evidence ID.
+    """
+    try:
+        repository = _repository(database)
+        if repository.get_profile(candidate_id) is None:
+            repository.save_profile(CandidateProfile(id=candidate_id))
+        provider = ClaudeReasoningProvider(effort=effort)  # type: ignore[arg-type]
+        service = CandidateOnboardingService(
+            parser=PdfResumeParser(),
+            extractor=ReasoningCandidateDraftExtractor(provider),
+            repository=repository,
+        )
+        _emit(service.ingest_resume(resume_path, candidate_id))
     except JobAgentError as error:
         _fail(error)
 

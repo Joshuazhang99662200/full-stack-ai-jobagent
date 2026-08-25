@@ -83,6 +83,28 @@ def test_resume_ingestion_round_trip(tmp_path: Path) -> None:
     assert repository.get_resume("RESUME_001") == resume
 
 
+def test_resume_reingest_is_idempotent_and_candidate_isolated(tmp_path: Path) -> None:
+    repository = repository_at(tmp_path / "candidate.sqlite3")
+    repository.save_profile(CandidateProfile(id="CAND_001"))
+    repository.save_profile(CandidateProfile(id="CAND_002"))
+    resume = ParsedResume(
+        id="RESUME_001",
+        candidate_id="CAND_001",
+        source_name="resume.pdf",
+        content_digest="sha256:abc123",
+        pages=[ResumePage(page_number=1, text="Experience")],
+    )
+    reparsed = resume.model_copy(update={"pages": [ResumePage(page_number=1, text="Updated")]})
+
+    repository.save_resume(resume)
+    repository.save_resume(reparsed)
+
+    assert repository.get_resume("RESUME_001") == reparsed
+
+    with pytest.raises(StorageError, match="belongs to another candidate"):
+        repository.save_resume(resume.model_copy(update={"candidate_id": "CAND_002"}))
+
+
 def test_interview_events_are_append_only(tmp_path: Path) -> None:
     repository = repository_at(tmp_path / "candidate.sqlite3")
     repository.save_profile(CandidateProfile(id="CAND_001"))
@@ -106,14 +128,15 @@ def test_onboarding_write_rolls_back_as_one_transaction(tmp_path: Path) -> None:
     repository = repository_at(tmp_path / "candidate.sqlite3")
     original = CandidateProfile(id="CAND_001", full_name="Original Name")
     repository.save_profile(original)
+    # The resume references a candidate that was never persisted, so the ingestion
+    # insert violates its foreign key part-way through the onboarding transaction.
     parsed = ParsedResume(
         id="RESUME_001",
-        candidate_id="CAND_001",
+        candidate_id="CAND_MISSING",
         source_name="resume.pdf",
         content_digest="sha256:abc123",
         pages=[ResumePage(page_number=1, text="Experience")],
     )
-    repository.save_resume(parsed)
     candidate_evidence = evidence("EVID_001", "Built internal tooling.")
     draft = CandidateDraft(
         candidate_id="CAND_001",

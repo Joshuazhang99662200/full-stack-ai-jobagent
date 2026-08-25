@@ -34,6 +34,10 @@ EXPECTED_IDS = {
     "policy.optimizer.prompt-routing",
     "policy.optimizer.quality-gates",
     "policy.optimizer.failure-handling",
+    "policy.optimizer.lens.general",
+    "policy.optimizer.lens.headhunter",
+    "policy.optimizer.lens.internal-hr",
+    "policy.optimizer.lens.hiring-manager",
 }
 
 REQUIRED_ENTRY_FIELDS = {

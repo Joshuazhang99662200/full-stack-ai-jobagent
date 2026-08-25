@@ -114,3 +114,94 @@ entries:
       retry: never
       fallback: return_typed_failure
     trust: core
+  - id: "policy.optimizer.lens.general"
+    version: "1.0.0"
+    kind: "policy"
+    description: "Outcome: applies the default rewrite emphasis when the recruiter cannot be identified. Trigger: routing finds no confident recruiter classification. Excludes: never invents or alters a fact, and cannot relax a quality gate. Output: emphasis, ordering and wording rules."
+    entrypoint: "references/optimizer/lens-general.md"
+    input_schema: null
+    output_schema: null
+    intents:
+      - "select_general_rewrite_lens"
+    required_context: []
+    preconditions: []
+    permissions:
+      read:
+        - "policy_resource"
+      write: []
+    dependencies: []
+    produces: []
+    verifiers: []
+    failure_policy:
+      retry: "never"
+      fallback: "return_typed_failure"
+    trust: "core"
+  - id: "policy.optimizer.lens.headhunter"
+    version: "1.0.0"
+    kind: "policy"
+    description: "Outcome: emphasises transferability, scale and scope boundaries for an agency reader. Trigger: the recruiter is confidently classified as a headhunter. Excludes: never restates participation as ownership, and never supplies an unevidenced metric. Output: emphasis, ordering and wording rules."
+    entrypoint: "references/optimizer/lens-headhunter.md"
+    input_schema: null
+    output_schema: null
+    intents:
+      - "select_headhunter_rewrite_lens"
+    required_context: []
+    preconditions:
+      - recruiter_type_confident
+    permissions:
+      read:
+        - "policy_resource"
+      write: []
+    dependencies: []
+    produces: []
+    verifiers: []
+    failure_policy:
+      retry: "never"
+      fallback: "return_typed_failure"
+    trust: "core"
+  - id: "policy.optimizer.lens.internal-hr"
+    version: "1.0.0"
+    kind: "policy"
+    description: "Outcome: mirrors job-description wording and surfaces hard requirements for a screening reader. Trigger: the recruiter is confidently classified as internal HR. Excludes: never lets keyword coverage outrank evidence grounding. Output: emphasis, ordering and wording rules."
+    entrypoint: "references/optimizer/lens-internal-hr.md"
+    input_schema: null
+    output_schema: null
+    intents:
+      - "select_internal_hr_rewrite_lens"
+    required_context: []
+    preconditions:
+      - recruiter_type_confident
+    permissions:
+      read:
+        - "policy_resource"
+      write: []
+    dependencies: []
+    produces: []
+    verifiers: []
+    failure_policy:
+      retry: "never"
+      fallback: "return_typed_failure"
+    trust: "core"
+  - id: "policy.optimizer.lens.hiring-manager"
+    version: "1.0.0"
+    kind: "policy"
+    description: "Outcome: foregrounds technical trade-offs and problem-solution-result chains for a practitioner reader. Trigger: the recruiter is confidently classified as a hiring manager. Excludes: never states a technical detail that confirmed evidence does not support. Output: emphasis, ordering and wording rules."
+    entrypoint: "references/optimizer/lens-hiring-manager.md"
+    input_schema: null
+    output_schema: null
+    intents:
+      - "select_hiring_manager_rewrite_lens"
+    required_context: []
+    preconditions:
+      - recruiter_type_confident
+    permissions:
+      read:
+        - "policy_resource"
+      write: []
+    dependencies: []
+    produces: []
+    verifiers: []
+    failure_policy:
+      retry: "never"
+      fallback: "return_typed_failure"
+    trust: "core"

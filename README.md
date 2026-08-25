@@ -71,6 +71,28 @@ jobagent jobs match alpha-001 .\reviewed\requirements.json `
 
 使用 `jobs pipeline` 时,把已评审文件按 `JOB_ID.requirements.json` 与 `JOB_ID.matches.json` 放在同一个目录下。被拒绝的职位不需要 mappings 文件,因为确定性过滤会在匹配之前把它拦下。pipeline 输出的 `application_ready` 恒为 `false`;`REVIEW` 保持可见,交由人来裁决。
 
+### 用简历关键字检索
+
+`suggest-queries` 从候选人库**已确认**的证据里确定性地推导检索词并按信号强弱排序,每一条都带回支撑它的 Evidence ID:
+
+```powershell
+jobagent jobs suggest-queries CAND_001 --location 上海
+```
+
+它只做词项选择,不生成事实:所有词都已存在于 profile 中。未确认的证据不能支撑任何词项,会计入 `skipped_unconfirmed_evidence_count`。把输出的 `term` 接给 `jobs search` 即可。
+
+### 真实来源:猎聘 listing(只读)
+
+猎聘的搜索接口**不返回 JD 正文**,只返回结果页字段。因此它无法产出 `SourceJobRecord`,而是产出一个独立的 `JobListing` 契约:职位名、公司、地点、薪资、学历、年限、行业、公司标签、规模、融资阶段、详情页 URL。
+
+```powershell
+jobagent jobs listings "AI Agent 产品负责人" --location 上海
+```
+
+listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业都在),但**不能替代 JD**。定向改写仍需要 JD 正文,由人补齐后走 `jobs search` 那条完整链路。`jobs search --source liepin` 会被显式拒绝并指向本命令,而不是合成一段假 JD。
+
+需要先自行安装 [`liepin-cli`](https://github.com/liepin-tech-2026/liepin-cil) 并在可交互终端完成 `liepin-cli setup` 授权(粘贴猎聘官方 `x-user-token`)。该 CLI 的 `job apply` 与 `resume` 写入命令有意**不接入**——投递属于独立边界,在线简历保持只读。token 过期、401/403、验证码与风控一律返回 `USER_INTERVENTION_REQUIRED` 交还给人,不自动重试、不更换账号。
+
 搜索与 Job Intelligence 是只读的。它们不暴露平台导航、投递准备、审批或投递操作。
 
 ## Resume Optimizer 能力发现

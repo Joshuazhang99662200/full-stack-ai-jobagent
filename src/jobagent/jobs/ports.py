@@ -5,6 +5,7 @@ from typing import Protocol, runtime_checkable
 
 from jobagent.schemas.candidate import EvidenceItem
 from jobagent.schemas.job_intelligence import (
+    JobListing,
     JobSearchQuery,
     RequirementMatchSet,
     SourceJobRecord,
@@ -25,6 +26,17 @@ class JobDiscoverySource(Protocol):
     def fetch_job(self, source_job_id: str) -> SourceJobRecord: ...
 
     def get_recruiter(self, source_job_id: str) -> RecruiterInfo | None: ...
+
+
+@runtime_checkable
+class JobListingSource(Protocol):
+    """A source whose result pages expose no JD text.
+
+    Kept separate from ``JobDiscoverySource`` on purpose: such a source cannot
+    produce a ``SourceJobRecord``, and must not be allowed to synthesize one.
+    """
+
+    def search_listings(self, query: JobSearchQuery) -> Sequence[JobListing]: ...
 
 
 @runtime_checkable

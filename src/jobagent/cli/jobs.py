@@ -9,12 +9,15 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.connectors.liepin import LiepinCliJobSource
 from jobagent.connectors.mock import MockJobSource
-from jobagent.errors import ContractValidationError, JobAgentError
+from jobagent.errors import ContractValidationError, JobAgentError, JobNotFoundError
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
 from jobagent.jobs.matching import MatchAggregator
 from jobagent.jobs.normalization import JobNormalizer
+from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
+from jobagent.jobs.query_derivation import SearchQueryDeriver
 from jobagent.jobs.ranking import JobRanker
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher
@@ -38,6 +41,16 @@ DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 DEFAULT_FIXTURE = Path(__file__).parents[1] / "connectors" / "fixtures" / "jobs.json"
 DatabaseOption = Annotated[Path, typer.Option("--database", help="Local SQLite path.")]
 FixtureOption = Annotated[Path, typer.Option("--fixture", help="Synthetic source JSON path.")]
+
+MOCK_CONNECTOR = "mock"
+LIEPIN_CONNECTOR = "liepin"
+SourceOption = Annotated[
+    str,
+    typer.Option(
+        "--source",
+        help="Read-only discovery connector: 'mock' (synthetic fixture) or 'liepin' (liepin-cli).",
+    ),
+]
 ModelT = TypeVar("ModelT", bound=ContractModel)
 
 jobs_app = typer.Typer(
@@ -94,12 +107,34 @@ def _emit_models(values: Sequence[ContractModel]) -> None:
     )
 
 
-def _source(path: Path) -> MockJobSource:
-    return MockJobSource.from_path(path)
+def _source(path: Path, connector: str = MOCK_CONNECTOR) -> JobDiscoverySource:
+    if connector == MOCK_CONNECTOR:
+        return MockJobSource.from_path(path)
+    if connector == LIEPIN_CONNECTOR:
+        raise ContractValidationError(
+            "Liepin publishes no JD text in search results, so it cannot produce a "
+            "full job observation. Use `jobagent jobs listings` instead.",
+            details={"connector": connector, "use_instead": "jobs listings"},
+        )
+    raise ContractValidationError(
+        "Unknown job discovery connector.",
+        details={"connector": connector, "known": [MOCK_CONNECTOR, LIEPIN_CONNECTOR]},
+    )
 
 
-def _normalized_job(source_job_id: str, fixture: Path) -> NormalizedJob:
-    return JobNormalizer().normalize(_source(fixture).fetch_job(source_job_id))
+def _listing_source(connector: str) -> JobListingSource:
+    if connector == LIEPIN_CONNECTOR:
+        return LiepinCliJobSource()
+    raise ContractValidationError(
+        "Unknown job listing connector.",
+        details={"connector": connector, "known": [LIEPIN_CONNECTOR]},
+    )
+
+
+def _normalized_job(
+    source_job_id: str, fixture: Path, connector: str = MOCK_CONNECTOR
+) -> NormalizedJob:
+    return JobNormalizer().normalize(_source(fixture, connector).fetch_job(source_job_id))
 
 
 def _repositories(
@@ -159,17 +194,61 @@ def _validated_requirements(
     return job, ReasoningJobRequirementExtractor(_ReviewedProvider(reviewed)).extract(job)
 
 
+@jobs_app.command("listings")
+def listings(
+    query: Annotated[str, typer.Argument(help="Job-title keyword.")] = "",
+    source: SourceOption = LIEPIN_CONNECTOR,
+    location: Annotated[str | None, typer.Option("--location")] = None,
+    company: Annotated[str | None, typer.Option("--company")] = None,
+) -> None:
+    """Search a listing source that publishes no JD text.
+
+    Listings drive discovery and hard filters only. Tailoring still needs the JD.
+    """
+    try:
+        results = _listing_source(source).search_listings(
+            JobSearchQuery(query=query, company=company, location=location)
+        )
+        _emit_models(list(results))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("suggest-queries")
+def suggest_queries(
+    candidate_id: str,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    location: Annotated[str | None, typer.Option("--location")] = None,
+    limit: Annotated[int, typer.Option("--limit", min=1, max=50)] = 10,
+) -> None:
+    """Derive ranked search terms from the candidate's confirmed knowledge base."""
+    try:
+        candidates, _ = _repositories(database)
+        profile = candidates.get_profile(candidate_id)
+        if profile is None:
+            raise JobNotFoundError(
+                "Candidate profile was not found.",
+                details={"candidate_id": candidate_id},
+            )
+        evidence = candidates.list_evidence(candidate_id)
+        deriver = SearchQueryDeriver(max_suggestions=limit)
+        _emit_model(deriver.derive(profile, evidence, location=location))
+    except JobAgentError as error:
+        _fail(error)
+
+
 @jobs_app.command("search")
 def search(
     query: Annotated[str, typer.Argument(help="Case-insensitive AND-token query.")] = "",
     fixture: FixtureOption = DEFAULT_FIXTURE,
+    source: SourceOption = MOCK_CONNECTOR,
     title: Annotated[str | None, typer.Option("--title")] = None,
     company: Annotated[str | None, typer.Option("--company")] = None,
     location: Annotated[str | None, typer.Option("--location")] = None,
 ) -> None:
-    """Search synthetic source observations and emit source contracts."""
+    """Search read-only source observations and emit source contracts."""
     try:
-        results = _source(fixture).search(
+        results = _source(fixture, source).search(
             JobSearchQuery(query=query, title=title, company=company, location=location)
         )
         _emit_models(list(results))
@@ -181,10 +260,11 @@ def search(
 def fetch(
     source_job_id: str,
     fixture: FixtureOption = DEFAULT_FIXTURE,
+    source: SourceOption = MOCK_CONNECTOR,
 ) -> None:
-    """Fetch one synthetic source observation by source ID."""
+    """Fetch one source observation by source ID."""
     try:
-        _emit_model(_source(fixture).fetch_job(source_job_id))
+        _emit_model(_source(fixture, source).fetch_job(source_job_id))
     except JobAgentError as error:
         _fail(error)
 
@@ -193,10 +273,11 @@ def fetch(
 def normalize(
     source_job_id: str,
     fixture: FixtureOption = DEFAULT_FIXTURE,
+    source: SourceOption = MOCK_CONNECTOR,
 ) -> None:
     """Normalize one source observation deterministically."""
     try:
-        _emit_model(_normalized_job(source_job_id, fixture))
+        _emit_model(_normalized_job(source_job_id, fixture, source))
     except JobAgentError as error:
         _fail(error)
 

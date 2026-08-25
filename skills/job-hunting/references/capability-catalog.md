@@ -22,7 +22,9 @@
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
-| `search` | 已落地 | `jobagent jobs search` |
+| `suggest_queries` | 已落地 | `jobagent jobs suggest-queries`(从已确认证据确定性推导检索词) |
+| `search` | 已落地 | `jobagent jobs search`(`--source mock` 合成 fixture,产出含 JD 的 `SourceJobRecord`) |
+| `search_listings` | 已落地 | `jobagent jobs listings`(`--source liepin`,产出**不含 JD** 的 `JobListing`) |
 | `fetch` | 已落地 | `jobagent jobs fetch` |
 | `normalize` | 已落地 | `jobagent jobs normalize` |
 | `dedupe` | 已落地 | `jobagent jobs dedupe` |

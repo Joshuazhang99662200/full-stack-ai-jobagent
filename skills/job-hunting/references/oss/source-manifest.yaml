@@ -1,5 +1,33 @@
-verified_at: "2026-08-21"
+verified_at: "2026-08-23"
 sources:
+  - project: "liepin-cli"
+    repository: "https://github.com/liepin-tech-2026/liepin-cil"
+    context_file: "liepin-cli.md"
+    verified_commit: "unpinned-2026-04-13"
+    license: "none-declared"
+    reuse_mode: "subprocess-only"
+    allowed_material: "documented CLI surface and JSON Schema field names"
+    required_attribution: "name the project; do not vendor source"
+    prohibited_use: >-
+      copying source into this repository (no license grant exists);
+      wiring `job apply` into Job Intelligence
+    risk: >-
+      no declared license, so only the process boundary is safe to depend on;
+      auth is a user-pasted x-user-token that expires and must be refreshed by the user
+  - project: "boss-helper"
+    repository: "https://github.com/Ocyss/boss-helper"
+    context_file: "boss-helper.md"
+    verified_commit: "unpinned-2026-08-18"
+    license: "MIT"
+    reuse_mode: "reference-only"
+    allowed_material: "observations about BOSS job-detail field structure"
+    required_attribution: "retain MIT notice if compatible material is ever copied"
+    prohibited_use: >-
+      porting its bulk-apply loop, automated greeting, or multi-account rotation;
+      these contradict the human-approval boundary and the stop conditions
+    risk: >-
+      it is a browser extension built for batch delivery and account rotation,
+      which is the opposite of this project's one-at-a-time approved delivery model
   - project: "AgentMesh-JobAgent"
     repository: "https://github.com/jiyangnan/AgentMesh-JobAgent"
     context_file: "agentmesh-jobagent.md"

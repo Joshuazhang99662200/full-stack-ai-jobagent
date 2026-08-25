@@ -35,12 +35,58 @@ class SourceJobRecord(ContractModel):
     collected_at: datetime
 
 
+class JobListing(ContractModel):
+    """A search-result row from a source that does not publish JD text.
+
+    Deliberately distinct from ``SourceJobRecord``: a listing carries only what a
+    result page exposes, so it can drive discovery and deterministic hard filters
+    but can never stand in for a full job observation during tailoring.
+    """
+
+    source: NonEmptyString
+    source_job_id: NonEmptyString
+    title: NonEmptyString
+    company: NonEmptyString
+    location: str | None = None
+    url: HttpUrl
+    salary_text: str | None = None
+    education: str | None = None
+    work_years: str | None = None
+    industry: str | None = None
+    company_size: str | None = None
+    financing_stage: str | None = None
+    company_tags: list[str] = Field(default_factory=list)
+    collected_at: datetime
+
+
 class JobSearchQuery(ContractModel):
     query: str = ""
     title: str | None = None
     company: str | None = None
     location: str | None = None
     source_job_id: str | None = None
+
+
+class SearchTermOrigin(StrEnum):
+    HEADLINE = "headline"
+    RECENT_TITLE = "recent_title"
+    SKILL = "skill"
+
+
+class SearchQuerySuggestion(ContractModel):
+    """One derived search term with the confirmed evidence that backs it."""
+
+    term: NonEmptyString
+    origin: SearchTermOrigin
+    support_count: Annotated[int, Field(ge=0)]
+    supporting_evidence_ids: list[EvidenceId] = Field(default_factory=list)
+    query: JobSearchQuery
+
+
+class SearchQuerySuggestionSet(ContractModel):
+    candidate_id: CandidateId
+    suggestions: list[SearchQuerySuggestion] = Field(default_factory=list)
+    skipped_unconfirmed_evidence_count: Annotated[int, Field(ge=0)] = 0
 
 
 class DeduplicationPolicy(ContractModel):

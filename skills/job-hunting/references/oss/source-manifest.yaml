@@ -1,5 +1,21 @@
-verified_at: "2026-08-23"
+verified_at: "2026-08-26"
 sources:
+  - project: "resume-builder"
+    repository: "https://github.com/StoneLL1/resume-builder"
+    context_file: "resume-builder.md"
+    verified_commit: "unpinned-2026-07-28"
+    license: "MIT"
+    reuse_mode: "downstream-skill"
+    allowed_material: "rendering pipeline, Chinese template selection, resume writing craft"
+    required_attribution: "retain MIT notice and name the project"
+    prohibited_use: >-
+      replacing the evidence contract or entailment verification;
+      its claim-map records whether a source exists, not whether a written
+      claim is entailed by the evidence it cites
+    risk: >-
+      its repackaging guidance is looser than this project's semantic-scope rule,
+      and its "bare description is as good as nothing" stance pressures toward
+      unevidenced numbers; this project's zero-unsupported-metric gate wins
   - project: "liepin-cli"
     repository: "https://github.com/liepin-tech-2026/liepin-cil"
     context_file: "liepin-cli.md"

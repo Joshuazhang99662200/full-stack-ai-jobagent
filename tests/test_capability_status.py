@@ -61,7 +61,7 @@ def test_catalog_declares_a_status_for_every_capability_row() -> None:
     ]
     assert rows
     for row in rows:
-        assert any(status in row for status in ("已落地", "仅契约", "未开始")), row
+        assert any(status in row for status in ("已落地", "仅契约", "未开始", "委托外部技能")), row
 
 
 def test_contract_only_capabilities_have_no_executable_entrypoint() -> None:

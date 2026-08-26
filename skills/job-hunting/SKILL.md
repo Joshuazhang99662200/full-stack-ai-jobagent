@@ -35,7 +35,7 @@ description: 用于证据接地的候选人入库、职位情报、JD 到简历�
 - **接入一个新平台**时,先读 [references/source-onboarding.md](references/source-onboarding.md) 的五档阶梯逐档评估,再按 [references/adding-a-source.md](references/adding-a-source.md) 写一份来源清单。来源是数据不是代码,内置来源只是参考实现。
 - 需要取得 JD 正文,或遇到平台门控(登录页、验证码、WAF)时,阅读 [references/jd-sources.md](references/jd-sources.md)。
 - 处理常规简历接地时,阅读 [references/resume-grounding.md](references/resume-grounding.md)。母版简历重构与 JD 定向改写请路由到 [optimizer/SKILL.md](optimizer/SKILL.md);该嵌套技能自行决定后续策略选择。
-- 处理简历渲染、模板或 ATS 关键词覆盖时,阅读 [references/rendering-ats.md](references/rendering-ats.md)。
+- 处理简历渲染、模板或 ATS 关键词覆盖时,阅读 [references/rendering-ats.md](references/rendering-ats.md)。排版与出 PDF 默认路由到外部技能 resume-builder;它是下游消费者,**不替代证据契约与蕴含校验**。
 - 撰写打招呼语、求职信或投递邮件时,阅读 [references/message-generation.md](references/message-generation.md)。
 - 处理预览、审批、投递、批量时,阅读 [references/hitl-approval.md](references/hitl-approval.md)。
 - 处理审计记录或投递结果回流时,阅读 [references/audit-feedback.md](references/audit-feedback.md)。

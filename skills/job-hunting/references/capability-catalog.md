@@ -7,6 +7,7 @@
 - **已落地** —— 有 Python 服务与 CLI 命令,现在就能调用。
 - **仅契约** —— 只有 Pydantic schema,没有服务、没有 CLI。**不要假装它可调用**;需要它时,产出经人工评审的类型化 JSON,并说明这一步尚未自动化。
 - **未开始** —— 连 schema 都还没有。
+- **委托外部技能** —— 本项目不实现,由一个外部 Agent Skill 承担;该技能是下游消费者,消费本项目已校验的产物,**不替代任何契约或门禁**。上游边界见 [oss/source-manifest.yaml](oss/source-manifest.yaml)。
 
 ## 候选人(Candidate)
 
@@ -47,7 +48,7 @@
 | `tailor` | 仅契约 | `OptimizedResumeItem`、`RewriteOperation` |
 | `verify` | 仅契约 | `ClaimLedger`、`VerificationReport`、`KeywordCoverageReport` |
 | `diff` | 仅契约 | `ResumeDiff`、`ResumeDiffItem` |
-| `render` | 未开始 | 无 schema;渲染约束见 [rendering-ats.md](rendering-ats.md) |
+| `render` | 委托外部技能 | 无本项目 schema;默认路由到 resume-builder(MIT)出 PDF,约束与边界见 [rendering-ats.md](rendering-ats.md) |
 
 优化器索引中的八个 `repo.*` capability 条目指向的 Python 代码**确实已经存在**,但它们的 Phase 2 adapter 尚未落地,因此优化器路由器无法执行它们。索引条目是可发现的元数据,不是可调用的入口。
 

@@ -51,6 +51,7 @@ class JobNormalizer:
             salary=salary,
             jd_raw=_canonical(record.jd_raw),
             recruiter=record.recruiter,
+            job_kind=record.job_kind,
             url=record.url,
             published_at=record.published_at,
             collected_at=record.collected_at,

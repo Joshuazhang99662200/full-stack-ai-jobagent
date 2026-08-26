@@ -53,6 +53,7 @@ class PublicPageJobDetailFetcher:
             salary_text=listing.salary_text,
             jd_raw=jd_raw,
             recruiter=recruiter,
+            job_kind=listing.job_kind,
             url=listing.url,
             collected_at=datetime.now(UTC),
         )

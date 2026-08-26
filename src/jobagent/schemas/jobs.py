@@ -51,6 +51,9 @@ class NormalizedJob(ContractModel):
     jd_raw: NonEmptyString
     recruiter: RecruiterInfo | None = None
     url: HttpUrl
+    # Required by some platforms at delivery time and must equal the value the
+    # search result carried, so it is threaded through rather than re-derived.
+    job_kind: str | None = None
     published_at: datetime | None = None
     collected_at: datetime
     provenance: list[ProvenanceRecord] = Field(min_length=1)

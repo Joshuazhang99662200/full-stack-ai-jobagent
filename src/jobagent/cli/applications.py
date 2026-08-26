@@ -17,6 +17,7 @@ from jobagent.applications.audit import ApplicationAuditor
 from jobagent.applications.delivery import DeliveryGate
 from jobagent.applications.ports import ApplicationDeliverySource
 from jobagent.applications.preview import ApplicationPreviewService
+from jobagent.connectors.factory import build_delivery_source
 from jobagent.errors import ContractValidationError, JobAgentError, UserInterventionRequiredError
 from jobagent.schemas.applications import (
     ApplicationPackage,
@@ -57,7 +58,19 @@ def _no_connector_installed(platform: str) -> NoReturn:
     )
 
 
-_connector_provider = _no_connector_installed
+def _installed_connector(platform: str) -> ApplicationDeliverySource:
+    """Resolve a reviewed connector, or refuse.
+
+    Platform names live in `connectors/`, never here: the delivery subsystem
+    stays platform-agnostic so an unsupported board cannot be reached by accident.
+    """
+    source = build_delivery_source(platform)
+    if source is None:
+        _no_connector_installed(platform)
+    return source
+
+
+_connector_provider = _installed_connector
 
 
 def _fail(error: JobAgentError) -> Never:
@@ -165,7 +178,10 @@ def send(
         request = DeliveryRequest(
             application_id=package.application_id,
             approval=approval,
-            **digests.as_dict(),
+            job_digest=digests.job_digest,
+            resume_digest=digests.resume_digest,
+            message_digest=digests.message_digest,
+            policy_digest=digests.policy_digest,
         )
         gate = DeliveryGate(source=source, auditor=_auditor(database), policy=DeliveryPolicy())
         _emit(gate.send(request, package))

@@ -114,6 +114,9 @@ def test_delivery_capabilities_declare_a_single_application_surface() -> None:
     """Nothing in the catalog may advertise a bulk delivery entrypoint."""
     text = CATALOG.read_text(encoding="utf-8")
     assert "一次只投一份" in text
-    assert "没有任何真实平台实现" in text
+    # A platform being readable never implies it may be submitted to, and a
+    # platform without a reviewed connector must still refuse.
+    assert "分开注册" in text
+    assert "其余平台" in text
     for forbidden in ("send-all", "send-batch", "applications batch", "applications bulk"):
         assert forbidden not in text, forbidden

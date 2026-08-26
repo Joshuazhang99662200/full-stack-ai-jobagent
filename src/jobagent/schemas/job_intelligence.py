@@ -31,6 +31,8 @@ class SourceJobRecord(ContractModel):
     jd_raw: NonEmptyString
     recruiter: RecruiterInfo | None = None
     url: HttpUrl
+    # Carried from the listing so delivery can echo the platform's own value.
+    job_kind: str | None = None
     published_at: datetime | None = None
     collected_at: datetime
 

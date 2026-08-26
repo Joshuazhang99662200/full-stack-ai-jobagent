@@ -62,12 +62,15 @@
 | `approve` | 已落地 | `jobagent applications approve`(必须带 `--confirm`) · `ApplicationApprovalService.approve` |
 | `send` | 已落地 | `jobagent applications send`(一次一份) · `DeliveryGate.send` |
 | `audit` | 已落地 | `jobagent applications audit-log` · `ApplicationAuditor.record_attempt`;策略见 [audit-feedback.md](audit-feedback.md) |
-| 平台投递连接器 | 未开始 | 只有端口 `ApplicationDeliverySource` 与测试替身;**没有任何真实平台实现** |
+| 平台投递连接器 | 已落地(仅猎聘) | `LiepinCliDeliverySource` 经 `liepin-cli job apply`;其余平台无连接器,`send` 一律拒绝并交人 |
 | `resume_compatibility` | 仅契约 | `ResumeCompatibilityResult`、`CompatibilityThresholds` |
 
-投递链路(prepare → preview → approve → send → audit)**已经可以执行**,但它到平台的最后一跳仍然缺失:仓库里没有任何真实连接器。因此 `send` 会以 `USER_INTERVENTION_REQUIRED` 停下来,要求人在平台上自己完成提交,再用 `audit-log` 回看记录。
+投递链路(prepare → preview → approve → send → audit)**已经可以执行**,猎聘的最后一跳也已接通。其余平台没有连接器,`send` 会以 `USER_INTERVENTION_REQUIRED` 停下,要求人在平台上自己完成提交,再用 `audit-log` 回看记录。
+
+投递连接器与寻源连接器**分开注册**:一个平台可读,从不意味着可以向它提交。
 这条链路上不可协商的几点:
 - **一次只投一份。** 没有任何命令、函数或参数接受多份申请,`DeliveryGate` 里也没有循环。批量投递属于 `BatchApplication` 契约,仍是仅契约状态,不要为它写编排代码。
+- **`job_kind` 只能来自搜索结果。** 上游要求它与搜索结果一致且「勿凭感觉填写」;取不到时投递直接拒绝,而不是在 1 与 2 之间猜——猜错会投到另一类职位上。
 - **审批不可绕过。** `send` 在提交前的最后一刻重新校验四个摘要;任何一处变化都会抛 `STALE_APPROVAL` 并写入审计。
 - **登录、CAPTCHA、验证、风控与限流不是重试理由。** 它们一律翻译为 `USER_INTERVENTION_REQUIRED`(限流按 `RISK_CONTROL` 上报),记入审计后交还控制权,按 [stop-conditions.md](stop-conditions.md) 停下。
 - **审计写在失败路径上。** 成功、失败、中止与审批过期都会各写一条记录;从未发生的尝试不写记录。

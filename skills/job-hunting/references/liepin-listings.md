@@ -22,7 +22,9 @@ jobagent jobs listings "AI Agent 产品负责人" --location 上海
 
 **绝不用摘要字段合成 `jd_raw`。** 把 `education`、`workYears`、`industry`、`companyTags` 拼成一段文本冒充 JD,会让下游的需求抽取、证据映射与可解释匹配全部建立在编造的文本上。这正是本项目最反对的静默降级。缺 JD 就是缺 JD,说出来,交给人补。
 
-`liepin-cli` 的 `job apply` 与 `resume` 写入子命令(`update-*`、`add-*`)**不接入**:投递属于独立边界,候选人的在线简历保持只读。改写只产出附件简历,不回写平台档案。`resume get` 只读,可用于接地。
+`liepin-cli` 的 `resume` 写入子命令(`update-*`、`add-*`)**不接入**:候选人的在线简历保持只读,改写只产出附件简历,不回写平台档案。`resume get` 只读,可用于接地。
+
+`job apply` **已接入,但只在投递边界内**:它由 `LiepinCliDeliverySource` 调用,而该连接器只能被 `DeliveryGate` 在重新校验人工审批之后触达。寻源侧永远够不到它——投递连接器与寻源连接器分开注册,一个平台可读从不意味着可以向它提交。投递时必须回填搜索结果给出的 `job_kind`,取不到就拒绝投递,不在 1 与 2 之间猜。
 
 ## listing 能做什么
 

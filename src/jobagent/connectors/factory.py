@@ -7,9 +7,11 @@ board never means editing dispatch logic scattered through the CLI.
 from dataclasses import replace
 from pathlib import Path
 
+from jobagent.applications.ports import ApplicationDeliverySource
 from jobagent.connectors.cli_source import CliListingSource
 from jobagent.connectors.extraction import DEFAULT_GATE_MARKERS, ExtractionRules
 from jobagent.connectors.gated import GatedJobSource
+from jobagent.connectors.liepin_delivery import LiepinCliDeliverySource
 from jobagent.connectors.mock import MockJobSource
 from jobagent.connectors.public_pages import PublicPageJobDetailFetcher
 from jobagent.errors import ContractValidationError
@@ -76,3 +78,14 @@ def build_detail_fetcher(
         "This source declares no job-description route.",
         details={"source": manifest.id, "kind": manifest.kind.value},
     )
+
+
+# Delivery connectors are registered separately from discovery on purpose: a
+# board being readable never implies it may be submitted to.
+_DELIVERY_CONNECTORS = {"liepin": LiepinCliDeliverySource}
+
+
+def build_delivery_source(platform: str) -> ApplicationDeliverySource | None:
+    """Return the reviewed delivery connector for a platform, or None."""
+    build = _DELIVERY_CONNECTORS.get(platform)
+    return None if build is None else build()

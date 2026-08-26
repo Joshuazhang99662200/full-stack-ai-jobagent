@@ -8,11 +8,13 @@ import typer
 from typer.core import TyperGroup
 from typer.testing import CliRunner
 
+from jobagent.applications.approval import ApplicationApprovalService
 from jobagent.cli import applications as applications_cli
 from jobagent.cli.app import app
 from jobagent.errors import UserInterventionRequiredError
 from jobagent.schemas.applications import (
     ApplicationPackage,
+    DeliveryPolicy,
     DeliveryResult,
     InterventionReason,
     SendResultStatus,
@@ -167,13 +169,21 @@ def preview(workspace: Path, variant_name: str = "variant.json") -> tuple[int, A
 
 
 def approved(workspace: Path) -> Path:
+    """Mint an approval through the service, because the CLI now requires a TTY.
+
+    That is the point of the gate: an automated caller must not be able to
+    approve on its own behalf through the documented command.
+    """
     code, package = preview(workspace)
     assert code == 0
     package_path = workspace / "package.json"
     package_path.write_text(json.dumps(package), encoding="utf-8")
-    code, approval = invoke("applications", "approve", str(package_path), "--confirm")
-    assert code == 0
-    (workspace / "approval.json").write_text(json.dumps(approval), encoding="utf-8")
+    record = ApplicationApprovalService().approve(
+        ApplicationPackage.model_validate(package),
+        DeliveryPolicy(),
+        confirmed=True,
+    )
+    (workspace / "approval.json").write_text(record.model_dump_json(), encoding="utf-8")
     return package_path
 
 
@@ -214,6 +224,21 @@ def test_approve_requires_an_explicit_confirmation(workspace: Path) -> None:
 
     assert code == 1
     assert payload["error"]["code"] == "APPROVAL_REQUIRED"
+
+
+def test_approve_refuses_without_an_interactive_terminal(workspace: Path) -> None:
+    """An agent driving the CLI has no TTY, so it cannot approve for itself."""
+    code, package = preview(workspace)
+    assert code == 0
+    package_path = workspace / "package.json"
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+
+    code, payload = invoke("applications", "approve", str(package_path), "--confirm")
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "APPROVAL_REQUIRED"
+    assert "interactive terminal" in payload["error"]["message"]
 
 
 def test_approve_mints_a_digest_bound_record(workspace: Path) -> None:
@@ -397,3 +422,93 @@ def test_audit_log_can_be_scoped_to_one_application(
 
     assert code == 0
     assert log == []
+
+
+def test_dry_run_reports_the_send_without_contacting_the_platform(
+    workspace: Path, connector: ConnectorHarness
+) -> None:
+    """A rehearsal must be able to reach a recruiter under no circumstances."""
+    package_path = approved(workspace)
+    stub = connector(
+        DeliveryResult(
+            application_id="APP_ALPHA_001",
+            status=SendResultStatus.SENT,
+            attempted_at=datetime(2026, 8, 26, 11, 0, tzinfo=UTC),
+        )
+    )
+
+    code, payload = invoke(
+        "applications",
+        "send",
+        str(package_path),
+        str(workspace / "approval.json"),
+        "--dry-run",
+        "--database",
+        str(workspace / "db.sqlite3"),
+    )
+
+    assert code == 0
+    assert isinstance(payload, dict)
+    assert payload["dry_run"]["would_send"] is True
+    assert payload["dry_run"]["application_id"]
+    assert stub.calls == [], "a dry run must not reach the connector"
+
+
+def test_dry_run_writes_no_audit_record(
+    workspace: Path, connector: ConnectorHarness
+) -> None:
+    """An attempt that never happened must not appear in the log."""
+    package_path = approved(workspace)
+    connector(
+        DeliveryResult(
+            application_id="APP_ALPHA_001",
+            status=SendResultStatus.SENT,
+            attempted_at=datetime(2026, 8, 26, 11, 0, tzinfo=UTC),
+        )
+    )
+    database = workspace / "db.sqlite3"
+
+    invoke(
+        "applications",
+        "send",
+        str(package_path),
+        str(workspace / "approval.json"),
+        "--dry-run",
+        "--database",
+        str(database),
+    )
+    code, payload = invoke("applications", "audit-log", "--database", str(database))
+
+    assert code == 0
+    assert payload == []
+
+
+def test_dry_run_still_refuses_a_stale_approval(
+    workspace: Path, connector: ConnectorHarness
+) -> None:
+    """A rehearsal that skipped the gates would report a green result falsely."""
+    package_path = approved(workspace)
+    connector(
+        DeliveryResult(
+            application_id="APP_ALPHA_001",
+            status=SendResultStatus.SENT,
+            attempted_at=datetime(2026, 8, 26, 11, 0, tzinfo=UTC),
+        )
+    )
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    package["message"] = "一条审批之后才改动的消息。"
+    package_path.write_text(json.dumps(package), encoding="utf-8")
+
+    code, payload = invoke(
+        "applications",
+        "send",
+        str(package_path),
+        str(workspace / "approval.json"),
+        "--dry-run",
+        "--database",
+        str(workspace / "db.sqlite3"),
+    )
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "STALE_APPROVAL"

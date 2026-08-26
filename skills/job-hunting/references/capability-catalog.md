@@ -59,8 +59,8 @@
 |---|---|---|
 | `generate`(消息) | 未开始 | 无 schema;策略见 [message-generation.md](message-generation.md) |
 | `prepare` / `preview` | 已落地 | `jobagent applications preview` · `ApplicationPreviewService.prepare`(校验未通过的简历变体会被拒绝) |
-| `approve` | 已落地 | `jobagent applications approve`(必须带 `--confirm`) · `ApplicationApprovalService.approve` |
-| `send` | 已落地 | `jobagent applications send`(一次一份) · `DeliveryGate.send` |
+| `approve` | 已落地 | `jobagent applications approve`(需 `--confirm` + **可交互终端** + 回填确认码) · `ApplicationApprovalService.approve` |
+| `send` | 已落地 | `jobagent applications send`(一次一份;`--dry-run` 走同样门禁但不触达平台) · `DeliveryGate.send` |
 | `audit` | 已落地 | `jobagent applications audit-log` · `ApplicationAuditor.record_attempt`;策略见 [audit-feedback.md](audit-feedback.md) |
 | 平台投递连接器 | 已落地(仅猎聘) | `LiepinCliDeliverySource` 经 `liepin-cli job apply`;其余平台无连接器,`send` 一律拒绝并交人 |
 | `resume_compatibility` | 仅契约 | `ResumeCompatibilityResult`、`CompatibilityThresholds` |
@@ -71,6 +71,7 @@
 这条链路上不可协商的几点:
 - **一次只投一份。** 没有任何命令、函数或参数接受多份申请,`DeliveryGate` 里也没有循环。批量投递属于 `BatchApplication` 契约,仍是仅契约状态,不要为它写编排代码。
 - **`job_kind` 只能来自搜索结果。** 上游要求它与搜索结果一致且「勿凭感觉填写」;取不到时投递直接拒绝,而不是在 1 与 2 之间猜——猜错会投到另一类职位上。
+- **审批必须由人在交互终端给出。** `--confirm` 是标志,自动调用方能自己打上;因此 approve 另需 TTY 与确认码回填。该门拦住驱动 CLI 的智能体,拦不住直接 import 服务层的调用方——人的边界在 CLI,不在库。
 - **审批不可绕过。** `send` 在提交前的最后一刻重新校验四个摘要;任何一处变化都会抛 `STALE_APPROVAL` 并写入审计。
 - **登录、CAPTCHA、验证、风控与限流不是重试理由。** 它们一律翻译为 `USER_INTERVENTION_REQUIRED`(限流按 `RISK_CONTROL` 上报),记入审计后交还控制权,按 [stop-conditions.md](stop-conditions.md) 停下。
 - **审计写在失败路径上。** 成功、失败、中止与审批过期都会各写一条记录;从未发生的尝试不写记录。

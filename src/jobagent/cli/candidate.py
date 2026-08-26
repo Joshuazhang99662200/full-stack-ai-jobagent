@@ -13,8 +13,12 @@ from jobagent.candidate.evidence import CandidateEvidenceService
 from jobagent.candidate.gaps import GapDetector
 from jobagent.candidate.interview import AdaptiveInterview
 from jobagent.candidate.readiness import CandidateReadinessService
-from jobagent.errors import ContractValidationError, JobAgentError
+from jobagent.capabilities import ReasoningProvider
+from jobagent.errors import AgentHandoffRequiredError, ContractValidationError, JobAgentError
 from jobagent.parsing.pdf_resume import PdfResumeParser
+from jobagent.reasoning.candidate_extractor import ReasoningCandidateDraftExtractor
+from jobagent.reasoning.claude import ClaudeReasoningProvider
+from jobagent.reasoning.handoff import AgentHandoffProvider
 from jobagent.schemas.candidate import (
     CandidateDraft,
     CandidateProfile,
@@ -28,6 +32,9 @@ from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
 
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
+DEFAULT_HANDOFF_DIR = Path(".jobagent/handoff")
+AGENT_PROVIDER = "agent"
+CLAUDE_PROVIDER = "claude"
 DatabaseOption = Annotated[Path, typer.Option("--database", help="Local SQLite database path.")]
 
 candidate_app = typer.Typer(help="Build and review the local candidate knowledge base.")
@@ -58,6 +65,34 @@ def _input_error(message: str) -> Never:
     _fail(ContractValidationError(message))
 
 
+def _emit_handoff(handoff: AgentHandoffRequiredError) -> None:
+    """Report a delegated reasoning step. A handoff is a pause, not a failure."""
+    typer.echo(
+        json.dumps(
+            {
+                "handoff": {
+                    "code": handoff.code,
+                    "message": handoff.message,
+                    "details": handoff.details,
+                }
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
+def _reasoning_provider(name: str, handoff_dir: Path, effort: str) -> ReasoningProvider:
+    if name == AGENT_PROVIDER:
+        return AgentHandoffProvider(handoff_dir)
+    if name == CLAUDE_PROVIDER:
+        return ClaudeReasoningProvider(effort=effort)  # type: ignore[arg-type]
+    raise ContractValidationError(
+        "Unknown reasoning provider.",
+        details={"provider": name, "known": [AGENT_PROVIDER, CLAUDE_PROVIDER]},
+    )
+
+
 def _required_profile(
     repository: SqliteCandidateRepository,
     candidate_id: str,
@@ -85,6 +120,45 @@ def ingest(
         parsed = PdfResumeParser().parse(resume_path, candidate_id)
         repository.save_resume(parsed)
         _emit(parsed)
+    except JobAgentError as error:
+        _fail(error)
+
+
+@candidate_app.command("onboard")
+def onboard(
+    candidate_id: str,
+    resume_path: Path,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    provider_name: Annotated[str, typer.Option("--provider")] = AGENT_PROVIDER,
+    handoff_dir: Annotated[Path, typer.Option("--handoff-dir")] = DEFAULT_HANDOFF_DIR,
+    effort: Annotated[str, typer.Option("--effort")] = "high",
+) -> None:
+    """Parse a PDF and turn it into a structured draft.
+
+    Default `--provider agent` needs no credentials: it emits a typed reasoning
+    request for the calling coding agent to satisfy. `--provider claude` calls the
+    Claude API instead, for headless runs.
+
+    Either way the extracted evidence stays unconfirmed; promoting it to canonical
+    evidence still requires an explicit `candidate confirm` per evidence ID.
+    """
+    try:
+        repository = _repository(database)
+        if repository.get_profile(candidate_id) is None:
+            repository.save_profile(CandidateProfile(id=candidate_id))
+        # Parsing is deterministic, so the resume and its page provenance are
+        # persisted before the reasoning step. A handoff pauses the workflow, and
+        # the evidence the agent writes back must have a resume row to cite.
+        parsed = PdfResumeParser().parse(resume_path, candidate_id)
+        repository.save_resume(parsed)
+        extractor = ReasoningCandidateDraftExtractor(
+            _reasoning_provider(provider_name, handoff_dir, effort)
+        )
+        draft = extractor.extract(parsed)
+        repository.save_draft(draft)
+        _emit(draft)
+    except AgentHandoffRequiredError as handoff:
+        _emit_handoff(handoff)
     except JobAgentError as error:
         _fail(error)
 

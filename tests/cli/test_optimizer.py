@@ -7,6 +7,7 @@ import typer
 from typer.core import TyperGroup
 from typer.testing import CliRunner
 
+from jobagent import skill_resources
 from jobagent.cli import optimizer as optimizer_cli
 from jobagent.cli.app import app
 from jobagent.errors import CapabilityRegistryError
@@ -20,13 +21,14 @@ def invoke(*args: str) -> tuple[int, object]:
     return result.exit_code, payload
 
 
-def test_optimizer_help_exposes_discovery_only() -> None:
+def test_optimizer_exposes_tailoring_but_never_delivery() -> None:
     root_command = typer.main.get_command(app)
     assert isinstance(root_command, TyperGroup)
     optimizer_command = root_command.commands["optimizer"]
 
     assert isinstance(optimizer_command, TyperGroup)
-    assert set(optimizer_command.commands) == {"capabilities"}
+    assert set(optimizer_command.commands) == {"capabilities", "tailor", "assemble"}
+    # Tailoring is in scope; approval and delivery never are.
     for forbidden in (
         "run",
         "rewrite",
@@ -49,7 +51,7 @@ def test_capabilities_emits_deterministic_snapshot_json() -> None:
     assert payload["schema_version"] == "1.0"
     assert payload["digest"].startswith("sha256:")
     ids = [entry["id"] for entry in payload["entries"]]
-    assert len(ids) == 14
+    assert len(ids) == 18
     assert ids == sorted(ids)
     assert "repo.candidate.detect-gaps" in ids
 
@@ -68,7 +70,7 @@ def test_capabilities_filters_by_kind_and_intent_without_forging_digest() -> Non
     assert policies["schema_version"] == "1.0"
     assert policies["source_digest"] == snapshot["digest"]
     assert "digest" not in policies
-    assert len(policies["entries"]) == 6
+    assert len(policies["entries"]) == 10
     assert [entry["id"] for entry in policies["entries"]] == sorted(
         entry["id"] for entry in policies["entries"]
     )
@@ -102,14 +104,15 @@ def test_default_skill_root_is_independent_of_working_directory(
 
     assert exit_code == 0
     assert isinstance(payload, dict)
-    assert len(payload["entries"]) == 14
+    assert len(payload["entries"]) == 18
 
 
 def test_packaged_skill_root_has_priority(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     package_root = tmp_path / "jobagent" / "optimizer"
     bundled_root = package_root / "resources" / "job-hunting"
     bundled_root.mkdir(parents=True)
-    monkeypatch.setattr(optimizer_cli.resources, "files", lambda package: package_root)
+    # Resolution lives in jobagent.skill_resources; the CLI delegates to it.
+    monkeypatch.setattr(skill_resources.resources, "files", lambda package: package_root)
 
     assert optimizer_cli._default_skill_root() == bundled_root
 

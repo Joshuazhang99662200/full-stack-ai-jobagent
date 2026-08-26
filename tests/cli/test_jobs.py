@@ -7,7 +7,13 @@ from jobagent.cli.app import app
 from jobagent.connectors.mock import MockJobSource
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.normalization import JobNormalizer
-from jobagent.schemas.candidate import CandidateProfile, Confidence, EvidenceItem, EvidenceType
+from jobagent.schemas.candidate import (
+    CandidateProfile,
+    Confidence,
+    EvidenceItem,
+    EvidenceType,
+    Skill,
+)
 from jobagent.schemas.common import SourceReference, SourceType
 from jobagent.schemas.job_intelligence import (
     CandidateFilterContext,
@@ -262,3 +268,68 @@ def test_pipeline_consumes_job_keyed_reviewed_files(tmp_path: Path) -> None:
     assert len(payload["normalized_jobs"]) == 3
     assert len(payload["ranked_jobs"]) == 2
     assert all(item["application_ready"] is False for item in payload["ranked_jobs"])
+
+
+def test_suggest_queries_reads_the_confirmed_candidate_knowledge_base(tmp_path: Path) -> None:
+    database = tmp_path / "jobagent.sqlite3"
+    db = Database(database)
+    db.migrate()
+    repository = SqliteCandidateRepository(db)
+    repository.save_profile(
+        CandidateProfile(
+            id="CAND_001",
+            headline="AI Agent Product Lead · CFA",
+            skills=[Skill(name="Multi-agent orchestration", evidence_ids=["EVID_A"])],
+        )
+    )
+    repository.upsert_evidence(
+        "CAND_001",
+        EvidenceItem(
+            id="EVID_A",
+            type=EvidenceType.SKILL,
+            statement="Designed a multi-agent orchestration layer.",
+            source=SourceReference(type=SourceType.RESUME, reference="RESUME_001#p1"),
+            confidence=Confidence.EXPLICIT,
+            user_confirmed=True,
+        ),
+    )
+
+    code, payload = invoke(
+        "jobs", "suggest-queries", "CAND_001", "--database", str(database), "--location", "Shanghai"
+    )
+
+    assert code == 0
+    assert isinstance(payload, dict)
+    terms = [item["term"] for item in payload["suggestions"]]
+    assert terms == ["AI Agent Product Lead", "Multi-agent orchestration"]
+    assert payload["suggestions"][1]["supporting_evidence_ids"] == ["EVID_A"]
+    assert {item["query"]["location"] for item in payload["suggestions"]} == {"Shanghai"}
+
+
+def test_suggest_queries_reports_a_missing_candidate(tmp_path: Path) -> None:
+    database = tmp_path / "jobagent.sqlite3"
+    code, payload = invoke("jobs", "suggest-queries", "CAND_404", "--database", str(database))
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "JOB_NOT_FOUND"
+
+
+def test_unknown_source_connector_is_rejected() -> None:
+    code, payload = invoke("jobs", "search", "python", "--source", "bogus")
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "CONTRACT_VALIDATION_ERROR"
+    assert "liepin" in payload["error"]["details"]["known"]
+    assert "mock" in payload["error"]["details"]["known"]
+
+
+def test_liepin_cannot_be_used_where_a_full_job_observation_is_required() -> None:
+    """Liepin has no JD text, so `jobs search` must redirect instead of faking one."""
+    code, payload = invoke("jobs", "search", "python", "--source", "liepin")
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "CONTRACT_VALIDATION_ERROR"
+    assert payload["error"]["details"]["use_instead"] == "jobs listings"

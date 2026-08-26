@@ -1,0 +1,11 @@
+schema_version: "1.0"
+id: zhaopin
+display_name: 智联招聘
+kind: public_page
+onboarding_tier: 4
+notes: >-
+  无官方 MCP/CLI,无官方开源仓库;职位详情页服务端渲染且 robots.txt 未禁止,
+  故走公开页面解析。单条、由人触发,不做批量扫描。
+detail:
+  start_headings: [职位描述, 岗位职责, 职位信息]
+  stop_headings: [职位福利, 公司介绍, 公司简介, 工作地址, 举报, 猜你喜欢, 相似职位]

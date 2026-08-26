@@ -1,0 +1,10 @@
+schema_version: "1.0"
+id: 51job
+display_name: 前程无忧
+kind: gated
+onboarding_tier: 5
+notes: 搜索与详情接口均返回 WAF 挑战,无可正当绕过的自动路径。
+gate:
+  gate: waf_challenge
+  detail: 搜索与详情接口返回阿里云 WAF 挑战(aliyun_waf_aa + 混淆 JS)。
+  manual_route: 在自己的浏览器中打开职位页,复制 JD 正文,用 `jobagent jobs ingest-jd` 提交。

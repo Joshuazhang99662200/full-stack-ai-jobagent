@@ -66,3 +66,25 @@ class JobNormalizationError(JobAgentError):
 
 class CapabilityRegistryError(JobAgentError):
     code = "CAPABILITY_REGISTRY_INVALID"
+
+
+class AgentHandoffRequiredError(JobAgentError):
+    """A reasoning step is waiting for the calling agent to produce typed output.
+
+    This is a pause, not a failure: the workflow emitted a complete request and
+    will resume once the agent writes the requested contract back.
+    """
+
+    code = "AGENT_HANDOFF_REQUIRED"
+
+
+class ApprovalRequiredError(JobAgentError):
+    """No human approval covers this exact application."""
+
+    code = "APPROVAL_REQUIRED"
+
+
+class UnverifiedResumeVariantError(JobAgentError):
+    """A variant that failed its quality gates must never reach a reviewer."""
+
+    code = "UNVERIFIED_RESUME_VARIANT"

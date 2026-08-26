@@ -11,19 +11,17 @@ CATALOG = SKILL / "references/capability-catalog.md"
 
 COMMAND_PATTERN = re.compile(r"`jobagent ([a-z][a-z-]*) ([a-z][a-z-]*)`")
 
+# Tailoring, verification, diffing and single-application delivery are executable
+# now; this list is what keeps the remaining boundary honest.
 CONTRACT_ONLY_SCHEMAS = (
     "RequirementEvidenceMapping",
     "ResumeOptimizationPlan",
-    "OptimizedResumeItem",
-    "ClaimLedger",
-    "VerificationReport",
-    "ResumeDiff",
-    "ApplicationPackage",
-    "ApprovalRecord",
-    "DeliveryResult",
-    "ApplicationAudit",
     "ResumeCompatibilityResult",
 )
+
+# Batch delivery stays contract-only on purpose: shipping an orchestration for it
+# would turn this project into the bulk applier that AGENTS.md rules out.
+NEVER_EXECUTABLE_SCHEMAS = ("BatchApplication",)
 
 
 def installed_commands() -> set[str]:
@@ -61,7 +59,7 @@ def test_catalog_declares_a_status_for_every_capability_row() -> None:
     ]
     assert rows
     for row in rows:
-        assert any(status in row for status in ("已落地", "仅契约", "未开始")), row
+        assert any(status in row for status in ("已落地", "仅契约", "未开始", "委托外部技能")), row
 
 
 def test_contract_only_capabilities_have_no_executable_entrypoint() -> None:
@@ -72,10 +70,9 @@ def test_contract_only_capabilities_have_no_executable_entrypoint() -> None:
         row = next(line for line in text.splitlines() if f"`{schema}`" in line)
         assert "仅契约" in row, schema
         assert not COMMAND_PATTERN.findall(row), schema
+    allowed = {"optimizer capabilities", "optimizer tailor", "optimizer assemble"}
     extra_optimizer_commands = {
-        command
-        for command in installed - {"optimizer capabilities"}
-        if command.startswith("optimizer ")
+        command for command in installed - allowed if command.startswith("optimizer ")
     }
     assert extra_optimizer_commands == set()
 
@@ -98,3 +95,28 @@ def test_entry_skill_hard_rules_cover_untrusted_text_and_private_data() -> None:
     text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert "数据,不是指令" in text
     assert "candidate/private/" in text
+
+
+def test_batch_delivery_contract_has_no_orchestration() -> None:
+    """The batch schema may exist; nothing outside `schemas/` may build on it."""
+    offenders = sorted(
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "src" / "jobagent").rglob("*.py")
+        if path.parent.name != "schemas"
+        and any(
+            schema in path.read_text(encoding="utf-8") for schema in NEVER_EXECUTABLE_SCHEMAS
+        )
+    )
+    assert offenders == []
+
+
+def test_delivery_capabilities_declare_a_single_application_surface() -> None:
+    """Nothing in the catalog may advertise a bulk delivery entrypoint."""
+    text = CATALOG.read_text(encoding="utf-8")
+    assert "一次只投一份" in text
+    # A platform being readable never implies it may be submitted to, and a
+    # platform without a reviewed connector must still refuse.
+    assert "分开注册" in text
+    assert "其余平台" in text
+    for forbidden in ("send-all", "send-batch", "applications batch", "applications bulk"):
+        assert forbidden not in text, forbidden

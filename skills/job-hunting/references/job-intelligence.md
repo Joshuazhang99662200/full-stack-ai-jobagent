@@ -4,7 +4,8 @@
 
 ## 必须遵守的阶段顺序
 
-1. 通过只读的 `JobDiscoverySource` 搜索。
+0. 先确认来源类型。`JobDiscoverySource` 直接给出含 JD 的 `SourceJobRecord`;`JobListingSource` 只给出无 JD 的 `JobListing`,必须先补齐 JD 正文才能进入第 2 步。listing 只能驱动发现与第 5 步的确定性硬过滤,不能进入需求抽取与匹配。详见 [liepin-listings.md](liepin-listings.md)。
+1. 通过只读的来源搜索。
 2. 归一化每一条 `SourceJobRecord`,不丢弃完整 JD。
 3. 对等价的观测记录去重,并保留全部溯源。
 4. 抽取原子的 `JobRequirement` 条目,并带上确切的 JD 源文片段。

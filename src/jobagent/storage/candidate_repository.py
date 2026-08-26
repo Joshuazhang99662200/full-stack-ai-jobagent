@@ -206,10 +206,21 @@ class SqliteCandidateRepository:
         resume: ParsedResume,
         timestamp: str,
     ) -> None:
+        owner = connection.execute(
+            "SELECT candidate_id FROM resume_ingestions WHERE resume_id = ?",
+            (resume.id,),
+        ).fetchone()
+        if owner is not None and owner["candidate_id"] != resume.candidate_id:
+            raise StorageError(
+                "Resume ID belongs to another candidate.",
+                details={"resume_id": resume.id, "candidate_id": resume.candidate_id},
+            )
         connection.execute(
             """
             INSERT INTO resume_ingestions (resume_id, candidate_id, resume_json, created_at)
             VALUES (?, ?, ?, ?)
+            ON CONFLICT(resume_id) DO UPDATE SET
+                resume_json = excluded.resume_json
             """,
             (resume.id, resume.candidate_id, resume.model_dump_json(), timestamp),
         )

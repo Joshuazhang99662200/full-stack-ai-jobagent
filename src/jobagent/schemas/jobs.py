@@ -13,10 +13,31 @@ JobId = Annotated[str, Field(pattern=r"^JOB_[A-Z0-9_]+$")]
 RequirementId = Annotated[str, Field(pattern=r"^REQ_[A-Z0-9_]+$")]
 
 
+class RecruiterType(StrEnum):
+    """Who is on the other side of the conversation.
+
+    `INTERNAL_UNSPECIFIED` is a real answer, not a placeholder: a listing often
+    proves the recruiter is employer-side without revealing whether they are HR
+    or the hiring manager. Collapsing that into a guess would route a rewrite on
+    an invented distinction.
+    """
+
+    HEADHUNTER = "headhunter"
+    HR = "hr"
+    HIRING_MANAGER = "hiring_manager"
+    INTERNAL_UNSPECIFIED = "internal_unspecified"
+    UNKNOWN = "unknown"
+
+
 class RecruiterInfo(ContractModel):
     name: str | None = None
     title: str | None = None
     contact_channel: str | None = None
+    organization: str | None = None
+    type: RecruiterType = RecruiterType.UNKNOWN
+    # Inferred, never observed. Routing must gate on this rather than trust `type`.
+    type_confidence: Annotated[float, Field(ge=0, le=1)] = 0.0
+    type_signals: list[str] = Field(default_factory=list)
 
 
 class NormalizedJob(ContractModel):
@@ -30,6 +51,9 @@ class NormalizedJob(ContractModel):
     jd_raw: NonEmptyString
     recruiter: RecruiterInfo | None = None
     url: HttpUrl
+    # Required by some platforms at delivery time and must equal the value the
+    # search result carried, so it is threaded through rather than re-derived.
+    job_kind: str | None = None
     published_at: datetime | None = None
     collected_at: datetime
     provenance: list[ProvenanceRecord] = Field(min_length=1)

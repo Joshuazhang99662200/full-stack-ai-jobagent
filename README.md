@@ -71,6 +71,54 @@ jobagent jobs match alpha-001 .\reviewed\requirements.json `
 
 使用 `jobs pipeline` 时,把已评审文件按 `JOB_ID.requirements.json` 与 `JOB_ID.matches.json` 放在同一个目录下。被拒绝的职位不需要 mappings 文件,因为确定性过滤会在匹配之前把它拦下。pipeline 输出的 `application_ready` 恒为 `false`;`REVIEW` 保持可见,交由人来裁决。
 
+### 结构化抽取(默认无需凭证)
+
+拉下本仓库执行它的**编码智能体就是推理引擎**。默认的 `--provider agent` 不调用任何模型 API,也不需要厂商凭证:
+
+```powershell
+jobagent candidate onboard CAND_001 .\candidate\private\source_resume.pdf
+```
+
+命令不会失败,而是输出一个 `AGENT_HANDOFF_REQUIRED` 载荷,并在 `.jobagent/handoff/` 下写一份自足的请求:任务指令、逐页简历正文,以及目标契约的完整 JSON Schema。智能体据此写出 JSON,再执行载荷里的 `resume_command` 完成校验与入库。解析这类确定性结果在暂停前已落库,因此中断安全。完整循环见[智能体推理](skills/job-hunting/references/agent-reasoning.md)。
+
+`--provider claude` 走真实 Claude API,只为无人值守场景保留,需要 `ANTHROPIC_API_KEY` 或 `ant auth login`。
+
+两条路径都受同一套约束:**抽取出的证据一律未确认**——提升为 canonical 证据仍需对每个 `EVID_*` 显式执行 `candidate confirm`,契约本身也会拒收已确认的草稿证据。指令禁止编造未写明的指标与规模,并把简历正文当作数据而非指令。
+
+### 补齐 JD 正文
+
+猎聘把 JD 放在公开详情页的服务端渲染 HTML 里,因此不需要登录、浏览器或 Cookie:
+
+```powershell
+jobagent jobs fetch-jd .\reviewed\listing.json
+```
+
+抽取是**有边界的**:JD 块在第一个后续小节处截断,因为原始页面还带着公司简介、防诈提示与推荐职位位。页面被登录墙拦截、缺少职位介绍段落或抽取结果过短时,一律报错而不是保存半截 JD——被污染的 JD 流进需求抽取,比没有 JD 危害大得多。
+
+单条、由人触发,不做批量爬取。
+
+### 用简历关键字检索
+
+`suggest-queries` 从候选人库**已确认**的证据里确定性地推导检索词并按信号强弱排序,每一条都带回支撑它的 Evidence ID:
+
+```powershell
+jobagent jobs suggest-queries CAND_001 --location 上海
+```
+
+它只做词项选择,不生成事实:所有词都已存在于 profile 中。未确认的证据不能支撑任何词项,会计入 `skipped_unconfirmed_evidence_count`。把输出的 `term` 接给 `jobs search` 即可。
+
+### 真实来源:猎聘 listing(只读)
+
+猎聘的搜索接口**不返回 JD 正文**,只返回结果页字段。因此它无法产出 `SourceJobRecord`,而是产出一个独立的 `JobListing` 契约:职位名、公司、地点、薪资、学历、年限、行业、公司标签、规模、融资阶段、详情页 URL。
+
+```powershell
+jobagent jobs listings "AI Agent 产品负责人" --location 上海
+```
+
+listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业都在),但**不能替代 JD**。定向改写仍需要 JD 正文,由人补齐后走 `jobs search` 那条完整链路。`jobs search --source liepin` 会被显式拒绝并指向本命令,而不是合成一段假 JD。
+
+需要先自行安装 [`liepin-cli`](https://github.com/liepin-tech-2026/liepin-cil) 并在可交互终端完成 `liepin-cli setup` 授权(粘贴猎聘官方 `x-user-token`)。该 CLI 的 `job apply` 与 `resume` 写入命令有意**不接入**——投递属于独立边界,在线简历保持只读。token 过期、401/403、验证码与风控一律返回 `USER_INTERVENTION_REQUIRED` 交还给人,不自动重试、不更换账号。
+
 搜索与 Job Intelligence 是只读的。它们不暴露平台导航、投递准备、审批或投递操作。
 
 ## Resume Optimizer 能力发现

@@ -1,0 +1,56 @@
+schema_version: "1.0"
+id: liepin
+display_name: 猎聘
+kind: listing_cli
+onboarding_tier: 1
+notes: >-
+  官方系 CLI(liepin-cli),用户自行粘贴 x-user-token 授权。只用只读的 job search;
+  其 job apply 与 resume 写入命令不接入。搜索结果不含 JD 正文,JD 由 detail 段补齐。
+
+listing:
+  command: [liepin-cli, job, search, --output, json]
+  query_options:
+    query: --job-name
+    location: --address
+    company: --company-name
+  envelope_keys: [jobs, data, list, records, items, result]
+  field_map:
+    source_job_id: [jobId, job_id, id, encryptJobId]
+    title: [jobName, job_name, title, name]
+    company: [company, compName, companyName, comp_name]
+    url: [jobDetailUrl, link, url, jobUrl, href]
+    location: [location, address, city, dq]
+    salary_text: [salary, salaryText, compensation]
+    education: [education, eduLevel]
+    work_years: [workYears, workExperience]
+    industry: [industry]
+    company_size: [companySize]
+    financing_stage: [financingStage]
+    # 上游把「直招 / 猎头」写成 jobType 或 jobKind,取值有 int 也有 str。
+    # 原样保留,后续步骤必须回填搜索结果给出的那个值,不得凭感觉填。
+    job_kind: [jobKind, jobType, job_kind]
+  intervention_markers:
+    - token
+    - unauthorized
+    - forbidden
+    - "401"
+    - "403"
+    - captcha
+    - 登录
+    - 未授权
+    - 无权限
+    - 验证码
+    - 风控
+    - 频繁
+
+detail:
+  start_headings: [职位介绍]
+  stop_headings: [其他信息, 公司简介, 猎聘温馨提示, 猜你喜欢, 举报]
+  gate_markers: [登录查看, 请登录, 登录后查看, 安全验证, 验证码, 访问过于频繁]
+  # 招聘方卡片:猎聘会自己标注「猎头」,据此可区分猎头与用人单位内部。
+  # 推荐职位栏渲染同样的 markup,所以必须限定在本职位自己的区块内。
+  recruiter_card:
+    block_marker: 'class="recruiter-container"'
+    block_limit: 2000
+    stop_tokens: [聊一聊, 立即沟通, 收藏]
+    noise_tokens: [在线, 已认证, 刚刚活跃]

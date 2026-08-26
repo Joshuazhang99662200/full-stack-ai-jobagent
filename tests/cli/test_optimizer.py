@@ -21,13 +21,14 @@ def invoke(*args: str) -> tuple[int, object]:
     return result.exit_code, payload
 
 
-def test_optimizer_help_exposes_discovery_only() -> None:
+def test_optimizer_exposes_tailoring_but_never_delivery() -> None:
     root_command = typer.main.get_command(app)
     assert isinstance(root_command, TyperGroup)
     optimizer_command = root_command.commands["optimizer"]
 
     assert isinstance(optimizer_command, TyperGroup)
-    assert set(optimizer_command.commands) == {"capabilities"}
+    assert set(optimizer_command.commands) == {"capabilities", "tailor", "assemble"}
+    # Tailoring is in scope; approval and delivery never are.
     for forbidden in (
         "run",
         "rewrite",

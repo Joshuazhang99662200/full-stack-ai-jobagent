@@ -43,11 +43,12 @@
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | 能力索引发现 | 已落地 | `jobagent optimizer capabilities`(只读 L0 元数据) |
+| `render` 前的完整改写链路 | 已落地 | `optimizer tailor` → 智能体写回 → `optimizer assemble` |
 | `retrieve_evidence` | 仅契约 | `RequirementEvidenceMapping` |
 | `plan` | 仅契约 | `ResumeOptimizationPlan`、`SectionOptimizationPlan` |
-| `tailor` | 仅契约 | `OptimizedResumeItem`、`RewriteOperation` |
-| `verify` | 仅契约 | `ClaimLedger`、`VerificationReport`、`KeywordCoverageReport` |
-| `diff` | 仅契约 | `ResumeDiff`、`ResumeDiffItem` |
+| `tailor` | 已落地 | `jobagent optimizer tailor`(按路由视角发出改写请求)→ `jobagent optimizer assemble`(校验并组装变体) |
+| `verify` | 已落地 | `ClaimVerifier`,在 `assemble` 内确定性执行;独立复核每条指标,不采信模型自评 |
+| `diff` | 已落地 | `ResumeDiffBuilder`,在 `assemble` 内由基础简历与变体机械推导 |
 | `render` | 委托外部技能 | 无本项目 schema;默认路由到 resume-builder(MIT)出 PDF,约束与边界见 [rendering-ats.md](rendering-ats.md) |
 
 优化器索引中的八个 `repo.*` capability 条目指向的 Python 代码**确实已经存在**,但它们的 Phase 2 adapter 尚未落地,因此优化器路由器无法执行它们。索引条目是可发现的元数据,不是可调用的入口。

@@ -25,6 +25,7 @@ _RESUME_COMMANDS = {
     "candidate.extract_draft.v1": "jobagent candidate import-draft {output_path}",
     "job.requirements.extract.v1": "jobagent jobs requirements {job_id} {output_path}",
     "job.match.evidence.v1": "jobagent jobs match {job_id} <requirements.json> {output_path}",
+    "resume.tailor.v1": "jobagent optimizer assemble {output_path} --variant-id <VARIANT_ID>",
 }
 
 

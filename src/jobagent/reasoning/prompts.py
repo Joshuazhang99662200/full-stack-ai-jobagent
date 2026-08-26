@@ -34,6 +34,19 @@ _TASKS: dict[str, tuple[str, tuple[str, ...]]] = {
         "彼此独立的要求合并为一条。",
         ("references/job-intelligence.md",),
     ),
+    "resume.tailor.v1": (
+        "你的任务:依据 JD 需求,把基础简历条目改写为面向该职位的变体,并逐条建立主张台账"
+        "(`ClaimLedger`)。`context.lens_policy` 是本次选定的改写视角正文,决定侧重、排序"
+        "与表述;它**不授权**引入任何新事实。每条主张必须引用支撑它的 `EVID_*`,并给出该"
+        "主张相对所引证据的蕴含状态。证据只够支撑更窄的表述时,就写更窄的表述;不足以支撑"
+        "时,如实标注而不是删掉证据不足的部分再写得漂亮一些。",
+        (
+            "references/evidence-policy.md",
+            "references/optimizer/evidence-contract.md",
+            "references/optimizer/quality-gates.md",
+            "references/rendering-ats.md",
+        ),
+    ),
     "job.match.evidence.v1": (
         "你的任务:把职位需求逐条映射到候选人的证据上。"
         "证据不足以支撑某条需求时,如实返回缺失状态——一个诚实的缺口远比一个"

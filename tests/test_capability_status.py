@@ -11,13 +11,11 @@ CATALOG = SKILL / "references/capability-catalog.md"
 
 COMMAND_PATTERN = re.compile(r"`jobagent ([a-z][a-z-]*) ([a-z][a-z-]*)`")
 
+# Tailoring, verification and diffing are executable now; approval and delivery
+# are not, and this list is what keeps that boundary honest.
 CONTRACT_ONLY_SCHEMAS = (
     "RequirementEvidenceMapping",
     "ResumeOptimizationPlan",
-    "OptimizedResumeItem",
-    "ClaimLedger",
-    "VerificationReport",
-    "ResumeDiff",
     "ApplicationPackage",
     "ApprovalRecord",
     "DeliveryResult",
@@ -72,10 +70,9 @@ def test_contract_only_capabilities_have_no_executable_entrypoint() -> None:
         row = next(line for line in text.splitlines() if f"`{schema}`" in line)
         assert "仅契约" in row, schema
         assert not COMMAND_PATTERN.findall(row), schema
+    allowed = {"optimizer capabilities", "optimizer tailor", "optimizer assemble"}
     extra_optimizer_commands = {
-        command
-        for command in installed - {"optimizer capabilities"}
-        if command.startswith("optimizer ")
+        command for command in installed - allowed if command.startswith("optimizer ")
     }
     assert extra_optimizer_commands == set()
 

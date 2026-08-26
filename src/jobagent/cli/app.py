@@ -4,6 +4,7 @@ import sys
 
 import typer
 
+from jobagent.cli.applications import applications_app
 from jobagent.cli.candidate import candidate_app
 from jobagent.cli.jobs import jobs_app
 from jobagent.cli.optimizer import optimizer_app
@@ -31,6 +32,7 @@ def main() -> None:
 app.add_typer(candidate_app, name="candidate")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(optimizer_app, name="optimizer")
+app.add_typer(applications_app, name="applications")
 
 
 if __name__ == "__main__":

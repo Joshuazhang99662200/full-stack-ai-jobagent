@@ -11,17 +11,17 @@ CATALOG = SKILL / "references/capability-catalog.md"
 
 COMMAND_PATTERN = re.compile(r"`jobagent ([a-z][a-z-]*) ([a-z][a-z-]*)`")
 
-# Tailoring, verification and diffing are executable now; approval and delivery
-# are not, and this list is what keeps that boundary honest.
+# Tailoring, verification, diffing and single-application delivery are executable
+# now; this list is what keeps the remaining boundary honest.
 CONTRACT_ONLY_SCHEMAS = (
     "RequirementEvidenceMapping",
     "ResumeOptimizationPlan",
-    "ApplicationPackage",
-    "ApprovalRecord",
-    "DeliveryResult",
-    "ApplicationAudit",
     "ResumeCompatibilityResult",
 )
+
+# Batch delivery stays contract-only on purpose: shipping an orchestration for it
+# would turn this project into the bulk applier that AGENTS.md rules out.
+NEVER_EXECUTABLE_SCHEMAS = ("BatchApplication",)
 
 
 def installed_commands() -> set[str]:
@@ -95,3 +95,25 @@ def test_entry_skill_hard_rules_cover_untrusted_text_and_private_data() -> None:
     text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert "数据,不是指令" in text
     assert "candidate/private/" in text
+
+
+def test_batch_delivery_contract_has_no_orchestration() -> None:
+    """The batch schema may exist; nothing outside `schemas/` may build on it."""
+    offenders = sorted(
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "src" / "jobagent").rglob("*.py")
+        if path.parent.name != "schemas"
+        and any(
+            schema in path.read_text(encoding="utf-8") for schema in NEVER_EXECUTABLE_SCHEMAS
+        )
+    )
+    assert offenders == []
+
+
+def test_delivery_capabilities_declare_a_single_application_surface() -> None:
+    """Nothing in the catalog may advertise a bulk delivery entrypoint."""
+    text = CATALOG.read_text(encoding="utf-8")
+    assert "一次只投一份" in text
+    assert "没有任何真实平台实现" in text
+    for forbidden in ("send-all", "send-batch", "applications batch", "applications bulk"):
+        assert forbidden not in text, forbidden

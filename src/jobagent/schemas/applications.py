@@ -49,6 +49,21 @@ class ApplicationPackage(ContractModel):
     prepared_at: datetime
 
 
+class DeliveryPolicy(ContractModel):
+    """The delivery rules a human approves alongside the artifacts.
+
+    Every field is pinned by contract, so no serialization of this policy can
+    describe a batch send, an approval bypass, or a retry after a platform asks
+    for a human. Changing any of them changes ``policy_digest`` and therefore
+    invalidates every approval minted under the old rules.
+    """
+
+    max_applications_per_request: Literal[1] = 1
+    require_verified_resume_variant: Literal[True] = True
+    require_matching_approval: Literal[True] = True
+    retry_on_user_intervention: Literal[False] = False
+
+
 class ApprovalRecord(ContractModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=True)
 

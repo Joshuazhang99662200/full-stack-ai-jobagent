@@ -58,11 +58,16 @@
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | `generate`(消息) | 未开始 | 无 schema;策略见 [message-generation.md](message-generation.md) |
-| `prepare` | 仅契约 | `ApplicationPackage` |
-| `preview` | 仅契约 | `ApplicationPackage`(预览态) |
-| `approve` | 仅契约 | `ApprovalRecord` |
-| `send` | 仅契约 | `DeliveryRequest`、`DeliveryResult` |
-| `audit` | 仅契约 | `ApplicationAudit`;策略见 [audit-feedback.md](audit-feedback.md) |
+| `prepare` / `preview` | 已落地 | `jobagent applications preview` · `ApplicationPreviewService.prepare`(校验未通过的简历变体会被拒绝) |
+| `approve` | 已落地 | `jobagent applications approve`(必须带 `--confirm`) · `ApplicationApprovalService.approve` |
+| `send` | 已落地 | `jobagent applications send`(一次一份) · `DeliveryGate.send` |
+| `audit` | 已落地 | `jobagent applications audit-log` · `ApplicationAuditor.record_attempt`;策略见 [audit-feedback.md](audit-feedback.md) |
+| 平台投递连接器 | 未开始 | 只有端口 `ApplicationDeliverySource` 与测试替身;**没有任何真实平台实现** |
 | `resume_compatibility` | 仅契约 | `ResumeCompatibilityResult`、`CompatibilityThresholds` |
 
-投递链路(prepare → preview → approve → send → audit)目前**没有任何可执行代码**。不要为了"跑通流程"而在技能内部临时实现审批或投递;缺少这些能力时,按 [stop-conditions.md](stop-conditions.md) 停下来交给人。
+投递链路(prepare → preview → approve → send → audit)**已经可以执行**,但它到平台的最后一跳仍然缺失:仓库里没有任何真实连接器。因此 `send` 会以 `USER_INTERVENTION_REQUIRED` 停下来,要求人在平台上自己完成提交,再用 `audit-log` 回看记录。
+这条链路上不可协商的几点:
+- **一次只投一份。** 没有任何命令、函数或参数接受多份申请,`DeliveryGate` 里也没有循环。批量投递属于 `BatchApplication` 契约,仍是仅契约状态,不要为它写编排代码。
+- **审批不可绕过。** `send` 在提交前的最后一刻重新校验四个摘要;任何一处变化都会抛 `STALE_APPROVAL` 并写入审计。
+- **登录、CAPTCHA、验证、风控与限流不是重试理由。** 它们一律翻译为 `USER_INTERVENTION_REQUIRED`(限流按 `RISK_CONTROL` 上报),记入审计后交还控制权,按 [stop-conditions.md](stop-conditions.md) 停下。
+- **审计写在失败路径上。** 成功、失败、中止与审批过期都会各写一条记录;从未发生的尝试不写记录。

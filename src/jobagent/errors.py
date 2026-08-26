@@ -76,3 +76,15 @@ class AgentHandoffRequiredError(JobAgentError):
     """
 
     code = "AGENT_HANDOFF_REQUIRED"
+
+
+class ApprovalRequiredError(JobAgentError):
+    """No human approval covers this exact application."""
+
+    code = "APPROVAL_REQUIRED"
+
+
+class UnverifiedResumeVariantError(JobAgentError):
+    """A variant that failed its quality gates must never reach a reviewer."""
+
+    code = "UNVERIFIED_RESUME_VARIANT"

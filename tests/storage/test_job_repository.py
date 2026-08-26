@@ -62,7 +62,7 @@ def repository_at(path: Path) -> tuple[Database, SqliteJobRepository]:
     return database, SqliteJobRepository(database)
 
 
-def test_v1_database_upgrades_to_v2_without_losing_candidate(tmp_path: Path) -> None:
+def test_v1_database_upgrades_to_latest_without_losing_candidate(tmp_path: Path) -> None:
     path = tmp_path / "jobagent.sqlite3"
     migration = (
         resources.files("jobagent.storage.migrations")
@@ -85,7 +85,7 @@ def test_v1_database_upgrades_to_v2_without_losing_candidate(tmp_path: Path) -> 
 
     assert SqliteCandidateRepository(database).get_profile("CAND_001") == profile
     with database.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
         assert (
             connection.execute(
                 "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='normalized_jobs'"

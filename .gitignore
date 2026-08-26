@@ -25,3 +25,6 @@ candidate/variants/
 .jobagent/cache/
 .jobagent/browser-profiles/
 .jobagent/sessions/
+
+# Agent worktrees
+.claude/worktrees/

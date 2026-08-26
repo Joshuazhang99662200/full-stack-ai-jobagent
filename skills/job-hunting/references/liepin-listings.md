@@ -8,6 +8,8 @@
 
 这不是缺陷,是该接口的设计意图:它面向「检索即投递」,不假设你会读 JD。
 
+结果里还带一个「直招 / 猎头」标记,键名是 `jobType` 或 `jobKind`(取值有 int 也有 str),映射进 `JobListing.job_kind` 并**原样保留**。上游明确要求 `--job-kind` 与搜索结果一致、不得凭感觉填写,所以它只能从搜索结果里带出来:缺失就是 `None`,绝不补默认值,也绝不从公司名或招聘方类型反推。
+
 因此猎聘实现 `JobListingSource` 而非 `JobDiscoverySource`,产出 `JobListing` 而非 `SourceJobRecord`。两个端口刻意分开,让「没有 JD」在类型层面无法被绕过。
 
 ```powershell

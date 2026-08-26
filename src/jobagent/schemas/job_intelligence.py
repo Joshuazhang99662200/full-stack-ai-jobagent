@@ -56,6 +56,11 @@ class JobListing(ContractModel):
     company_size: str | None = None
     financing_stage: str | None = None
     company_tags: list[str] = Field(default_factory=list)
+    # Carried verbatim because a later step has to echo the platform's own value
+    # back; upstream states it must agree with the search result it came from.
+    # Never infer it and never default it — a wrong kind is worse than no kind,
+    # and `None` truthfully says the search result did not carry one.
+    job_kind: str | None = None
     collected_at: datetime
 
 

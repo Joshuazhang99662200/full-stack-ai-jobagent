@@ -52,6 +52,11 @@ class ExtractionRules:
     stop_headings: tuple[str, ...] = ()
     gate_markers: tuple[str, ...] = field(default=DEFAULT_GATE_MARKERS)
     min_length: int = MIN_JD_LENGTH
+    # Absent when the board publishes no recruiter card.
+    recruiter_block_marker: str | None = None
+    recruiter_block_limit: int = 2000
+    recruiter_stop_tokens: tuple[str, ...] = ()
+    recruiter_noise_tokens: tuple[str, ...] = ()
 
 
 def extract_bounded(page: str, rules: ExtractionRules, *, job_id: str) -> str:
@@ -107,3 +112,30 @@ def _raise_for_gate(text: str, rules: ExtractionRules, job_id: str) -> None:
             "hint": "Open the posting in your own browser and supply the JD text.",
         },
     )
+
+
+def extract_recruiter_lines(page: str, rules: ExtractionRules) -> list[str]:
+    """Read the recruiter card as the flat run of short lines the boards render.
+
+    Class selectors proved brittle against real markup, so this reads the visible
+    sequence instead. Returns an empty list when the board declares no card or the
+    page does not contain one — never a guess.
+    """
+    if rules.recruiter_block_marker is None:
+        return []
+    start = page.find(rules.recruiter_block_marker)
+    if start < 0:
+        return []
+    block = page[start : start + rules.recruiter_block_limit]
+
+    lines: list[str] = []
+    for raw in strip_markup(block).split("\n"):
+        line = raw.strip()
+        if not line or "<" in line or line.startswith("class="):
+            continue
+        if any(stop in line for stop in rules.recruiter_stop_tokens):
+            break
+        if any(noise in line for noise in rules.recruiter_noise_tokens):
+            continue
+        lines.append(line)
+    return lines

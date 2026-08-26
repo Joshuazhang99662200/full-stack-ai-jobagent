@@ -11,9 +11,11 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 
-from jobagent.connectors.extraction import extract_bounded
+from jobagent.connectors.extraction import extract_bounded, extract_recruiter_lines
 from jobagent.errors import ContractValidationError, UserInterventionRequiredError
+from jobagent.jobs.recruiter import RecruiterClassifier
 from jobagent.schemas.job_intelligence import JobListing, SourceJobRecord
+from jobagent.schemas.jobs import RecruiterInfo
 from jobagent.schemas.sources import SourceManifest
 
 _USER_AGENT = "Mozilla/5.0 (compatible; JobAgent/1.0; +human-triggered single fetch)"
@@ -41,6 +43,7 @@ class PublicPageJobDetailFetcher:
             )
         page = self._read(str(listing.url))
         jd_raw = extract_bounded(page, self._rules, job_id=listing.source_job_id)
+        recruiter = self._recruiter(page, listing)
         return SourceJobRecord(
             source=listing.source,
             source_job_id=listing.source_job_id,
@@ -49,8 +52,28 @@ class PublicPageJobDetailFetcher:
             location=listing.location or "未标注",
             salary_text=listing.salary_text,
             jd_raw=jd_raw,
+            recruiter=recruiter,
             url=listing.url,
             collected_at=datetime.now(UTC),
+        )
+
+    def _recruiter(self, page: str, listing: JobListing) -> RecruiterInfo | None:
+        """Classify the posting's recruiter, or return None when none is published.
+
+        Routing gates on the resulting confidence, so an absent card must stay
+        absent rather than collapsing into a guessed type.
+        """
+        lines = extract_recruiter_lines(page, self._rules)
+        if not lines:
+            return None
+        name = lines[0]
+        affiliation = " ".join(lines[1:]).strip()
+        return RecruiterClassifier().classify(
+            name=name,
+            title=affiliation or None,
+            organization=(affiliation.split("·")[-1].strip() or None) if affiliation else None,
+            hiring_company=listing.company,
+            job_kind=listing.job_kind,
         )
 
     def _read(self, url: str) -> str:

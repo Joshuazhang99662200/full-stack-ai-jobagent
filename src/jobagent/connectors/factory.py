@@ -4,10 +4,11 @@ This is the only place that maps a source kind to an implementation, so adding a
 board never means editing dispatch logic scattered through the CLI.
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 from jobagent.connectors.cli_source import CliListingSource
-from jobagent.connectors.extraction import ExtractionRules
+from jobagent.connectors.extraction import DEFAULT_GATE_MARKERS, ExtractionRules
 from jobagent.connectors.gated import GatedJobSource
 from jobagent.connectors.mock import MockJobSource
 from jobagent.connectors.public_pages import PublicPageJobDetailFetcher
@@ -23,12 +24,22 @@ def extraction_rules(manifest: SourceManifest) -> ExtractionRules:
             details={"source": manifest.id},
         )
     spec = manifest.detail
-    return ExtractionRules(
+    card = spec.recruiter_card
+    rules = ExtractionRules(
         source=manifest.id,
         start_headings=tuple(spec.start_headings),
         stop_headings=tuple(spec.stop_headings),
-        **({"gate_markers": tuple(spec.gate_markers)} if spec.gate_markers else {}),
+        gate_markers=tuple(spec.gate_markers) if spec.gate_markers else DEFAULT_GATE_MARKERS,
         min_length=spec.min_length,
+    )
+    if card is None:
+        return rules
+    return replace(
+        rules,
+        recruiter_block_marker=card.block_marker,
+        recruiter_block_limit=card.block_limit,
+        recruiter_stop_tokens=tuple(card.stop_tokens),
+        recruiter_noise_tokens=tuple(card.noise_tokens),
     )
 
 

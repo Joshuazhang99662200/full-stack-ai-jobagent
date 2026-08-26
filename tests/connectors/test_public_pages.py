@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001 - fixtures reproduce real pages, which use CJK punctuation
 from datetime import UTC, datetime
 
 import pytest
@@ -178,3 +179,85 @@ def _opener_for(body: str):
         return Response()
 
     return opener
+
+
+# The recruiter card as Liepin actually renders it, including the recommended-job
+# rail that follows it. Recruiter typing silently became dead code once before:
+# the units stayed green while nothing in production produced a RecruiterInfo.
+LIEPIN_PAGE = """<html><body>
+<section class="recruiter-container">
+  <span class="name">{name}</span>
+  <span class="online off">3小时前在线</span>
+  <span class="certification">已认证</span>
+  <div class="title-box">{affiliation}</div>
+  <a class="btn-chat">聊一聊</a>
+</section>
+<div class="recruiter-info-box"><span class="name">邓女士</span>
+  <div class="title-box">另一家公司</div><a>聊一聊</a></div>
+职位介绍
+1、负责大模型产品设计工作，推动大模型技术在金融场景的深度应用。
+2、优化 Prompt 和智能体机制，提升投研场景的专业性与可靠性。
+其他信息
+</body></html>"""
+
+
+def liepin_listing(company: str) -> JobListing:
+    return JobListing(
+        source="liepin",
+        source_job_id="1976319881",
+        title="大模型产品经理（投研方向）",
+        company=company,
+        url="https://www.liepin.com/job/1976319881.shtml",
+        collected_at=datetime.now(UTC),
+    )
+
+
+def liepin_fetcher(page_html: str) -> PublicPageJobDetailFetcher:
+    return fetcher_for("liepin", _opener_for(page_html))
+
+
+def test_fetch_attaches_the_classified_recruiter() -> None:
+    """Regression: the fetcher must actually populate `recruiter`, not just parse a JD."""
+    html = LIEPIN_PAGE.format(name="孙女士", affiliation="宁波银行")
+    record = liepin_fetcher(html).fetch(liepin_listing("宁波银行"))
+
+    assert record.recruiter is not None
+    assert record.recruiter.name == "孙女士"
+    assert record.recruiter.organization == "宁波银行"
+    assert record.recruiter.type.value == "internal_unspecified"
+
+
+def test_platform_labelled_headhunter_is_classified_from_the_card() -> None:
+    html = LIEPIN_PAGE.format(name="许先生", affiliation="猎头 · 北京优九人才咨询有限公司")
+    record = liepin_fetcher(html).fetch(liepin_listing("某北京基金/证券/期货公司"))
+
+    assert record.recruiter is not None
+    assert record.recruiter.type.value == "headhunter"
+    assert record.recruiter.type_confidence == pytest.approx(0.95)
+
+
+def test_recruiter_extraction_ignores_the_recommended_job_rail() -> None:
+    """The rail renders the same markup; attributing its recruiter here is wrong."""
+    html = LIEPIN_PAGE.format(name="孙女士", affiliation="宁波银行")
+    record = liepin_fetcher(html).fetch(liepin_listing("宁波银行"))
+
+    assert record.recruiter is not None
+    assert record.recruiter.name != "邓女士"
+
+
+def test_absent_recruiter_card_yields_no_recruiter() -> None:
+    html = page(
+        "职位介绍\n负责大模型产品设计，推动大模型技术在金融场景的深度应用与端到端落地。\n其他信息"
+    )
+    record = liepin_fetcher(html).fetch(liepin_listing("宁波银行"))
+
+    assert record.recruiter is None
+
+
+def test_a_source_declaring_no_recruiter_card_never_invents_one() -> None:
+    html = page(
+        "职位描述\n负责产品设计与交付，推动方案在业务侧端到端落地并持续迭代优化。\n公司简介"
+    )
+    record = fetcher_for("zhaopin", _opener_for(html)).fetch(listing())
+
+    assert record.recruiter is None

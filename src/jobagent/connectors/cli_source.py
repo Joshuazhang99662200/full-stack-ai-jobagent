@@ -31,6 +31,9 @@ _OPTIONAL_FIELDS = (
     "industry",
     "company_size",
     "financing_stage",
+    # Passes through the same manifest-declared mapping as every other field, so
+    # a source that does not publish a job kind simply yields `None` here.
+    "job_kind",
 )
 
 

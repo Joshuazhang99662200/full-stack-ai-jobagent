@@ -57,6 +57,23 @@ class CliListingSpec(ContractModel):
         return self
 
 
+class RecruiterCardSpec(ContractModel):
+    """Where one board renders the recruiter for *this* posting.
+
+    Optional on purpose: a board that publishes no recruiter simply omits it and
+    the fetcher yields no `RecruiterInfo`, rather than guessing one.
+    """
+
+    # Bounded on purpose: recommended-job rails render the same markup, so an
+    # unbounded search would attribute another posting's recruiter to this one.
+    block_marker: NonEmptyString
+    block_limit: int = Field(default=2000, ge=1)
+    # The card ends here; anything past it belongs to neighbouring widgets.
+    stop_tokens: list[NonEmptyString] = Field(default_factory=list)
+    # Presence badges and the like, which are not part of an identity.
+    noise_tokens: list[NonEmptyString] = Field(default_factory=list)
+
+
 class PublicPageSpec(ContractModel):
     """Where one board's JD starts and stops inside a rendered page."""
 
@@ -65,6 +82,8 @@ class PublicPageSpec(ContractModel):
     # Wording the board uses when it withholds the posting. Never save a partial JD.
     gate_markers: list[NonEmptyString] = Field(default_factory=list)
     min_length: int = Field(default=30, ge=1)
+    recruiter_card: RecruiterCardSpec | None = None
+
 
 
 class GateSpec(ContractModel):

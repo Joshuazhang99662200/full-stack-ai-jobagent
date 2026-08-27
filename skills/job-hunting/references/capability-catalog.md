@@ -43,6 +43,7 @@
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | 能力索引发现 | 已落地 | `jobagent optimizer capabilities`(只读 L0 元数据) |
+| `base_resume` | 已落地 | `jobagent optimizer base-resume`(把已确认证据逐字投影为 `tailor` 的输入,不撰写内容) |
 | `render` 前的完整改写链路 | 已落地 | `optimizer tailor` → 智能体写回 → `optimizer assemble` |
 | `retrieve_evidence` | 仅契约 | `RequirementEvidenceMapping` |
 | `plan` | 仅契约 | `ResumeOptimizationPlan`、`SectionOptimizationPlan` |

@@ -70,7 +70,14 @@ def test_contract_only_capabilities_have_no_executable_entrypoint() -> None:
         row = next(line for line in text.splitlines() if f"`{schema}`" in line)
         assert "仅契约" in row, schema
         assert not COMMAND_PATTERN.findall(row), schema
-    allowed = {"optimizer capabilities", "optimizer tailor", "optimizer assemble"}
+    # `base-resume` only reads confirmed evidence and reshapes it; like the other
+    # three it neither approves nor delivers, which is what this boundary guards.
+    allowed = {
+        "optimizer capabilities",
+        "optimizer base-resume",
+        "optimizer tailor",
+        "optimizer assemble",
+    }
     extra_optimizer_commands = {
         command for command in installed - allowed if command.startswith("optimizer ")
     }

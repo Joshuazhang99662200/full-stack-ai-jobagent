@@ -2,7 +2,7 @@
 
 import json
 import typing
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Never
@@ -16,6 +16,7 @@ from jobagent.errors import (
     ContractValidationError,
     JobAgentError,
 )
+from jobagent.optimizer.base_resume import BaseResumeBuilder
 from jobagent.optimizer.diffing import ResumeDiffBuilder
 from jobagent.optimizer.index import CapabilityIndexLoader, CapabilityRegistryCompiler
 from jobagent.optimizer.routing import RewriteLensRouter
@@ -142,6 +143,44 @@ def capabilities(
             )
         )
     except (CapabilityRegistryError, ContractValidationError) as error:
+        _fail(error)
+
+
+def _observed_language(statements: Sequence[str]) -> str:
+    """Report the script the confirmed evidence is actually written in.
+
+    This is an observation about the text, not a guess about intent, and
+    `--language` overrides it whenever the observation is too coarse.
+    """
+    joined = "".join(statements)
+    return "zh" if any("一" <= character <= "鿿" for character in joined) else "en"
+
+
+@optimizer_app.command("base-resume")
+def base_resume(
+    candidate_id: str,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    language: Annotated[
+        str, typer.Option("--language", help="Override the observed document language.")
+    ] = "",
+) -> None:
+    """Project confirmed candidate evidence into the base resume `tailor` consumes.
+
+    Every item carries one confirmed evidence statement verbatim. This authors no
+    content: it is the missing link between the candidate knowledge base and the
+    optimizer, so tailoring starts from evidence instead of from a hand-written file.
+    """
+    try:
+        candidates, _ = _repositories(database)
+        evidence = candidates.list_evidence(candidate_id)
+        confirmed = [item.statement for item in evidence if item.user_confirmed]
+        document = BaseResumeBuilder().build(
+            candidate_id=candidate_id,
+            evidence=evidence,
+            language=language or _observed_language(confirmed),
+        )
+        typer.echo(document.model_dump_json(indent=2))
+    except JobAgentError as error:
         _fail(error)
 
 

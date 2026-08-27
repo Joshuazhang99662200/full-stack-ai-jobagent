@@ -9,6 +9,7 @@ from jobagent.applications.audit import ApplicationAuditor
 from jobagent.errors import StorageError
 from jobagent.schemas.applications import (
     ApplicationPackage,
+    ApprovalChannel,
     DeliveryPolicy,
     DeliveryResult,
     InterventionReason,
@@ -190,3 +191,27 @@ def test_audit_table_rejects_a_zero_attempt(tmp_path: Path) -> None:
             """,
             ("AUDIT_X_0000", "APP_X", 0, "sent", "{}", "now"),
         )
+
+
+def test_audit_records_which_channel_the_approval_came_through(
+    package: ApplicationPackage, tmp_path: Path
+) -> None:
+    """A log that claims a terminal it never had is a log that lies."""
+    service = ApplicationApprovalService()
+    approval = service.approve(
+        package,
+        POLICY,
+        confirmed=True,
+        channel=ApprovalChannel.AGENT_RELAY,
+        attestation="同意",
+        request=service.ask(package, POLICY),
+    )
+
+    audit = auditor(tmp_path).record_attempt(
+        package=package,
+        digests=compute_digests(package, POLICY),
+        approval=approval,
+        result=result(package),
+    )
+
+    assert audit.approval_channel is ApprovalChannel.AGENT_RELAY

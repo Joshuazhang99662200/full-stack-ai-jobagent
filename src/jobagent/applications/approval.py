@@ -23,7 +23,13 @@ from jobagent.errors import (
     StaleApprovalError,
     UnverifiedResumeVariantError,
 )
-from jobagent.schemas.applications import ApplicationPackage, ApprovalRecord, DeliveryPolicy
+from jobagent.schemas.applications import (
+    ApplicationPackage,
+    ApprovalChannel,
+    ApprovalRecord,
+    ApprovalRequest,
+    DeliveryPolicy,
+)
 from jobagent.schemas.common import ContractModel
 
 _PRODUCTION_TIMESTAMPS = frozenset({"prepared_at", "generated_at", "collected_at"})
@@ -121,6 +127,34 @@ def verify_approval_is_current(
 class ApplicationApprovalService:
     """Mint the one record that authorizes a single later delivery attempt."""
 
+    def ask(
+        self,
+        package: ApplicationPackage,
+        policy: DeliveryPolicy | None = None,
+        *,
+        asked_at: datetime | None = None,
+    ) -> ApprovalRequest:
+        """Pose the decision to a person, bound to exactly these artifacts.
+
+        Asking approves nothing. It exists so a relayed approval has something that
+        provably came before it, which is the part a planner must not skip: it may
+        carry a person's answer, never predict one.
+        """
+        digests = compute_digests(package, policy)
+        return ApprovalRequest(
+            request_id=f"ASK_{package.application_id.removeprefix('APP_')}",
+            application_id=package.application_id,
+            job_digest=digests.job_digest,
+            resume_digest=digests.resume_digest,
+            message_digest=digests.message_digest,
+            policy_digest=digests.policy_digest,
+            question=(
+                f"Approve delivering to {package.job.company} · {package.job.title}? "
+                f"resume={package.resume_variant.id} url={package.job.url}"
+            ),
+            asked_at=asked_at if asked_at is not None else datetime.now(UTC),
+        )
+
     def approve(
         self,
         package: ApplicationPackage,
@@ -129,6 +163,9 @@ class ApplicationApprovalService:
         confirmed: bool,
         approval_id: str | None = None,
         approved_at: datetime | None = None,
+        channel: ApprovalChannel = ApprovalChannel.INTERACTIVE_TERMINAL,
+        attestation: str = "",
+        request: ApprovalRequest | None = None,
     ) -> ApprovalRecord:
         """Return an approval, or refuse. ``confirmed`` must come from a person."""
         if not confirmed:
@@ -136,6 +173,8 @@ class ApplicationApprovalService:
                 "Approval requires an explicit human confirmation.",
                 details={"application_id": package.application_id},
             )
+        if channel is ApprovalChannel.AGENT_RELAY:
+            self._check_relayed_answer(package, policy, attestation, request)
         report = package.resume_variant.verification
         if not report.passed:
             raise UnverifiedResumeVariantError(
@@ -157,12 +196,58 @@ class ApplicationApprovalService:
                 resume_digest=digests.resume_digest,
                 message_digest=digests.message_digest,
                 policy_digest=digests.policy_digest,
+                channel=channel,
+                attestation=attestation.strip(),
+                request_id=request.request_id if request is not None else None,
             )
         except ValueError as error:
             raise ContractValidationError(
                 "Approval record does not satisfy its contract.",
                 details={"application_id": package.application_id},
             ) from error
+
+    @staticmethod
+    def _check_relayed_answer(
+        package: ApplicationPackage,
+        policy: DeliveryPolicy | None,
+        attestation: str,
+        request: ApprovalRequest | None,
+    ) -> None:
+        """Refuse any relayed decision the person was never actually asked for."""
+        if request is None:
+            raise ApprovalRequiredError(
+                "A relayed approval must answer a question that was posed first.",
+                details={
+                    "application_id": package.application_id,
+                    "why": "a planner must not decide before it holds the person's answer",
+                },
+            )
+        if not attestation.strip():
+            raise ApprovalRequiredError(
+                "A relayed approval must carry the person's own answer.",
+                details={"application_id": package.application_id},
+            )
+        if request.application_id != package.application_id:
+            raise ApprovalRequiredError(
+                "The question that was asked was about a different application.",
+                details={
+                    "application_id": package.application_id,
+                    "asked_about": request.application_id,
+                },
+            )
+        digests = compute_digests(package, policy)
+        asked = {lane: getattr(request, lane) for lane in _DIGEST_LANES}
+        current = digests.as_dict()
+        if asked != current:
+            raise ApprovalRequiredError(
+                "The artifacts changed after the question was asked, so the answer "
+                "was about something else.",
+                details={
+                    "application_id": package.application_id,
+                    "request_id": request.request_id,
+                    "changed": [lane for lane in _DIGEST_LANES if asked[lane] != current[lane]],
+                },
+            )
 
 
 def _derive_approval_id(application_id: str) -> str:

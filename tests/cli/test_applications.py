@@ -193,7 +193,7 @@ def test_applications_group_exposes_exactly_the_delivery_chain() -> None:
     group = root.commands["applications"]
 
     assert isinstance(group, TyperGroup)
-    assert set(group.commands) == {"preview", "approve", "send", "audit-log"}
+    assert set(group.commands) == {"preview", "ask", "approve", "send", "audit-log"}
     for forbidden in ("send-all", "batch", "bulk", "auto", "retry"):
         assert runner.invoke(app, ["applications", forbidden]).exit_code == 2
 
@@ -512,3 +512,91 @@ def test_dry_run_still_refuses_a_stale_approval(
     assert code == 1
     assert isinstance(payload, dict)
     assert payload["error"]["code"] == "STALE_APPROVAL"
+
+
+def package_file(workspace: Path) -> Path:
+    code, package = preview(workspace)
+    assert code == 0
+    path = workspace / "package.json"
+    path.write_text(json.dumps(package), encoding="utf-8")
+    return path
+
+
+def test_ask_poses_the_question_and_approves_nothing(workspace: Path) -> None:
+    package_path = package_file(workspace)
+
+    code, payload = invoke("applications", "ask", str(package_path))
+
+    assert code == 0
+    assert isinstance(payload, dict)
+    assert payload["request_id"] == "ASK_ALPHA_001"
+    assert payload["question"]
+    assert "approved_by" not in payload
+
+
+def test_relayed_approval_carries_the_persons_answer_without_a_terminal(
+    workspace: Path,
+) -> None:
+    """The agent may carry a decision it was given; it may not make one."""
+    package_path = package_file(workspace)
+    _, question = invoke("applications", "ask", str(package_path))
+    request_path = workspace / "request.json"
+    request_path.write_text(json.dumps(question), encoding="utf-8")
+
+    code, payload = invoke(
+        "applications", "approve", str(package_path),
+        "--confirm", "--request", str(request_path), "--answer", "同意投这个岗",
+    )
+
+    assert code == 0
+    assert isinstance(payload, dict)
+    assert payload["channel"] == "agent_relay"
+    assert payload["attestation"] == "同意投这个岗"
+    assert payload["request_id"] == "ASK_ALPHA_001"
+
+
+def test_relayed_approval_without_a_posed_question_is_refused(workspace: Path) -> None:
+    package_path = package_file(workspace)
+
+    code, payload = invoke(
+        "applications", "approve", str(package_path), "--confirm", "--answer", "同意",
+    )
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "APPROVAL_REQUIRED"
+
+
+def test_relayed_approval_without_an_answer_is_refused(workspace: Path) -> None:
+    package_path = package_file(workspace)
+    _, question = invoke("applications", "ask", str(package_path))
+    request_path = workspace / "request.json"
+    request_path.write_text(json.dumps(question), encoding="utf-8")
+
+    code, payload = invoke(
+        "applications", "approve", str(package_path),
+        "--confirm", "--request", str(request_path), "--answer", "   ",
+    )
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "APPROVAL_REQUIRED"
+
+
+def test_editing_the_package_after_asking_invalidates_the_answer(workspace: Path) -> None:
+    package_path = package_file(workspace)
+    _, question = invoke("applications", "ask", str(package_path))
+    request_path = workspace / "request.json"
+    request_path.write_text(json.dumps(question), encoding="utf-8")
+    edited = json.loads(package_path.read_text(encoding="utf-8"))
+    edited["message"] = "A different message the person never saw."
+    package_path.write_text(json.dumps(edited), encoding="utf-8")
+
+    code, payload = invoke(
+        "applications", "approve", str(package_path),
+        "--confirm", "--request", str(request_path), "--answer", "同意",
+    )
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "APPROVAL_REQUIRED"

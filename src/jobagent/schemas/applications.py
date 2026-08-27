@@ -12,6 +12,7 @@ from jobagent.schemas.optimizer import ResumeVariant
 
 ApplicationId = Annotated[str, Field(pattern=r"^APP_[A-Z0-9_]+$")]
 ApprovalId = Annotated[str, Field(pattern=r"^APPROVAL_[A-Z0-9_]+$")]
+ApprovalRequestId = Annotated[str, Field(pattern=r"^ASK_[A-Z0-9_]+$")]
 BatchId = Annotated[str, Field(pattern=r"^BATCH_[A-Z0-9_]+$")]
 AuditId = Annotated[str, Field(pattern=r"^AUDIT_[A-Z0-9_]+$")]
 
@@ -39,6 +40,20 @@ class SendResultStatus(StrEnum):
     USER_INTERVENTION_REQUIRED = "user_intervention_required"
 
 
+class ApprovalChannel(StrEnum):
+    """How the person's decision reached the record.
+
+    The channel is recorded rather than asserted. On a machine where the agent
+    holds the same shell the person does, no check here can prove which of them
+    typed a given character, so claiming to have proved it would be a lie in an
+    append-only log. What is enforced instead is the order: a relayed approval
+    cannot exist unless the question it answers was posed first.
+    """
+
+    INTERACTIVE_TERMINAL = "interactive_terminal"
+    AGENT_RELAY = "agent_relay"
+
+
 class ApplicationPackage(ContractModel):
     application_id: ApplicationId
     job: NormalizedJob
@@ -64,6 +79,24 @@ class DeliveryPolicy(ContractModel):
     retry_on_user_intervention: Literal[False] = False
 
 
+class ApprovalRequest(ContractModel):
+    """The question put to a person, bound to the artifacts it is about.
+
+    Posing a question is not approving. This exists so that a relayed approval can
+    be checked against something that demonstrably came first: the planner cannot
+    produce a decision it never asked for.
+    """
+
+    request_id: ApprovalRequestId
+    application_id: ApplicationId
+    job_digest: Digest
+    resume_digest: Digest
+    message_digest: Digest
+    policy_digest: Digest
+    question: NonEmptyString
+    asked_at: datetime
+
+
 class ApprovalRecord(ContractModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=True)
 
@@ -75,6 +108,12 @@ class ApprovalRecord(ContractModel):
     policy_digest: Digest
     approved_at: datetime
     approved_by: Literal["human"]
+    channel: ApprovalChannel = ApprovalChannel.INTERACTIVE_TERMINAL
+    # The person's own words, kept verbatim. Empty on the terminal channel, where
+    # the decision was a keystroke rather than a sentence.
+    attestation: str = ""
+    # Which posed question this answers. Always set on the relayed channel.
+    request_id: ApprovalRequestId | None = None
 
     def matches(
         self,
@@ -130,6 +169,9 @@ class ApplicationAudit(ContractModel):
     resume_digest: Digest
     message_digest: Digest
     approval_id: ApprovalId | None = None
+    # Which channel the approval came through, so the log states what happened
+    # rather than what the older terminal-only path used to imply.
+    approval_channel: ApprovalChannel | None = None
     attempt: Annotated[int, Field(ge=1)]
     result: SendResultStatus
     timestamp: datetime

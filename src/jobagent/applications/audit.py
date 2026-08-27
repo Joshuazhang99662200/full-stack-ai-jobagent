@@ -54,6 +54,7 @@ class ApplicationAuditor:
             resume_digest=digests.resume_digest,
             message_digest=digests.message_digest,
             approval_id=None if approval is None else approval.approval_id,
+            approval_channel=None if approval is None else approval.channel,
             attempt=attempt,
             result=result.status,
             timestamp=result.attempted_at,

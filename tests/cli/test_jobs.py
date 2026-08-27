@@ -26,6 +26,7 @@ from jobagent.schemas.job_intelligence import (
 from jobagent.schemas.jobs import JobRequirement, JobRequirementProfile, RequirementPriority
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
+from jobagent.storage.job_repository import SqliteJobRepository
 
 runner = CliRunner()
 FIXTURE = Path("src/jobagent/connectors/fixtures/jobs.json").resolve()
@@ -333,3 +334,71 @@ def test_liepin_cannot_be_used_where_a_full_job_observation_is_required() -> Non
     assert isinstance(payload, dict)
     assert payload["error"]["code"] == "CONTRACT_VALIDATION_ERROR"
     assert payload["error"]["details"]["use_instead"] == "jobs listings"
+
+
+def test_normalize_persists_the_job_so_a_real_posting_can_be_referenced_later(
+    tmp_path: Path,
+) -> None:
+    """Boards that publish no JD in search results cannot be re-fetched by source id."""
+    database_path = tmp_path / "jobagent.sqlite3"
+
+    normalize_code, normalized = invoke(
+        "jobs",
+        "normalize",
+        "alpha-001",
+        "--fixture",
+        str(FIXTURE),
+        "--database",
+        str(database_path),
+    )
+
+    assert normalize_code == 0
+    assert isinstance(normalized, dict)
+    stored = SqliteJobRepository(Database(database_path)).get_job(normalized["id"])
+    assert stored is not None
+    assert stored.id == normalized["id"]
+
+
+def test_requirements_accepts_a_stored_job_reference(tmp_path: Path) -> None:
+    database_path = tmp_path / "jobagent.sqlite3"
+    invoke(
+        "jobs", "normalize", "alpha-001",
+        "--fixture", str(FIXTURE), "--database", str(database_path),
+    )
+    requirements_path, _, job_id = reviewed_files(tmp_path)
+
+    code, payload = invoke(
+        "jobs",
+        "requirements",
+        job_id,
+        str(requirements_path),
+        "--database",
+        str(database_path),
+    )
+
+    assert code == 0
+    assert isinstance(payload, dict)
+    assert payload["job_id"] == job_id
+
+
+def test_stored_job_reference_without_a_database_is_a_structured_error(
+    tmp_path: Path,
+) -> None:
+    requirements_path, _, job_id = reviewed_files(tmp_path)
+
+    code, payload = invoke("jobs", "requirements", job_id, str(requirements_path))
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["details"]["job_id"] == job_id
+
+
+def test_source_job_ids_still_resolve_through_the_fixture(tmp_path: Path) -> None:
+    requirements_path, _, _ = reviewed_files(tmp_path)
+
+    code, payload = invoke(
+        "jobs", "requirements", "alpha-001", str(requirements_path), "--fixture", str(FIXTURE)
+    )
+
+    assert code == 0
+    assert isinstance(payload, dict)

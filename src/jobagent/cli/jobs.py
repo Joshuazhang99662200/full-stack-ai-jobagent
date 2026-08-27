@@ -44,6 +44,12 @@ from jobagent.storage.job_repository import SqliteJobRepository
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 DEFAULT_FIXTURE = Path(__file__).parents[1] / "connectors" / "fixtures" / "jobs.json"
 DatabaseOption = Annotated[Path, typer.Option("--database", help="Local SQLite path.")]
+OptionalDatabaseOption = Annotated[
+    Path | None,
+    typer.Option("--database", help="Local SQLite path, required for a `JOB_*` reference."),
+]
+# Normalized observations carry this prefix; anything else is a source job id.
+_STORED_JOB_PREFIX = "JOB_"
 FixtureOption = Annotated[Path, typer.Option("--fixture", help="Synthetic source JSON path.")]
 
 MOCK_CONNECTOR = "mock"
@@ -213,12 +219,37 @@ class _ReviewedDirectoryProvider:
             ) from error
 
 
+def _resolve_job(job_ref: str, fixture: Path, database: Path | None) -> NormalizedJob:
+    """Resolve either a stored `JOB_*` observation or a source job id.
+
+    A real posting reaches these commands only as a stored observation: boards that
+    publish no JD in their search results cannot be re-fetched by source id, so
+    normalizing once and referencing the result is the only route that works for them.
+    """
+    if not job_ref.startswith(_STORED_JOB_PREFIX):
+        return _normalized_job(job_ref, fixture)
+    if database is None:
+        raise ContractValidationError(
+            "A stored job reference needs the database that holds it.",
+            details={"job_id": job_ref, "missing_option": "--database"},
+        )
+    _, jobs = _repositories(database)
+    stored = jobs.get_job(job_ref)
+    if stored is None:
+        raise ContractValidationError(
+            "Stored job was not found.",
+            details={"job_id": job_ref, "database": str(database)},
+        )
+    return stored
+
+
 def _validated_requirements(
-    source_job_id: str,
+    job_ref: str,
     reviewed_path: Path,
     fixture: Path,
+    database: Path | None = None,
 ) -> tuple[NormalizedJob, JobRequirementProfile]:
-    job = _normalized_job(source_job_id, fixture)
+    job = _resolve_job(job_ref, fixture, database)
     reviewed = _load_model(reviewed_path, JobRequirementProfile)
     return job, ReasoningJobRequirementExtractor(_ReviewedProvider(reviewed)).extract(job)
 
@@ -361,10 +392,20 @@ def normalize(
     source_job_id: str,
     fixture: FixtureOption = DEFAULT_FIXTURE,
     source: SourceOption = MOCK_CONNECTOR,
+    database: OptionalDatabaseOption = None,
 ) -> None:
-    """Normalize one source observation deterministically."""
+    """Normalize one source observation deterministically.
+
+    With `--database` the observation is also stored, which is what lets the later
+    commands reference it by its `JOB_*` id. Storing an observation is not an
+    assessment of it.
+    """
     try:
-        _emit_model(_normalized_job(source_job_id, fixture, source))
+        job = _normalized_job(source_job_id, fixture, source)
+        if database is not None:
+            _, jobs = _repositories(database)
+            jobs.save_job(job)
+        _emit_model(job)
     except JobAgentError as error:
         _fail(error)
 
@@ -393,13 +434,16 @@ def dedupe(
 
 @jobs_app.command("requirements")
 def requirements(
-    source_job_id: str,
+    job_ref: str,
     reviewed_requirements: Path,
     fixture: FixtureOption = DEFAULT_FIXTURE,
+    database: OptionalDatabaseOption = None,
 ) -> None:
     """Revalidate reviewed requirement JSON against the exact job description."""
     try:
-        _, profile = _validated_requirements(source_job_id, reviewed_requirements, fixture)
+        _, profile = _validated_requirements(
+            job_ref, reviewed_requirements, fixture, database
+        )
         _emit_model(profile)
     except JobAgentError as error:
         _fail(error)
@@ -407,14 +451,17 @@ def requirements(
 
 @jobs_app.command("filter")
 def filter_job(
-    source_job_id: str,
+    job_ref: str,
     reviewed_requirements: Path,
     filter_context: Path,
     fixture: FixtureOption = DEFAULT_FIXTURE,
+    database: OptionalDatabaseOption = None,
 ) -> None:
     """Run deterministic candidate hard constraints for one job."""
     try:
-        job, profile = _validated_requirements(source_job_id, reviewed_requirements, fixture)
+        job, profile = _validated_requirements(
+            job_ref, reviewed_requirements, fixture, database
+        )
         context = _load_model(filter_context, CandidateFilterContext)
         _emit_model(
             HardFilterEngine().evaluate(
@@ -427,7 +474,7 @@ def filter_job(
 
 @jobs_app.command("match")
 def match(
-    source_job_id: str,
+    job_ref: str,
     reviewed_requirements: Path,
     reviewed_mappings: Path,
     candidate_id: str,
@@ -436,7 +483,9 @@ def match(
 ) -> None:
     """Revalidate reviewed mappings and compute a deterministic match result."""
     try:
-        job, profile = _validated_requirements(source_job_id, reviewed_requirements, fixture)
+        job, profile = _validated_requirements(
+            job_ref, reviewed_requirements, fixture, database
+        )
         candidate_repository, _ = _repositories(database)
         if candidate_repository.get_profile(candidate_id) is None:
             raise ContractValidationError(

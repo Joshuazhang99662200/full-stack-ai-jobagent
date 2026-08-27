@@ -132,3 +132,61 @@ def test_multiple_reject_reasons_keep_catalog_order() -> None:
         "LOCATION_HARD_CONSTRAINT",
         "ROLE_EXCLUSION",
     ]
+
+
+def test_city_constraint_accepts_a_district_scoped_posting() -> None:
+    """Boards publish `城市-区`; a candidate who accepts the city accepts its districts."""
+    normalized = job(location="上海-浦东新区")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["上海"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.PASS
+    assert result.reasons == []
+
+
+def test_district_constraint_reviews_a_city_scoped_posting() -> None:
+    """A city-wide posting may or may not sit in the district the candidate named."""
+    normalized = job(location="上海")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["上海-浦东新区"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.REVIEW
+    assert result.reasons[0].rule_id == "LOCATION_HARD_CONSTRAINT"
+
+
+def test_a_different_city_still_rejects() -> None:
+    normalized = job(location="北京-朝阳区")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["上海"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.REJECT
+    assert result.reasons[0].rule_id == "LOCATION_HARD_CONSTRAINT"
+
+
+def test_location_segments_never_match_on_a_bare_substring() -> None:
+    """`海` is a substring of `上海` but is not one of its segments."""
+    normalized = job(location="上海-浦东新区")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["海"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.REJECT

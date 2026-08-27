@@ -1,5 +1,6 @@
 """Deterministic candidate/job hard-filter rules."""
 
+import re
 from collections.abc import Callable
 
 from jobagent.errors import ContractValidationError
@@ -31,6 +32,23 @@ RuleResult = tuple[FilterDecision, FilterReason] | None
 
 def _normalized(value: str) -> str:
     return " ".join(value.casefold().split())
+
+
+def _location_prefixes(value: str) -> tuple[str, ...]:
+    """Every level of a hierarchical location, broadest first.
+
+    Boards publish a location as `城市-区`, while a candidate constraint names one
+    level of that hierarchy. Comparing the two as opaque strings rejects every
+    district-scoped posting, so they are compared level by level instead.
+
+    Only `-` and `·` are treated as separators. Both order their segments broad to
+    narrow, which is what makes a prefix meaningful; the Western `District, City`
+    ordering is the reverse and is deliberately left alone.
+    """
+    segments = [
+        segment.strip() for segment in re.split(r"[-·]", value) if segment.strip()
+    ]
+    return tuple("-".join(segments[: index + 1]) for index in range(len(segments)))
 
 
 class HardFilterEngine:
@@ -83,8 +101,22 @@ class HardFilterEngine:
             return None
         observed = _normalized(job.location)
         allowed = {_normalized(value) for value in context.allowed_locations}
-        if observed in allowed:
+        if allowed & set(_location_prefixes(observed)):
             return None
+        # The candidate named a level narrower than the posting: a city-wide
+        # posting may or may not sit in that district, so a person decides.
+        if policy.review_on_unknown and any(
+            observed in _location_prefixes(value) for value in allowed
+        ):
+            return (
+                FilterDecision.REVIEW,
+                FilterReason(
+                    rule_id="LOCATION_HARD_CONSTRAINT",
+                    message="Job location is broader than the candidate constraint.",
+                    observed_value=job.location,
+                    required_value=", ".join(context.allowed_locations),
+                ),
+            )
         if "remote" in observed:
             if context.remote_allowed is True:
                 return None

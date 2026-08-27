@@ -144,10 +144,26 @@ def _listing_source(connector: str, extra_dir: Path | None = None) -> JobListing
     return built
 
 
+def _normalizer_for(source_id: str, extra_dir: Path | None = None) -> JobNormalizer:
+    """Build a normalizer that knows the currency the publishing board quotes in.
+
+    The manifest is looked up by the source the record itself declares, so a record
+    keeps its own currency even when it is replayed through another route. An
+    unknown source simply declares no currency, and bare amounts stay unparsed.
+    """
+    registry = _registry(extra_dir)
+    wanted = source_id.casefold()
+    for manifest in registry.all():
+        if manifest.id.casefold() == wanted:
+            return JobNormalizer(default_currency=manifest.default_currency)
+    return JobNormalizer()
+
+
 def _normalized_job(
     source_job_id: str, fixture: Path, connector: str = MOCK_CONNECTOR
 ) -> NormalizedJob:
-    return JobNormalizer().normalize(_source(fixture, connector).fetch_job(source_job_id))
+    record = _source(fixture, connector).fetch_job(source_job_id)
+    return _normalizer_for(record.source).normalize(record)
 
 
 def _repositories(
@@ -362,7 +378,8 @@ def dedupe(
     """Merge duplicate observations while retaining every provenance record."""
     try:
         source = _source(fixture)
-        jobs = [JobNormalizer().normalize(source.fetch_job(item)) for item in source_job_ids]
+        records = [source.fetch_job(item) for item in source_job_ids]
+        jobs = [_normalizer_for(record.source).normalize(record) for record in records]
         result = JobDeduplicator().deduplicate(
             jobs,
             DeduplicationPolicy(near_duplicate_threshold=near_threshold),
@@ -466,7 +483,7 @@ def pipeline(
         candidate_repository, job_repository = _repositories(database)
         workflow = JobIntelligenceWorkflow(
             source=_source(fixture),
-            normalizer=JobNormalizer(),
+            normalizer=_normalizer_for(MOCK_CONNECTOR),
             deduplicator=JobDeduplicator(),
             requirement_extractor=ReasoningJobRequirementExtractor(provider),
             hard_filter=HardFilterEngine(),

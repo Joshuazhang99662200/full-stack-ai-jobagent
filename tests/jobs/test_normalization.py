@@ -73,3 +73,59 @@ def test_invalid_untrusted_source_record_returns_typed_error() -> None:
         JobNormalizer().normalize(invalid)
 
     assert captured.value.code == "NORMALIZATION_ERROR"
+
+
+def test_monthly_thousands_salary_parses_when_the_source_declares_a_currency() -> None:
+    """Chinese boards publish `40-60k`, which carries no currency of its own."""
+    normalized = JobNormalizer(default_currency="CNY").normalize(source_job(salary_text="40-60k"))
+
+    assert normalized.salary is not None
+    assert normalized.salary.currency == "CNY"
+    assert normalized.salary.minimum == 40000
+    assert normalized.salary.maximum == 60000
+    assert normalized.salary.period == "month"
+    assert normalized.warnings == []
+
+
+def test_annualisation_suffix_does_not_change_the_monthly_range() -> None:
+    """`·15薪` counts monthly payouts per year; the monthly range it annotates is unchanged."""
+    normalized = JobNormalizer(default_currency="CNY").normalize(
+        source_job(salary_text="30-60k·15薪")
+    )
+
+    assert normalized.salary is not None
+    assert normalized.salary.minimum == 30000
+    assert normalized.salary.maximum == 60000
+    assert normalized.salary.period == "month"
+
+
+def test_fractional_thousands_salary_parses() -> None:
+    normalized = JobNormalizer(default_currency="CNY").normalize(
+        source_job(salary_text="1.5-2.5k")
+    )
+
+    assert normalized.salary is not None
+    assert normalized.salary.minimum == 1500
+    assert normalized.salary.maximum == 2500
+
+
+def test_thousands_salary_stays_unparsed_without_a_declared_currency() -> None:
+    """Inventing a currency would be a fact the source never published."""
+    normalized = JobNormalizer().normalize(source_job(salary_text="40-60k"))
+
+    assert normalized.salary is None
+    assert normalized.warnings == ["SALARY_UNPARSED"]
+
+
+def test_declared_currency_does_not_override_an_explicit_one() -> None:
+    normalized = JobNormalizer(default_currency="CNY").normalize(source_job())
+
+    assert normalized.salary is not None
+    assert normalized.salary.currency == "DKK"
+
+
+def test_negotiable_salary_stays_unparsed_even_with_a_declared_currency() -> None:
+    normalized = JobNormalizer(default_currency="CNY").normalize(source_job(salary_text="面议"))
+
+    assert normalized.salary is None
+    assert normalized.warnings == ["SALARY_UNPARSED"]

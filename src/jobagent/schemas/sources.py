@@ -16,6 +16,7 @@ the boundary visible instead of leaving a silent hole.
 """
 
 from enum import StrEnum
+from typing import Annotated
 
 from pydantic import Field, model_validator
 
@@ -101,6 +102,9 @@ class SourceManifest(ContractModel):
     # Which onboarding tier this source was admitted at; see source-onboarding.md.
     onboarding_tier: int = Field(default=0, ge=0, le=5)
     notes: str = ""
+    # The currency this board quotes when it prints a bare amount such as `40-60k`.
+    # Left unset, such amounts stay unparsed rather than being assigned a guess.
+    default_currency: Annotated[str, Field(min_length=3, max_length=3)] | None = None
     listing: CliListingSpec | None = None
     detail: PublicPageSpec | None = None
     gate: GateSpec | None = None

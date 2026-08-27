@@ -2,6 +2,7 @@ schema_version: "1.0"
 id: liepin
 display_name: 猎聘
 kind: listing_cli
+default_currency: CNY
 onboarding_tier: 1
 notes: >-
   官方系 CLI(liepin-cli),用户自行粘贴 x-user-token 授权。只用只读的 job search;

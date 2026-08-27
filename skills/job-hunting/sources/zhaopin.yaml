@@ -2,6 +2,7 @@ schema_version: "1.0"
 id: zhaopin
 display_name: 智联招聘
 kind: public_page
+default_currency: CNY
 onboarding_tier: 4
 notes: >-
   无官方 MCP/CLI,无官方开源仓库;职位详情页服务端渲染且 robots.txt 未禁止,

@@ -77,6 +77,7 @@ def test_contract_only_capabilities_have_no_executable_entrypoint() -> None:
         "optimizer base-resume",
         "optimizer tailor",
         "optimizer assemble",
+        "optimizer review",
     }
     extra_optimizer_commands = {
         command for command in installed - allowed if command.startswith("optimizer ")

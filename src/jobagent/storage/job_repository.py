@@ -2,6 +2,7 @@
 
 import hashlib
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from jobagent.errors import StorageError
@@ -197,6 +198,23 @@ class SqliteJobRepository:
                 )
         except sqlite3.Error as error:
             self._raise_storage_error("save job match", error)
+
+    def latest_match_tiers(self, candidate_id: str, job_ids: Sequence[str]) -> dict[str, str]:
+        """The most recent match decision per job for this candidate."""
+        tiers: dict[str, str] = {}
+        try:
+            with self.database.connect() as connection:
+                for job_id in job_ids:
+                    row = connection.execute(
+                        "SELECT result_json FROM job_matches WHERE candidate_id = ? AND job_id = ? "
+                        "ORDER BY updated_at DESC LIMIT 1",
+                        (candidate_id, job_id),
+                    ).fetchone()
+                    if row is not None:
+                        tiers[job_id] = MatchResult.model_validate_json(row[0]).decision.value
+        except sqlite3.Error as error:
+            self._raise_storage_error("read match tiers", error)
+        return tiers
 
     def get_match(
         self,

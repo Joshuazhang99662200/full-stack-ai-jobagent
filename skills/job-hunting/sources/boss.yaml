@@ -9,4 +9,22 @@ notes: >-
 gate:
   gate: security_verification_redirect
   detail: 未登录的职位详情请求会被 302 到 web/passport/zp/security.html 安全验证页。
-  manual_route: 在自己的浏览器中打开职位页,复制 JD 正文,用 `jobagent jobs ingest-jd` 提交。
+  manual_route: 由宿主在用户自己登录的浏览器里读取(见 host_browser 与 browser-sourcing.md),用 `jobagent jobs import-observations` 入库;单条可用 `jobagent jobs add-jd`(已有 listing 时用 `jobagent jobs ingest-jd`)。
+default_currency: CNY
+host_browser:
+  search_url: "https://www.zhipin.com/web/geek/jobs?query={query}&city={city}"
+  city_codes: {上海: "101020100", 北京: "101010100", 杭州: "101210100", 深圳: "101280600"}
+  detail_url_prefixes: ["https://www.zhipin.com/job_detail/"]
+  stop_markers: ["passport/zp/security", "安全验证", "验证码", "访问异常"]
+  max_pages_per_session: 3
+  min_seconds_between_pages: 20
+  jd_headings: [职位描述]
+  detail_link_pattern: "/job_detail/"
+  jd_selector: ".job-sec-text"
+  reading_hints:
+    - 列表页的详情链接是相对地址 /job_detail/<id>.html,职位 id 取这一段。
+    - 列表页薪资数字用自定义字体渲染,读出来只有 "-K",以详情页 .job-banner .salary 为准。
+    - 详情页标题在 .job-banner .name h1,招聘方在 .job-boss-info,地址在 .location-address。
+    - 公司名取页面标题「_<公司>招聘-BOSS直聘」一段;.company-info a 可能命中侧栏推荐公司,不要用。
+    - JD 正文较长时分段读取(每段不超过 850 字),拼接前核对首尾衔接。
+    - 消息页列表每行 `.user-list li`:招聘者 `span.name-box > span.name-text`,公司是 name-box 里的第二个 span,头衔是 `i.vline` 之后的 span;最后一条消息 `span.last-msg-text`,时间 `span.time`。快照的 key 用“招聘者|公司”,不要把整段 name-box 文字当公司。

@@ -113,3 +113,60 @@ def test_limit_is_respected() -> None:
     confirmed = [evidence(item, confirmed=True) for item in ("EVID_A", "EVID_B", "EVID_C")]
     result = SearchQueryDeriver(max_suggestions=2).derive(profile_with(), confirmed)
     assert len(result.suggestions) == 2
+
+
+def stated(evidence_id: str, statement: str, *, confirmed: bool = True) -> EvidenceItem:
+    return EvidenceItem(
+        id=evidence_id,
+        type=EvidenceType.EXPERIENCE,
+        statement=statement,
+        source=SourceReference(type=SourceType.RESUME, reference="RESUME_001#p1"),
+        confidence=Confidence.EXPLICIT,
+        user_confirmed=confirmed,
+    )
+
+
+def test_target_role_drives_compact_terms_backed_by_evidence() -> None:
+    items = [
+        stated("EVID_A", "编排 13 个 Agent 协同完成尽调。"),
+        stated("EVID_B", "把提示词沉淀为模块化 Skill。"),
+        stated("EVID_C", "搭建跨厂商大模型评测框架。", confirmed=False),
+    ]
+
+    result = SearchQueryDeriver().derive(
+        profile_with(), items, target_roles=["AI Agent 产品经理"]
+    )
+
+    terms = [item.term for item in result.suggestions]
+    assert terms[0] == "AI Agent产品经理"
+    assert "Agent产品经理" in terms
+    assert "Skill产品经理" in terms
+    # Only confirmed evidence may back a modifier.
+    assert "大模型产品经理" not in terms
+    by_term = {item.term: item for item in result.suggestions}
+    assert by_term["Skill产品经理"].supporting_evidence_ids == ["EVID_B"]
+
+
+def test_target_role_drops_unrelated_past_titles_and_bare_skills() -> None:
+    items = [stated(item, "Agent work.") for item in ("EVID_A", "EVID_B", "EVID_C")]
+
+    result = SearchQueryDeriver().derive(
+        profile_with(), items, target_roles=["AI Agent 产品经理"]
+    )
+
+    terms = [item.term for item in result.suggestions]
+    assert "Analyst" not in terms
+    assert "Product Lead" not in terms
+    assert "Multi-agent orchestration" not in terms
+
+
+def test_without_target_roles_behaviour_is_unchanged() -> None:
+    confirmed = [evidence(item, confirmed=True) for item in ("EVID_A", "EVID_B", "EVID_C")]
+
+    result = SearchQueryDeriver().derive(profile_with(), confirmed, target_roles=[])
+
+    assert [item.term for item in result.suggestions][:3] == [
+        "AI Agent Product Lead",
+        "Product Lead",
+        "Analyst",
+    ]

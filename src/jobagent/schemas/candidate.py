@@ -274,11 +274,20 @@ class InterviewAnswer(ContractModel):
     question_id: QuestionId
     answer: NonEmptyString | None = None
     skipped: bool = False
+    # Numbers the candidate stated in this answer. Each value must appear in the
+    # answer text, so a metric records what was said rather than what was inferred.
+    metrics: list[MetricFact] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def require_answer_or_skip(self) -> "InterviewAnswer":
         if self.skipped == (self.answer is not None):
             raise ValueError("provide an answer or mark the question skipped")
+        if self.skipped and self.metrics:
+            raise ValueError("a skipped question cannot carry metrics")
+        stated = (self.answer or "").replace(",", "")
+        for metric in self.metrics:
+            if format(metric.value.normalize(), "f") not in stated:
+                raise ValueError(f"metric '{metric.name}' value is not stated in the answer")
         return self
 
 

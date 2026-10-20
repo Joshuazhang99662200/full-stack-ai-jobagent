@@ -24,3 +24,5 @@ class ReasoningHandoffRequest(ContractModel):
     output_schema: dict[str, Any] = Field(default_factory=dict)
     output_path: NonEmptyString
     resume_command: NonEmptyString
+    request_id: str = ""
+    resume_argv: list[str] = Field(default_factory=list)

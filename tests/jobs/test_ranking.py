@@ -72,3 +72,18 @@ def test_ranking_is_input_order_invariant() -> None:
     reverse = JobRanker().rank(list(reversed(assessments)))
 
     assert forward == reverse
+
+
+def test_preference_orders_jobs_within_a_tier_but_never_across_tiers() -> None:
+    preferred = assessment("JOB_PREFERRED", overall=0.7).model_copy(
+        update={"preference_score": 0.9, "preference_hits": ["金融投研"]}
+    )
+    plain = assessment("JOB_PLAIN", overall=0.95)
+    weaker = assessment(
+        "JOB_WEAK", match_decision=MatchDecision.POSSIBLE_MATCH, overall=0.9
+    ).model_copy(update={"preference_score": 1.0})
+
+    ranked = JobRanker().rank([plain, weaker, preferred])
+
+    assert [r.job_id for r in ranked] == ["JOB_PREFERRED", "JOB_PLAIN", "JOB_WEAK"]
+    assert ranked[0].preference_hits == ["金融投研"]

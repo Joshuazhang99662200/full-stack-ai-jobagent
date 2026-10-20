@@ -85,6 +85,7 @@ class AdaptiveInterview:
             id=evidence_id,
             type=self._evidence_type(question),
             statement=answer.answer,
+            metrics=answer.metrics,
             source=SourceReference(
                 type=SourceType.INTERVIEW,
                 reference=f"{question.id}:answer",

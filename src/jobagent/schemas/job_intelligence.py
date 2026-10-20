@@ -75,6 +75,8 @@ class JobSearchQuery(ContractModel):
 
 
 class SearchTermOrigin(StrEnum):
+    TARGET_ROLE = "target_role"
+    TARGET_VARIANT = "target_variant"
     HEADLINE = "headline"
     RECENT_TITLE = "recent_title"
     SKILL = "skill"
@@ -117,6 +119,14 @@ class DeduplicationResult(ContractModel):
     duplicate_groups: list[DuplicateGroup] = Field(default_factory=list)
 
 
+class PreferenceFactor(ContractModel):
+    """A theme the person wants more of, named by the words that signal it in a posting."""
+
+    name: NonEmptyString
+    terms: list[NonEmptyString] = Field(min_length=1)
+    weight: Annotated[float, Field(gt=0)] = 1.0
+
+
 class CandidateFilterContext(ContractModel):
     candidate_id: CandidateId
     allowed_locations: list[str] = Field(default_factory=list)
@@ -125,7 +135,17 @@ class CandidateFilterContext(ContractModel):
     languages: dict[str, str] = Field(default_factory=dict)
     education_levels: list[str] = Field(default_factory=list)
     minimum_compensation: MoneyRange | None = None
+    # A posting that states no salary ("面议") meets the floor instead of waiting
+    # for review. A stated salary is still compared with the floor.
+    unstated_compensation_passes: bool = False
     excluded_role_terms: list[str] = Field(default_factory=list)
+    # Phrases that keep a title past an excluded term ("AI投顾" past "投顾").
+    excluded_role_exceptions: list[str] = Field(default_factory=list)
+    # Themes that move a posting up within its match tier, and the searches to run first.
+    preferred_factors: list[PreferenceFactor] = Field(default_factory=list)
+    preferred_search_terms: list[str] = Field(default_factory=list)
+    # When set, a possible match gets a first greeting only at this preference or above.
+    possible_match_min_preference: Annotated[float, Field(ge=0, le=1)] | None = None
 
 
 class HardFilterPolicy(ContractModel):
@@ -200,6 +220,8 @@ class JobAssessment(ContractModel):
     match_result: MatchResult
     published_at: datetime | None = None
     must_have_score: Annotated[float, Field(ge=0, le=1)] = 0.0
+    preference_score: Annotated[float, Field(ge=0, le=1)] = 0.0
+    preference_hits: list[str] = Field(default_factory=list)
 
 
 class RankedJob(ContractModel):
@@ -209,6 +231,8 @@ class RankedJob(ContractModel):
     match_decision: MatchDecision
     overall: Annotated[float, Field(ge=0, le=1)]
     must_have_score: Annotated[float, Field(ge=0, le=1)]
+    preference_score: Annotated[float, Field(ge=0, le=1)] = 0.0
+    preference_hits: list[str] = Field(default_factory=list)
     application_ready: Literal[False] = False
     explanation: NonEmptyString
 
@@ -221,3 +245,29 @@ class JobIntelligenceRun(ContractModel):
     filter_results: dict[str, HardFilterResult]
     matches: dict[str, MatchResult]
     ranked_jobs: list[RankedJob]
+
+
+class ImportedObservation(ContractModel):
+    job_id: JobId
+    source: NonEmptyString
+    source_job_id: NonEmptyString
+    title: NonEmptyString
+    company: NonEmptyString
+    # Already stored before this import, so it is not a new find.
+    known_before: bool = False
+    # A first greeting already reached this job; do not list it for outreach again.
+    contacted: bool = False
+
+
+class RejectedObservation(ContractModel):
+    index: Annotated[int, Field(ge=0)]
+    source_job_id: str | None = None
+    # One of: invalid_record, no_host_route, url_outside_board, jd_too_short, gate_page.
+    reason: NonEmptyString
+
+
+class ObservationImportReport(ContractModel):
+    """What a host-captured batch became. Rejections name the broken rule, never the JD."""
+
+    stored: list[ImportedObservation] = Field(default_factory=list)
+    rejected: list[RejectedObservation] = Field(default_factory=list)

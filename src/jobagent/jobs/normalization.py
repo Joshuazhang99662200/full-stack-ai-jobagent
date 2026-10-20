@@ -27,6 +27,13 @@ _THOUSANDS_SALARY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _THOUSAND = Decimal(1000)
+# The same range written in Chinese units: `2.5-3万` (ten thousands) or `4000-8000元`.
+# Like the `k` form it is a monthly range; `·N薪` annotates it and never scales it.
+# Daily pay (`元/天`) does not match and stays unparsed rather than being guessed.
+_CHINESE_UNIT_SALARY_PATTERN = re.compile(
+    r"^(?P<minimum>\d+(?:\.\d+)?)-(?P<maximum>\d+(?:\.\d+)?)(?P<unit>万|元)(?:·\d+薪)?$"
+)
+_CHINESE_UNITS = {"万": Decimal(10000), "元": Decimal(1)}
 
 
 def _canonical(value: str) -> str:
@@ -100,14 +107,21 @@ class JobNormalizer:
                 ),
                 None,
             )
+        if self.default_currency is None:
+            return None, "SALARY_UNPARSED"
         thousands = _THOUSANDS_SALARY_PATTERN.fullmatch(canonical)
-        if thousands is None or self.default_currency is None:
+        chinese = _CHINESE_UNIT_SALARY_PATTERN.fullmatch(canonical)
+        if thousands is not None:
+            scale, found = _THOUSAND, thousands
+        elif chinese is not None:
+            scale, found = _CHINESE_UNITS[chinese.group("unit")], chinese
+        else:
             return None, "SALARY_UNPARSED"
         return (
             MoneyRange(
                 currency=self.default_currency,
-                minimum=Decimal(thousands.group("minimum")) * _THOUSAND,
-                maximum=Decimal(thousands.group("maximum")) * _THOUSAND,
+                minimum=Decimal(found.group("minimum")) * scale,
+                maximum=Decimal(found.group("maximum")) * scale,
                 period="month",
             ),
             None,

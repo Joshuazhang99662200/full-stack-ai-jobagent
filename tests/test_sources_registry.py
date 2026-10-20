@@ -130,3 +130,51 @@ def test_no_manifest_can_express_delivery() -> None:
     fields = set(SourceManifest.model_fields)
     for forbidden in ("apply", "submit", "deliver", "send", "credentials", "cookie"):
         assert forbidden not in fields
+
+
+def test_main_boards_declare_a_host_browser_route_with_stop_markers() -> None:
+    registry = SourceRegistry.default()
+
+    for source_id in ("boss", "zhaopin", "liepin"):
+        spec = registry.get(source_id).host_browser
+        assert spec is not None, source_id
+        assert "{query}" in spec.search_url
+        assert spec.detail_url_prefixes
+        assert spec.stop_markers
+    # The host route never turns a gated board into a repository-side scrape.
+    assert registry.get("boss").kind is SourceKind.GATED
+
+
+def test_host_browser_search_url_must_take_the_query(tmp_path: Path) -> None:
+    payload = {
+        **CUSTOM,
+        "host_browser": {
+            "search_url": "https://acme.example/jobs",
+            "detail_url_prefixes": ["https://acme.example/job/"],
+            "stop_markers": ["captcha"],
+        },
+    }
+    path = write(tmp_path, "acme", payload)
+
+    with pytest.raises(ContractValidationError, match="did not satisfy"):
+        load_manifest(path)
+
+
+def test_host_browser_spec_cannot_express_contact_or_delivery() -> None:
+    from jobagent.schemas.sources import HostBrowserSpec
+
+    fields = set(HostBrowserSpec.model_fields)
+    for forbidden in ("apply", "submit", "deliver", "send", "message", "credentials", "cookie"):
+        assert not any(forbidden in field for field in fields)
+
+
+def test_host_routes_carry_reading_hints_and_a_daily_read_cap() -> None:
+    registry = SourceRegistry.default()
+
+    for source_id in ("boss", "zhaopin"):
+        spec = registry.get(source_id).host_browser
+        assert spec is not None
+        assert spec.reading_hints, source_id
+        assert 1 <= spec.max_detail_reads_per_day <= 50
+    boss = registry.get("boss").host_browser
+    assert boss is not None and boss.detail_link_pattern == "/job_detail/"

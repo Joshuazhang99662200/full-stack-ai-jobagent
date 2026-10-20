@@ -14,6 +14,10 @@
 
 前三个用 `PublicPageJobDetailFetcher` / `LiepinJobDetailFetcher`,均**无需登录、无浏览器自动化、无 Cookie 复用**。
 
+## 宿主浏览器路径
+
+上表是仓库**自身**能否无登录取得 JD。主站真正的找岗位路径是宿主在用户自己登录的浏览器里搜索与读取,见 [browser-sourcing.md](browser-sourcing.md)。Boss 在仓库侧仍是 `gated`,但它的清单声明了 `host_browser` 入口,抓回的职位经 `jobs import-observations` 校验入库。
+
 ## 有边界的提取
 
 每个招聘页都在 JD 旁边渲染绝不能进入 `jd_raw` 的内容:公司简介、防诈提示、「猜你喜欢」推荐位。把它们拼进去会静默污染需求抽取,而污染过的 JD 比没有 JD 危害大得多。
@@ -34,6 +38,8 @@ jobagent jobs ingest-jd .\listing.json .\jd.txt
 ```
 
 这条路径不抓取任何东西,也不绕过任何门控——你本来就有权看那一页。
+
+没有 listing 的职位(用户截图、转发或自己在门控平台看到的)用 `jobagent jobs add-jd <jd.txt> --title … --company … --url … --database …` 直接入库,来源默认记为 `manual`。
 
 ## 用自己的登录态取数 ≠ 绕过反爬
 

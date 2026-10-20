@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -129,3 +130,30 @@ def test_negotiable_salary_stays_unparsed_even_with_a_declared_currency() -> Non
 
     assert normalized.salary is None
     assert normalized.warnings == ["SALARY_UNPARSED"]
+
+
+def test_ten_thousands_salary_parses_as_a_monthly_range() -> None:
+    normalizer = JobNormalizer(default_currency="CNY")
+
+    plain = normalizer.normalize(source_job(salary_text="2.5-3万"))
+    annual = normalizer.normalize(source_job(salary_text="3.5-5万·15薪"))
+
+    assert plain.salary is not None and annual.salary is not None
+    assert (plain.salary.minimum, plain.salary.maximum) == (Decimal(25000), Decimal(30000))
+    assert (annual.salary.minimum, annual.salary.maximum) == (Decimal(35000), Decimal(50000))
+    assert annual.salary.period == "month" and annual.warnings == []
+
+
+def test_yuan_salary_parses_but_daily_pay_stays_unparsed() -> None:
+    normalizer = JobNormalizer(default_currency="CNY")
+
+    monthly = normalizer.normalize(source_job(salary_text="4000-8000元"))
+    daily = normalizer.normalize(source_job(salary_text="150-200元/天"))
+
+    assert monthly.salary is not None
+    assert (monthly.salary.minimum, monthly.salary.maximum) == (Decimal(4000), Decimal(8000))
+    assert daily.salary is None and daily.warnings == ["SALARY_UNPARSED"]
+
+
+def test_chinese_units_still_need_a_declared_currency() -> None:
+    assert JobNormalizer().normalize(source_job(salary_text="2.5-3万")).salary is None

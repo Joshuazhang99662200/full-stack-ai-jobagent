@@ -22,6 +22,19 @@ _INJECTION_BOUNDARY = """\
 """
 
 _TASKS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "resume.verify.v1": (
+        "你的任务:独立复核每条简历主张与完整条目,产出 ClaimReviewSet。忽略生成时自标的 supported;"
+        "逐条从引用的已确认证据判断蕴含、指标口径、所有权和职责范围。"
+        "无关证据必须判 unsupported。"
+        "完整文本超出证据时判 partially_supported 或 contradicted。"
+        "复制给定 draft_digest 与 evidence_digest。"
+        "复核应作为单独推理步骤,只加载本请求提供的草稿与证据,不要沿用改写结论。",
+        (
+            "references/evidence-policy.md",
+            "references/optimizer/evidence-contract.md",
+            "references/optimizer/quality-gates.md",
+        ),
+    ),
     "candidate.extract_draft.v1": (
         "你的任务:把一份已解析的简历转换为结构化的候选人草稿(`CandidateDraft`)。"
         "每一条证据的 `source.reference` 必须使用 `evidence_policy.source_reference_format` "

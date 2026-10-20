@@ -24,7 +24,7 @@ jobagent candidate onboard CAND_001 .\candidate\private\source_resume.pdf
 
 1. 读 `request_path`。里面有 `instructions`(本次任务的规则)、`context`(源文本,例如逐页简历正文)、`output_schema`(目标契约的完整 JSON Schema)。
 2. 把符合 `output_schema` 的 JSON 写到 `output_path`。
-3. 执行 `resume_command`。它会按契约校验你的输出并入库。
+3. 按结构化 `resume_argv` 执行。它会按契约校验你的输出并入库。每个请求写入独立 ID 目录；`resume_command` 仅供阅读，路径带空格或跨 shell 时以 argv 为准。安装包模式通过 bootstrap 去掉 argv 首个 `jobagent` 后运行。
 
 握手是**暂停,不是失败**。解析这类确定性结果在暂停前已经落库,所以中断安全。
 
@@ -51,5 +51,9 @@ jobagent candidate onboard CAND_001 .\candidate\private\source_resume.pdf
 | `candidate.extract_draft.v1` | `jobagent candidate onboard` | `CandidateDraft` |
 | `job.requirements.extract.v1` | `jobagent jobs requirements`(消费已写好的 JSON) | `JobRequirementProfile` |
 | `job.match.evidence.v1` | `jobagent jobs match`(消费已写好的 JSON) | `RequirementMatchSet` |
+| `resume.tailor.v1` | `jobagent optimizer tailor` | `TailoredDraft` |
+| `resume.verify.v1` | `jobagent optimizer review` | `ClaimReviewSet` |
 
 职位侧的两个命令本来就消费类型化 JSON,因此在智能体模式下天然可用:你直接把文件写出来再调用即可,不需要先取一份请求。
+
+简历草稿的下一步是独立 review，再由 assemble 校验当前 request、草稿、证据和复核摘要。不能用生成自评代替独立判断。入库事实抽取仍由用户确认，结构验证不能证明模型内容正确。

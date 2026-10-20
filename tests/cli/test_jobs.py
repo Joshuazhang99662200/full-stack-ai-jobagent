@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -307,6 +308,40 @@ def test_suggest_queries_reads_the_confirmed_candidate_knowledge_base(tmp_path: 
     assert {item["query"]["location"] for item in payload["suggestions"]} == {"Shanghai"}
 
 
+def test_suggest_queries_accepts_target_roles(tmp_path: Path) -> None:
+    database = tmp_path / "jobagent.sqlite3"
+    db = Database(database)
+    db.migrate()
+    repository = SqliteCandidateRepository(db)
+    repository.save_profile(CandidateProfile(id="CAND_001", headline="Product Lead"))
+    repository.upsert_evidence(
+        "CAND_001",
+        EvidenceItem(
+            id="EVID_A",
+            type=EvidenceType.SKILL,
+            statement="Designed a multi-agent orchestration layer for AI Agent products.",
+            source=SourceReference(type=SourceType.RESUME, reference="RESUME_001#p1"),
+            confidence=Confidence.EXPLICIT,
+            user_confirmed=True,
+        ),
+    )
+
+    code, payload = invoke(
+        "jobs",
+        "suggest-queries",
+        "CAND_001",
+        "--database",
+        str(database),
+        "--target-role",
+        "AI Agent 产品经理",
+    )
+
+    assert code == 0, payload
+    assert isinstance(payload, dict)
+    terms = [item["term"] for item in payload["suggestions"]]
+    assert terms[:3] == ["AI Agent产品经理", "AI产品经理", "Agent产品经理"]
+
+
 def test_suggest_queries_reports_a_missing_candidate(tmp_path: Path) -> None:
     database = tmp_path / "jobagent.sqlite3"
     code, payload = invoke("jobs", "suggest-queries", "CAND_404", "--database", str(database))
@@ -402,3 +437,204 @@ def test_source_job_ids_still_resolve_through_the_fixture(tmp_path: Path) -> Non
 
     assert code == 0
     assert isinstance(payload, dict)
+
+
+# Full-width punctuation is deliberate: real JDs carry it and normalization folds it.
+MANUAL_JD = (
+    "岗位职责：主导 Skill 平台的产品设计与落地，输出 PRD 与原型。"  # noqa: RUF001
+    "任职要求：熟悉 Skill、Agent、Workflow 的设计，能用 Claude Code 独立做出可运行的原型。"  # noqa: RUF001
+)
+
+
+def _add_jd(tmp_path: Path, *extra: str) -> tuple[int, object, Path]:
+    database_path = tmp_path / "jobagent.sqlite3"
+    jd_path = tmp_path / "jd.txt"
+    jd_path.write_text(MANUAL_JD, encoding="utf-8")
+    code, payload = invoke(
+        "jobs",
+        "add-jd",
+        str(jd_path),
+        "--title",
+        "Skill 平台产品经理",
+        "--company",
+        "LoomLoom",
+        "--url",
+        "https://example.com/jobs/loomloom",
+        "--database",
+        str(database_path),
+        *extra,
+    )
+    return code, payload, database_path
+
+
+def test_add_jd_stores_a_user_supplied_posting_as_a_job(tmp_path: Path) -> None:
+    code, job, database_path = _add_jd(tmp_path, "--location", "上海")
+
+    assert code == 0
+    assert isinstance(job, dict)
+    assert job["id"].startswith("JOB_")
+    stored = SqliteJobRepository(Database(database_path)).get_job(job["id"])
+    assert stored is not None
+    assert stored.jd_raw == unicodedata.normalize("NFKC", MANUAL_JD)
+    assert stored.provenance[0].source == "manual"
+
+
+def test_add_jd_job_feeds_requirement_revalidation(tmp_path: Path) -> None:
+    _, job, database_path = _add_jd(tmp_path)
+    assert isinstance(job, dict)
+    requirements_path = tmp_path / "requirements.json"
+    profile = JobRequirementProfile(
+        job_id=job["id"],
+        requirements=[
+            JobRequirement(
+                id="REQ_SKILL",
+                statement="熟悉 Skill、Agent、Workflow 的设计",
+                category="agent_design",
+                priority=RequirementPriority.MUST,
+                source_span="熟悉 Skill、Agent、Workflow 的设计",
+            )
+        ],
+    )
+    requirements_path.write_text(profile.model_dump_json(), encoding="utf-8")
+
+    code, payload = invoke(
+        "jobs", "requirements", job["id"], str(requirements_path), "--database", str(database_path)
+    )
+
+    assert code == 0, payload
+    assert isinstance(payload, dict) and payload["job_id"] == job["id"]
+
+
+def test_add_jd_is_idempotent_for_the_same_posting(tmp_path: Path) -> None:
+    _, first, _ = _add_jd(tmp_path)
+    _, second, _ = _add_jd(tmp_path)
+
+    assert isinstance(first, dict) and isinstance(second, dict)
+    assert first["id"] == second["id"]
+
+
+def test_add_jd_rejects_a_too_short_description(tmp_path: Path) -> None:
+    jd_path = tmp_path / "jd.txt"
+    jd_path.write_text("产品经理", encoding="utf-8")
+
+    code, payload = invoke(
+        "jobs",
+        "add-jd",
+        str(jd_path),
+        "--title",
+        "PM",
+        "--company",
+        "X",
+        "--url",
+        "https://example.com/j",
+        "--database",
+        str(tmp_path / "db.sqlite3"),
+    )
+
+    assert code == 1
+    assert isinstance(payload, dict) and "too short" in payload["error"]["message"]
+
+
+def _observation(**overrides: object) -> dict[str, object]:
+    record: dict[str, object] = {
+        "source": "boss",
+        "source_job_id": "abc123",
+        "title": "AI 产品经理（懂 Skill）",  # noqa: RUF001
+        "company": "胜算云",
+        "location": "上海",
+        "salary_text": "20-30K",
+        "jd_raw": MANUAL_JD,
+        "url": "https://www.zhipin.com/job_detail/abc123.html",
+        "collected_at": "2026-10-13T10:00:00Z",
+    }
+    record.update(overrides)
+    return record
+
+
+def _import(tmp_path: Path, records: list[dict[str, object]]) -> tuple[int, object, Path]:
+    database_path = tmp_path / "jobagent.sqlite3"
+    path = tmp_path / "observations.json"
+    path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    code, payload = invoke(
+        "jobs", "import-observations", str(path), "--database", str(database_path)
+    )
+    return code, payload, database_path
+
+
+def test_import_observations_stores_host_captured_postings(tmp_path: Path) -> None:
+    code, report, database_path = _import(tmp_path, [_observation()])
+
+    assert code == 0, report
+    assert isinstance(report, dict)
+    assert report["rejected"] == []
+    job_id = report["stored"][0]["job_id"]
+    stored = SqliteJobRepository(Database(database_path)).get_job(job_id)
+    assert stored is not None and stored.source == "boss"
+
+
+def test_import_observations_rejects_records_that_break_the_board_contract(
+    tmp_path: Path,
+) -> None:
+    records = [
+        _observation(url="https://evil.example/job/1"),
+        _observation(source="mock", source_job_id="m1"),
+        _observation(source_job_id="short", jd_raw="产品经理"),
+        _observation(source_job_id="gate", jd_raw="请完成安全验证后继续访问。" * 5),
+    ]
+
+    code, report, _ = _import(tmp_path, records)
+
+    assert code == 0
+    assert isinstance(report, dict)
+    assert report["stored"] == []
+    assert [item["reason"] for item in report["rejected"]] == [
+        "url_outside_board",
+        "no_host_route",
+        "jd_too_short",
+        "gate_page",
+    ]
+
+
+def test_import_observations_is_idempotent(tmp_path: Path) -> None:
+    _, first, _ = _import(tmp_path, [_observation()])
+    _, second, _ = _import(tmp_path, [_observation()])
+
+    assert isinstance(first, dict) and isinstance(second, dict)
+    assert first["stored"][0]["job_id"] == second["stored"][0]["job_id"]
+
+
+def test_import_report_flags_known_and_contacted_postings(tmp_path: Path) -> None:
+    _, first, _ = _import(tmp_path, [_observation()])
+    assert isinstance(first, dict)
+    assert first["stored"][0]["known_before"] is False
+    assert first["stored"][0]["contacted"] is False
+
+    _, again, _ = _import(tmp_path, [_observation()])
+    assert isinstance(again, dict) and again["stored"][0]["known_before"] is True
+
+
+def test_sourcing_budget_counts_todays_reads_per_board(tmp_path: Path) -> None:
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).isoformat()
+    _import(
+        tmp_path,
+        [
+            _observation(collected_at=now),
+            _observation(
+                source_job_id="def456",
+                url="https://www.zhipin.com/job_detail/def456.html",
+                collected_at=now,
+            ),
+        ],
+    )
+
+    code, budget = invoke(
+        "jobs", "sourcing-budget", "--database", str(tmp_path / "jobagent.sqlite3")
+    )
+
+    assert code == 0, budget
+    assert isinstance(budget, dict)
+    boss = budget["boss"]
+    assert boss["read_today"] == 2
+    assert boss["remaining"] == boss["daily_cap"] - 2

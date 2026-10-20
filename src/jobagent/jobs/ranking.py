@@ -46,6 +46,8 @@ class JobRanker:
                 match_decision=assessment.match_result.decision,
                 overall=assessment.match_result.overall,
                 must_have_score=assessment.must_have_score,
+                preference_score=assessment.preference_score,
+                preference_hits=assessment.preference_hits,
                 application_ready=False,
                 explanation=(
                     f"filter={assessment.filter_result.decision.value}; "
@@ -57,7 +59,9 @@ class JobRanker:
         ]
 
     @staticmethod
-    def _sort_key(assessment: JobAssessment) -> tuple[int, int, float, float, float, str]:
+    def _sort_key(
+        assessment: JobAssessment,
+    ) -> tuple[int, int, float, float, float, float, str]:
         published = assessment.published_at
         if published is None:
             published_timestamp = float("-inf")
@@ -67,6 +71,7 @@ class JobRanker:
         return (
             _FILTER_TIER[assessment.filter_result.decision],
             _MATCH_TIER[assessment.match_result.decision],
+            -assessment.preference_score,
             -assessment.match_result.overall,
             -assessment.must_have_score,
             -published_timestamp,

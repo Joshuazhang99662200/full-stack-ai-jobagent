@@ -190,3 +190,40 @@ def test_location_segments_never_match_on_a_bare_substring() -> None:
     )
 
     assert result.decision is FilterDecision.REJECT
+
+
+def test_an_unstated_salary_counts_as_meeting_the_floor_when_the_person_says_so() -> None:
+    normalized = job(salary="面议")
+    floor = MoneyRange(currency="DKK", minimum=600000, period="year")
+
+    default = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id), context(minimum_compensation=floor),
+        HardFilterPolicy(),
+    )
+    accepted = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(minimum_compensation=floor, unstated_compensation_passes=True),
+        HardFilterPolicy(),
+    )
+
+    assert default.decision is FilterDecision.REVIEW
+    assert accepted.decision is FilterDecision.PASS
+
+
+def test_an_exception_phrase_keeps_a_product_role_past_an_excluded_term() -> None:
+    normalized = job(title="AI投顾专家")
+
+    blocked = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id), context(excluded_role_terms=["投顾"]),
+        HardFilterPolicy(),
+    )
+    allowed = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(excluded_role_terms=["投顾"], excluded_role_exceptions=["AI投顾"]),
+        HardFilterPolicy(),
+    )
+
+    assert blocked.decision is FilterDecision.REJECT
+    assert allowed.decision is FilterDecision.PASS

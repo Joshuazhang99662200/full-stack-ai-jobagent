@@ -12,7 +12,9 @@ The four kinds cover what a board can actually offer:
 - `gated`        no lawful automated route exists; the workflow pauses for a human
 
 `gated` is a first-class kind on purpose. Modelling an unreachable board keeps
-the boundary visible instead of leaving a silent hole.
+the boundary visible instead of leaving a silent hole. Any kind, gated included,
+may also declare `host_browser`: how a host agent reads the board in the person's
+own signed-in browser. That is a host capability, not a repository route.
 """
 
 from enum import StrEnum
@@ -87,6 +89,42 @@ class PublicPageSpec(ContractModel):
 
 
 
+class HostBrowserSpec(ContractModel):
+    """How a host agent may read this board in the person's own browser session.
+
+    This is not an automated route: the repository never drives a browser. The host
+    searches and reads at human pace, in a session the person signed into, and hands
+    captured postings to `jobs import-observations`, which checks them against this
+    spec. Searching never contacts anyone; reaching out is a separate, approved act.
+    """
+
+    # Must contain `{query}`; may contain `{city}`, filled from `city_codes`.
+    search_url: NonEmptyString
+    city_codes: dict[str, NonEmptyString] = Field(default_factory=dict)
+    # A captured posting must come from one of these pages, or its provenance is false.
+    detail_url_prefixes: list[NonEmptyString] = Field(min_length=1)
+    # URL fragments or page wording meaning the board wants a person (verification,
+    # risk control). Seeing one ends this board for the session; it is never retried.
+    stop_markers: list[NonEmptyString] = Field(min_length=1)
+    max_pages_per_session: int = Field(default=3, ge=1, le=10)
+    min_seconds_between_pages: int = Field(default=15, ge=5)
+    # Detail pages a host may open in one board-day. A ceiling, never raised past 50.
+    max_detail_reads_per_day: int = Field(default=50, ge=1, le=50)
+    # Where the JD starts on the detail page, as a reading hint for the host.
+    jd_headings: list[NonEmptyString] = Field(default_factory=list)
+    # How the board renders things today, learned by reading it. Hints for the
+    # host only: no repository code depends on them.
+    detail_link_pattern: NonEmptyString | None = None
+    jd_selector: NonEmptyString | None = None
+    reading_hints: list[NonEmptyString] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def require_query_placeholder(self) -> "HostBrowserSpec":
+        if "{query}" not in self.search_url:
+            raise ValueError("search_url must contain the {query} placeholder")
+        return self
+
+
 class GateSpec(ContractModel):
     """Why a board cannot be reached, and what the person should do instead."""
 
@@ -108,6 +146,7 @@ class SourceManifest(ContractModel):
     listing: CliListingSpec | None = None
     detail: PublicPageSpec | None = None
     gate: GateSpec | None = None
+    host_browser: HostBrowserSpec | None = None
 
     @model_validator(mode="after")
     def require_the_spec_its_kind_implies(self) -> "SourceManifest":

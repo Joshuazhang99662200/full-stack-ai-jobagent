@@ -1,7 +1,7 @@
 """Deterministic candidate/job hard-filter rules."""
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from jobagent.errors import ContractValidationError
 from jobagent.schemas.job_intelligence import CandidateFilterContext, HardFilterPolicy
@@ -32,6 +32,20 @@ RuleResult = tuple[FilterDecision, FilterReason] | None
 
 def _normalized(value: str) -> str:
     return " ".join(value.casefold().split())
+
+
+def excluded_role_term(
+    title: str, terms: Sequence[str], exceptions: Sequence[str] = ()
+) -> str | None:
+    """The first excluded role term the title contains, compared case- and space-blind.
+
+    Exception phrases are taken out of the title first, so "AI投顾" can stay
+    allowed while "投顾" is excluded.
+    """
+    normalized = _normalized(title)
+    for phrase in exceptions:
+        normalized = normalized.replace(_normalized(phrase), " ")
+    return next((term for term in terms if _normalized(term) in normalized), None)
 
 
 def _location_prefixes(value: str) -> tuple[str, ...]:
@@ -270,7 +284,7 @@ class HardFilterEngine:
         if minimum is None:
             return None
         if job.salary is None:
-            if not policy.review_on_unknown:
+            if context.unstated_compensation_passes or not policy.review_on_unknown:
                 return None
             return (
                 FilterDecision.REVIEW,
@@ -308,10 +322,8 @@ class HardFilterEngine:
 
     @staticmethod
     def _role_exclusion(job: NormalizedJob, context: CandidateFilterContext) -> RuleResult:
-        title = _normalized(job.title)
-        matched = next(
-            (term for term in context.excluded_role_terms if _normalized(term) in title),
-            None,
+        matched = excluded_role_term(
+            job.title, context.excluded_role_terms, context.excluded_role_exceptions
         )
         if matched is None:
             return None

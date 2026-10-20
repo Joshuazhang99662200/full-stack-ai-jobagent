@@ -104,6 +104,33 @@ class ClaimLedger(ContractModel):
     claims: list[ClaimRecord] = Field(default_factory=list)
 
 
+class ClaimReview(ContractModel):
+    claim_id: ClaimId
+    status: VerificationStatus
+    reason: NonEmptyString
+
+
+class ClaimReviewSet(ContractModel):
+    draft_digest: Digest
+    evidence_digest: Digest
+    reviews: list[ClaimReview] = Field(default_factory=list)
+
+
+class RewriteLens(StrEnum):
+    HEADHUNTER = "headhunter"
+    INTERNAL_HR = "internal_hr"
+    HIRING_MANAGER = "hiring_manager"
+    GENERAL = "general"
+
+
+class LensSelection(ContractModel):
+    lens: RewriteLens
+    policy_path: NonEmptyString
+    reason: NonEmptyString
+    signals: list[str] = Field(default_factory=list)
+    declined_lens: RewriteLens | None = None
+
+
 class VerificationIssue(ContractModel):
     code: NonEmptyString
     message: NonEmptyString
@@ -128,7 +155,7 @@ class VerificationReport(ContractModel):
             self.unsupported_metrics,
             self.semantic_exaggerations,
         )
-        if self.passed and (any(failures) or self.evidence_coverage != 1.0):
+        if self.passed and (any(failures) or self.evidence_coverage != 1.0 or self.issues):
             raise ValueError("a passing report must satisfy every hard quality gate")
         return self
 
@@ -139,6 +166,12 @@ class KeywordCoverageReport(ContractModel):
     supported_adjacent: list[str] = Field(default_factory=list)
     unsupported_missing: list[str] = Field(default_factory=list)
     stuffing_signals: list[str] = Field(default_factory=list)
+
+
+class TailoredDraft(ContractModel):
+    items: list[OptimizedResumeItem]
+    claim_ledger: ClaimLedger
+    keyword_coverage: KeywordCoverageReport
 
 
 class ResumeDiffItem(ContractModel):

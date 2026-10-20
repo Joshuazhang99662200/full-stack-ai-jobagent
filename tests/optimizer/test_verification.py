@@ -51,8 +51,10 @@ def test_all_supported_claims_pass() -> None:
     assert report.issues == []
 
 
-def test_empty_ledger_passes_vacuously() -> None:
-    assert ClaimVerifier().verify(ClaimLedger(), []).passed
+def test_empty_ledger_is_rejected() -> None:
+    report = ClaimVerifier().verify(ClaimLedger(), [])
+    assert not report.passed
+    assert report.evidence_coverage == 0
 
 
 def test_unsupported_claim_blocks_delivery() -> None:
@@ -88,9 +90,7 @@ def test_partial_support_counts_as_semantic_overreach() -> None:
 def test_metric_absent_from_evidence_fails_even_when_labelled_supported() -> None:
     """The verifier re-derives metrics rather than trusting the model's label."""
     invented = MetricFact(name="团队规模", value=Decimal("30"), unit="人")
-    report = ClaimVerifier().verify(
-        ClaimLedger(claims=[claim(metrics=[invented])]), [evidence()]
-    )
+    report = ClaimVerifier().verify(ClaimLedger(claims=[claim(metrics=[invented])]), [evidence()])
 
     assert not report.passed
     assert report.unsupported_metrics == 1
@@ -107,10 +107,19 @@ def test_metric_present_in_evidence_is_accepted() -> None:
     assert report.unsupported_metrics == 0
 
 
-def test_citing_unconfirmed_evidence_blocks_delivery() -> None:
-    report = ClaimVerifier().verify(
-        ClaimLedger(claims=[claim()]), [evidence(confirmed=False)]
+def test_metric_cannot_expand_population_or_time_window() -> None:
+    source = MetricFact(
+        name="growth", value=Decimal("30"), unit="%", population="pilot", time_window="Q1"
     )
+    enlarged = source.model_copy(update={"population": "company", "time_window": "annual"})
+    report = ClaimVerifier().verify(
+        ClaimLedger(claims=[claim(metrics=[enlarged])]), [evidence(metrics=[source])]
+    )
+    assert not report.passed
+
+
+def test_citing_unconfirmed_evidence_blocks_delivery() -> None:
+    report = ClaimVerifier().verify(ClaimLedger(claims=[claim()]), [evidence(confirmed=False)])
 
     assert not report.passed
     assert any(issue.code == "unconfirmed_evidence" for issue in report.issues)

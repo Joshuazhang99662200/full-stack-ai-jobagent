@@ -41,6 +41,7 @@ def test_optimizer_exposes_tailoring_but_never_delivery() -> None:
         "base-resume",
         "tailor",
         "assemble",
+        "review",
     }
     # Tailoring is in scope; approval and delivery never are.
     for forbidden in (

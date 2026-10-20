@@ -5,6 +5,7 @@ govern reasoning steps. Runtime prompts quote them rather than restating them, s
 a policy change lands in exactly one place.
 """
 
+import os
 from importlib import resources
 from pathlib import Path
 
@@ -25,6 +26,8 @@ def _packaged_skill_root() -> Path | None:
 
 def default_skill_root() -> Path:
     """Resolve the skill root from the installed package, else the source tree."""
+    if configured := os.environ.get("JOBAGENT_SKILL_ROOT"):
+        return Path(configured).resolve()
     packaged = _packaged_skill_root()
     if packaged is not None:
         return packaged

@@ -22,6 +22,7 @@ candidate/variants/
 *.db
 
 # Connector and research state
+.jobagent/
 .jobagent/cache/
 .jobagent/browser-profiles/
 .jobagent/sessions/

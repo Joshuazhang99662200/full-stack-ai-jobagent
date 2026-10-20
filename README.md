@@ -1,6 +1,6 @@
-# 人工审批的 JobAgent
+# 求职 Harness：Codex / Claude Code Skill
 
-一个证据接地、经人工审批的 AI 求职智能体。
+从 GitHub 安装后，在 Codex 或 Claude Code 中用自然语言启动的求职能力集合。宿主提供推理与交互，本项目提供技能上下文、运行状态、证据契约与逐份审批门禁。
 
 JobAgent 是一组原子、可审计的能力,覆盖候选人知识、职位情报、证据接地的简历优化、投递包评审与经审批的投递。它被设计为可从 Python、CLI、MCP 与编码智能体技能中调用。
 
@@ -10,13 +10,38 @@ JobAgent 不是自动批量投递机器人。搜索、匹配、简历生成、�
 
 ## 当前阶段
 
-架构契约、Candidate Core、离线 Job Intelligence,以及 Resume Optimizer Phase 1 能力索引已经实现。
+候选人核心、职位情报、定向简历草稿、独立复核、diff、单份投递包评审与审批门禁、审计，以及可分发的 Harness 运行支持已实现。在此之上，又落地了**招聘方沟通的后半段链路**：首条招呼的逐批人工审批与发送记账、招聘方对话的状态跟进、按时段节奏的消息巡检与消息页快照，以及让聊天前端（如 Claude Cowork）读账本、转达审批的本地 MCP 桥与会话信箱。
 
 Candidate Core 可以解析 PDF 简历并保留页码溯源、把候选人私密知识持久化到本地 SQLite、导入结构化推理草稿、检测缺口、提出一个自适应面试问题、记录草稿证据、显式确认证据,并报告就绪度。
 
 Job Intelligence 搜索内置的合成数据源,归一化并去重职位,保全每一条源观测,校验经评审的需求与证据映射,执行确定性硬过滤,计算可解释匹配结果,对合格职位排序,并把产物存入 SQLite。
 
-真实平台连接器、可执行的 Optimizer adapter 与运行时提示词,以及投递门禁,属于后续独立阶段。**消息生成、评审包、审批、投递、批量与审计目前只有 Pydantic 契约,没有可执行代码。** 各能力的确切状态见[能力目录](skills/job-hunting/references/capability-catalog.md)。
+猎聘可只读发现、取得公开 JD 或人工补齐。其现有 CLI 无法传递获批定制附件与消息，实际提交必须人工完成。PDF 由外部渲染器产出，本项目严格核对正文与页数后还需视觉检查。首条招呼与回复由宿主按策略起草，仓库只做逐条校验、审批与记账；“批量投递简历”仍只有契约，没有编排。准确状态见[能力目录](skills/job-hunting/references/capability-catalog.md)。
+
+## 从 GitHub 安装 Skill
+
+需要 Git 与 Python 3.11+。发布 zip 包含完整 `job-hunting/`：skill、策略、同版本 runtime、启动脚本与摘要清单。也可从完整 checkout 构建，目标已存在时会拒绝覆盖：
+
+```powershell
+git clone https://github.com/Joshuazhang99662200/full-stack-ai-jobagent.git
+cd full-stack-ai-jobagent
+# Codex 用户级安装
+python scripts/build_skill.py --host codex --destination "$env:USERPROFILE/.agents/skills/job-hunting"
+# 或 Claude Code 用户级安装
+python scripts/build_skill.py --host claude-code --destination "$env:USERPROFILE/.claude/skills/job-hunting"
+```
+
+macOS/Linux 的目标分别使用 `~/.agents/skills/job-hunting` 和 `~/.claude/skills/job-hunting`。项目级安装可把目标换成对应 `.agents/skills/` 或 `.claude/skills/`。仅拷贝源码 `skills/job-hunting/` 缺 runtime 与 manifest，不能直接运行；使用完整发布包或上述构建流程。没有发布到 GitHub 的本地改动需先由维护者发布，构建不会自动提交、推送或覆盖宿主设置。
+
+在 Codex 输入 `$job-hunting`，或在 CC 输入 `/job-hunting`，随后说明简历位置、求职方向和个人工作区。技能被调用后先探测依赖；需要时显式创建私有 venv。人工确认仍由用户完成。安装本身不执行搜索、登录、发送或创建计划任务。
+
+```powershell
+python <安装目录>/scripts/bootstrap.py --workspace <个人工作区> --check
+python <安装目录>/scripts/bootstrap.py --workspace <个人工作区> --setup
+python <安装目录>/scripts/bootstrap.py --workspace <个人工作区> -- harness start CAND_001 codex --session-id <随机会话ID>
+```
+
+运行状态与产物校验支持中断和 Codex/CC 交接。浏览器、凭证输入、定时与通知由实际宿主提供，缺少则交人；普通 skill 不提供 Muse 的持久云电脑。操作协议见 [Harness](skills/job-hunting/references/harness.md)，产品与架构差异见 [对比清单](docs/harness-comparison.md)。
 
 ## Candidate Core 快速开始
 
@@ -121,6 +146,61 @@ listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业�
 
 搜索与 Job Intelligence 是只读的。它们不暴露平台导航、投递准备、审批或投递操作。
 
+## 外联、对话与巡检
+
+这一段把“发现职位”接到“约到面试”。仓库**不读页面、不点按钮、不发消息**：浏览器里的操作由宿主在用户自己的浏览器里完成，仓库只回答“这一条能不能发”，并把每一步记成只追加的账。
+
+```text
+职位入库并匹配 ─▶ 宿主起草首条招呼 ─▶ outreach draft-batch 逐条校验
+      ─▶ outreach ask 把编号清单原样摆给人 ─▶ 人说“发 1-3”─▶ outreach approve
+      ─▶ outreach lease / next 发送前复核 ─▶ 宿主在浏览器里发送 ─▶ outreach record 记账
+      ─▶ conversations sync-outreach 开对话 ─▶ 对方来信 conversations inbound 分级
+      ─▶ draft-reply / approve-reply / reply-gate / record-reply（一条一审）
+      ─▶ 对方要简历：optimizer 定向简历 + 独立复核 ─▶ attach-resume ─▶ 逐份审批后发送
+```
+
+**首条招呼（`jobagent outreach …`）**
+- 起草规则见 [message-generation.md](skills/job-hunting/references/message-generation.md)「首条招呼」。仓库确定性地检查以下几项：长度不超过 120 字、不写数字、黑名单词、每句话都引用已确认证据、同一职位只发一次。
+- 带 `--candidate` 时按匹配档位级联排序：本人挑的 → 强匹配 → 可能匹配 → 未评估。弱匹配、不匹配整条退回。`--filter-context` 里的偏好因子只决定同档内的先后。
+- 审批走中继通道：先 `ask` 把编号清单逐字摆给人，人回复后用 `approve --answer "<原话>"` 登记。清单一改，审批即作废。
+- 发送有站点租约（一个站同一时间只允许一个会话发）、最小间隔 30 秒、每站每天最多 50 条。遇到失败、登录、验证或风控，该站当天停发，交给人处理。
+- 已批准但决定不发的条目，用 `record --result withdrawn` 关闭；没人批过的审批单，用 `withdraw` 作废。
+
+**对话跟进（`jobagent conversations …`）**
+- 对话来源分三类，互不混淆：我方外联 `outreach`、招聘方主动来信 `inbound`、用户本人打的招呼 `self`（用 `adopt` 登记）。
+- 来信先按排除清单筛：职位或公司命中销售、外包等排除词的直接关闭，不起草回复。
+- 来信分 L1/L2/L3/危险/不匹配五级。要简历、约面试、婉拒会自动推进阶段。回复一条一审，发简历必须交出实际上传的文件，文件摘要要和挂上的定向简历一致。
+
+**巡检节奏（`jobagent patrol …`）**
+- 宿主的定时器可以随便醒，每次先问 `patrol next`，回答“该查”才动手。
+- 默认时段：周日 20:00 到周五 20:00。平时每小时一次；一小时内有新来信时，改为每 15 分钟一次。
+- 开工 `record`、完工 `finish`。开工 45 分钟还没完工视为中断，下次醒来立即续查，所以用量耗尽或断网后能安全恢复。
+- `snapshot` 把一个站的整份消息列表存进本地库，并返回与上一份的差异：新会话、对方新消息、消失的会话、用户拉起但还没打招呼的会话。
+
+规则全文见 [patrol.md](skills/job-hunting/references/patrol.md)、[conversation.md](skills/job-hunting/references/conversation.md)、[browser-sourcing.md](skills/job-hunting/references/browser-sourcing.md)。设计见 [outreach-design.md](docs/outreach-design.md)、[conversation-design.md](docs/conversation-design.md)。
+
+## 聊天前端桥接：本地 MCP 与会话信箱
+
+想把 Claude Cowork / Claude Desktop 当作人机界面、把编码智能体会话当作执行后端时，用这一层。
+
+```powershell
+# 在 Claude Desktop 完全退出时注册（应用退出时会整份回写配置）
+python scripts/register_jobagent_mcp.py
+# 或手动运行（stdio，标准库实现，无额外依赖）
+python -m jobagent.bridge.mcp_server --database .jobagent/jobagent.sqlite3
+```
+
+| 工具 | 作用 |
+|---|---|
+| `status_today` | 三个站今天的发送、已批待发、待审批、来信、详情读取、最新快照 |
+| `pending_approvals` | 还没人回答的审批问题，附招呼原文；本身不批准任何东西 |
+| `patrol_history` | 最近几轮巡检的开工、完工、是否中断 |
+| `new_jobs` | 最近入库的职位与最新匹配档位 |
+| `post_to_claude_code` | 唯一的写操作：把用户的审批原话或需求追加进信箱。转达的审批必须对应一张仍在待批的审批单，否则拒收 |
+| `receipts` / `notes_from_claude_code` / `peer_sessions` | 读执行会话的逐条回执、留言，以及哪个会话担任哪个角色 |
+
+执行会话一侧用 `jobagent mailbox inbox / ack / notify / register-session / peers`。信箱文件放在 `candidate/private/`，不进 git，只追加。**转达的审批不会自动生效**：执行会话仍要用 `outreach approve` 登记，登记后写回执。MCP 是请求—应答协议，服务端不能主动唤醒空闲会话。目前由巡检或用户触发执行会话读信箱。看板：`python scripts/patrol_dashboard.py`（http://localhost:8765，30 秒刷新）。交接说明见 [cowork-handoff.md](docs/cowork-handoff.md)。
+
 ## Resume Optimizer 能力发现
 
 在不执行任何被索引入口点的前提下,检视已签入的 Optimizer 能力与策略元数据:
@@ -145,6 +225,7 @@ jobagent optimizer capabilities --intent detect_candidate_evidence_gaps
 - [架构设计](docs/superpowers/specs/2026-08-21-jobagent-foundation-design.md)
 - [Job Intelligence 设计](docs/superpowers/specs/2026-08-21-job-intelligence-design.md)
 - [Optimizer 设计](docs/superpowers/specs/2026-08-22-resume-optimizer-router-skill-design.md)
+- [外联设计](docs/outreach-design.md) · [对话设计](docs/conversation-design.md) · [后半段评测设计（草案）](docs/evals-design.md) · [Harness Skill 设计](docs/harness-skill-design.md) · [Cowork 交接](docs/cowork-handoff.md)
 - [架构总览](docs/architecture.md) · [领域模型](docs/domain-model.md) · [开源复用评审](docs/oss-review.md)
 
 面向编码智能体的上下文在 [`skills/job-hunting/`](skills/job-hunting/SKILL.md);`docs/superpowers/` 下的 specs 与 plans 是历史评审记录,保持英文原样。

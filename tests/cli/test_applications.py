@@ -145,9 +145,7 @@ class ConnectorHarness:
     def __call__(self, outcome: DeliveryResult | Exception) -> StubDeliverySource:
         source = StubDeliverySource(outcome)
         self.installed.append(source)
-        self.monkeypatch.setattr(
-            applications_cli, "_connector_provider", lambda platform: source
-        )
+        self.monkeypatch.setattr(applications_cli, "_connector_provider", lambda platform: source)
         return source
 
 
@@ -424,6 +422,20 @@ def test_audit_log_can_be_scoped_to_one_application(
     assert log == []
 
 
+def test_liepin_rehearsal_reports_missing_custom_artifact_support(workspace: Path) -> None:
+    posting = job()
+    posting.source = "liepin"
+    posting.job_kind = "2"
+    (workspace / "job.json").write_text(posting.model_dump_json(), encoding="utf-8")
+    package_path = approved(workspace)
+    code, payload = invoke(
+        "applications", "send", str(package_path), str(workspace / "approval.json"), "--dry-run"
+    )
+    assert code == 0
+    assert not payload["dry_run"]["would_send"]
+    assert payload["dry_run"]["manual_handover_required"]
+
+
 def test_dry_run_reports_the_send_without_contacting_the_platform(
     workspace: Path, connector: ConnectorHarness
 ) -> None:
@@ -454,9 +466,7 @@ def test_dry_run_reports_the_send_without_contacting_the_platform(
     assert stub.calls == [], "a dry run must not reach the connector"
 
 
-def test_dry_run_writes_no_audit_record(
-    workspace: Path, connector: ConnectorHarness
-) -> None:
+def test_dry_run_writes_no_audit_record(workspace: Path, connector: ConnectorHarness) -> None:
     """An attempt that never happened must not appear in the log."""
     package_path = approved(workspace)
     connector(
@@ -544,8 +554,14 @@ def test_relayed_approval_carries_the_persons_answer_without_a_terminal(
     request_path.write_text(json.dumps(question), encoding="utf-8")
 
     code, payload = invoke(
-        "applications", "approve", str(package_path),
-        "--confirm", "--request", str(request_path), "--answer", "同意投这个岗",
+        "applications",
+        "approve",
+        str(package_path),
+        "--confirm",
+        "--request",
+        str(request_path),
+        "--answer",
+        "同意投这个岗",
     )
 
     assert code == 0
@@ -559,7 +575,12 @@ def test_relayed_approval_without_a_posed_question_is_refused(workspace: Path) -
     package_path = package_file(workspace)
 
     code, payload = invoke(
-        "applications", "approve", str(package_path), "--confirm", "--answer", "同意",
+        "applications",
+        "approve",
+        str(package_path),
+        "--confirm",
+        "--answer",
+        "同意",
     )
 
     assert code == 1
@@ -574,8 +595,14 @@ def test_relayed_approval_without_an_answer_is_refused(workspace: Path) -> None:
     request_path.write_text(json.dumps(question), encoding="utf-8")
 
     code, payload = invoke(
-        "applications", "approve", str(package_path),
-        "--confirm", "--request", str(request_path), "--answer", "   ",
+        "applications",
+        "approve",
+        str(package_path),
+        "--confirm",
+        "--request",
+        str(request_path),
+        "--answer",
+        "   ",
     )
 
     assert code == 1
@@ -593,8 +620,14 @@ def test_editing_the_package_after_asking_invalidates_the_answer(workspace: Path
     package_path.write_text(json.dumps(edited), encoding="utf-8")
 
     code, payload = invoke(
-        "applications", "approve", str(package_path),
-        "--confirm", "--request", str(request_path), "--answer", "同意",
+        "applications",
+        "approve",
+        str(package_path),
+        "--confirm",
+        "--request",
+        str(request_path),
+        "--answer",
+        "同意",
     )
 
     assert code == 1

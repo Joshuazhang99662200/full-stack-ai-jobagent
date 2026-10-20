@@ -154,7 +154,10 @@ def _emit_dry_run(
         json.dumps(
             {
                 "dry_run": {
-                    "would_send": True,
+                    "would_send": bool(getattr(source, "supports_custom_artifacts", True)),
+                    "manual_handover_required": not bool(
+                        getattr(source, "supports_custom_artifacts", True)
+                    ),
                     "application_id": request.application_id,
                     "platform": package.job.source,
                     "connector": type(source).__name__,

@@ -13,6 +13,7 @@ from jobagent.cli.mailbox import mailbox_app
 from jobagent.cli.optimizer import optimizer_app
 from jobagent.cli.outreach import outreach_app
 from jobagent.cli.patrol import patrol_app
+from jobagent.cli.profile import profile_app
 
 app = typer.Typer(
     name="jobagent",
@@ -42,6 +43,7 @@ app.add_typer(harness_app, name="harness")
 app.add_typer(outreach_app, name="outreach")
 app.add_typer(conversations_app, name="conversations")
 app.add_typer(patrol_app, name="patrol")
+app.add_typer(profile_app, name="profile")
 app.add_typer(mailbox_app, name="mailbox")
 
 

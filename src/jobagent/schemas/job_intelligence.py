@@ -35,6 +35,18 @@ class SourceJobRecord(ContractModel):
     job_kind: str | None = None
     published_at: datetime | None = None
     collected_at: datetime
+    # The search the host ran when it found this posting, verbatim. It is not part of
+    # the job; it is kept apart so later outcomes can be traced to the search.
+    search_term: str | None = None
+
+
+class JobSearchHit(ContractModel):
+    """One search turning up one stored job. Only ever added, never rewritten."""
+
+    job_id: NonEmptyString
+    source: NonEmptyString
+    search_term: NonEmptyString
+    collected_at: datetime
 
 
 class JobListing(ContractModel):

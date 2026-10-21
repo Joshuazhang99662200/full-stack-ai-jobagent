@@ -18,7 +18,7 @@ own signed-in browser. That is a host capability, not a repository route.
 """
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
@@ -125,6 +125,61 @@ class HostBrowserSpec(ContractModel):
         return self
 
 
+class ObservabilitySpec(ContractModel):
+    """What a board shows about our own messages, learned by reading it.
+
+    The message list prefixes our latest message with a status word. Only words
+    actually seen on the board are declared; a board with no read marker has no
+    observable read receipt, and its read rate is reported as unobservable.
+    """
+
+    read_markers: list[NonEmptyString] = Field(default_factory=list)
+    # Seen while the message is delivered but not yet read (e.g. "[送达]", "[未读]").
+    delivered_markers: list[NonEmptyString] = Field(default_factory=list)
+    # Whether the board's "who viewed me" list can be read; None until measured.
+    profile_views: bool | None = None
+
+    @model_validator(mode="after")
+    def require_distinct_markers(self) -> "ObservabilitySpec":
+        if set(self.read_markers) & set(self.delivered_markers):
+            raise ValueError("a marker cannot mean both delivered and read")
+        return self
+
+
+class ProfileSectionSpec(ContractModel):
+    """One editable section of the person's online profile on this board.
+
+    `name` is the field name profile snapshots use. Sections repeated per entry
+    (work, projects) are snapshotted as `<name>#<n>`, counting from the top.
+    """
+
+    name: NonEmptyString
+    label: NonEmptyString
+    max_chars: int | None = Field(default=None, ge=1)
+    # "shown": the board prints the limit; "inferred": worked out from a counter
+    # such as "还可输入 N 个字". A limit must say which it is.
+    limit_source: Literal["shown", "inferred"] | None = None
+    per_entry: bool = False
+
+    @model_validator(mode="after")
+    def require_a_source_for_a_limit(self) -> "ProfileSectionSpec":
+        if (self.max_chars is None) != (self.limit_source is None):
+            raise ValueError("a limit and where it came from go together")
+        return self
+
+
+class ProfileSpec(ContractModel):
+    """Where the online profile lives on this board and how it is divided, as measured.
+
+    Reading hints for the host. Nothing here lets the repository write a profile.
+    """
+
+    edit_path: NonEmptyString
+    sections: list[ProfileSectionSpec] = Field(min_length=1)
+    viewers_path: NonEmptyString | None = None
+    reading_hints: list[NonEmptyString] = Field(default_factory=list)
+
+
 class GateSpec(ContractModel):
     """Why a board cannot be reached, and what the person should do instead."""
 
@@ -147,6 +202,8 @@ class SourceManifest(ContractModel):
     detail: PublicPageSpec | None = None
     gate: GateSpec | None = None
     host_browser: HostBrowserSpec | None = None
+    observability: ObservabilitySpec | None = None
+    profile: ProfileSpec | None = None
 
     @model_validator(mode="after")
     def require_the_spec_its_kind_implies(self) -> "SourceManifest":

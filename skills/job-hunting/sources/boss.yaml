@@ -28,3 +28,20 @@ host_browser:
     - 公司名取页面标题「_<公司>招聘-BOSS直聘」一段;.company-info a 可能命中侧栏推荐公司,不要用。
     - JD 正文较长时分段读取(每段不超过 850 字),拼接前核对首尾衔接。
     - 消息页列表每行 `.user-list li`:招聘者 `span.name-box > span.name-text`,公司是 name-box 里的第二个 span,头衔是 `i.vline` 之后的 span;最后一条消息 `span.last-msg-text`,时间 `span.time`。快照的 key 用“招聘者|公司”,不要把整段 name-box 文字当公司。
+observability:
+  # 2026-10-20 按已存快照核对:我方最后一条消息前缀出现过 [送达] 与 [已读]。
+  read_markers: ["[已读]"]
+  delivered_markers: ["[送达]"]
+  # “谁看过我”未测到:入口疑在消息页,只读实测前保持未知。
+  profile_views: null
+profile:
+  # 2026-10-20 只读实测(编辑后取消,未保存)。
+  edit_path: /web/geek/resume
+  sections:
+    - {name: advantage, label: 个人优势, max_chars: 1000, limit_source: shown}
+    - {name: work_content, label: 工作经历-工作内容, max_chars: 3000, limit_source: shown, per_entry: true}
+    - {name: work_achievement, label: 工作经历-工作业绩, max_chars: 1000, limit_source: shown, per_entry: true}
+    - {name: project_description, label: 项目经历-项目描述, max_chars: 3000, limit_source: shown, per_entry: true}
+    - {name: project_achievement, label: 项目经历-项目业绩, max_chars: 1000, limit_source: shown, per_entry: true}
+  reading_hints:
+    - 单页,加载约 10 秒。编辑图标要悬停到段落上才出现;点“编辑”可看到 x/上限,看完点“取消”。

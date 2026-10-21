@@ -8,7 +8,7 @@ from pathlib import Path
 
 from jobagent.errors import StorageError
 
-LATEST_SCHEMA_VERSION = 9
+LATEST_SCHEMA_VERSION = 10
 _MIGRATION_FILES = {
     1: "0001_candidate.sql",
     2: "0002_jobs.sql",
@@ -19,6 +19,7 @@ _MIGRATION_FILES = {
     7: "0007_patrol_finish.sql",
     8: "0008_patrol_snapshots.sql",
     9: "0009_outreach_withdrawals.sql",
+    10: "0010_evals_signals.sql",
 }
 
 

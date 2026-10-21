@@ -299,3 +299,40 @@ def test_a_withdrawn_item_neither_halts_the_platform_nor_counts_as_contact() -> 
 
     assert decision.allowed and decision.item is not None and decision.item.number == 2
     assert batch.items[0].job_id not in contacted_job_ids(withdrawn)
+
+
+def test_strategy_tags_ride_on_the_item_and_bind_its_digest() -> None:
+    from jobagent.outreach.service import _digest, _job_content
+
+    plain = build([draft(0)])
+    tagged = build(
+        [draft(0, variant="opening_b", hook_requirement="Agent 工作流设计", experiment_id="EXP_1")]
+    )
+    assert plain.batch is not None and tagged.batch is not None
+
+    item = tagged.batch.items[0]
+    assert (item.variant, item.hook_requirement, item.experiment_id) == (
+        "opening_b",
+        "Agent 工作流设计",
+        "EXP_1",
+    )
+    assert item.item_digest != plain.batch.items[0].item_digest
+    # An untagged item keeps the digest it always had, so stored batches stay valid.
+    job = JOBS[IDS[0]]
+    assert plain.batch.items[0].item_digest == _digest(
+        {"job": _job_content(job), "platform": "boss", "text": GREETING}
+    )
+
+
+def test_a_batch_names_the_harness_version_it_was_drafted_under() -> None:
+    report = OutreachService().build_batch(
+        [draft(0)],
+        jobs=JOBS,
+        already_contacted=set(),
+        confirmed_evidence_ids=set(),
+        batch_id="OBATCH_001",
+        created_at=NOW,
+        harness_version="HVER_ABC",
+    )
+    assert report.batch is not None and report.batch.harness_version == "HVER_ABC"
+    assert build([draft(0)]).batch.harness_version is None  # type: ignore[union-attr]

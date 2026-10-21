@@ -23,6 +23,7 @@ from jobagent.conversation.service import (
     screened_term,
 )
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
+from jobagent.evals.versioning import read_harness_version
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.conversation import (
     Conversation,
@@ -38,8 +39,10 @@ from jobagent.schemas.conversation import (
 from jobagent.schemas.job_intelligence import CandidateFilterContext
 from jobagent.schemas.optimizer import ResumeVariant
 from jobagent.schemas.outreach import OutreachResult
+from jobagent.skill_resources import default_skill_root
 from jobagent.storage.conversation_repository import SqliteConversationRepository
 from jobagent.storage.database import Database
+from jobagent.storage.evals_repository import SqliteEvalsRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
@@ -357,7 +360,17 @@ def draft_reply(
             text=text,
             in_reply_to=None if kind is ReplyKind.FOLLOW_UP or latest is None else latest.event_id,
         )
-        question = SERVICE.draft_reply(conversation, events, draft, now=datetime.now(UTC))
+        moment = datetime.now(UTC)
+        version = read_harness_version(default_skill_root(), recorded_at=moment)
+        SqliteEvalsRepository(store.database).save_harness_version(version)
+        question = SERVICE.draft_reply(
+            conversation,
+            events,
+            draft,
+            now=moment,
+            replaces=store.get_ask(SERVICE.reply_ask_id(conversation, events)),
+            harness_version=version.version_id,
+        )
         store.save_ask(question)
         _emit(question)
     except JobAgentError as error:

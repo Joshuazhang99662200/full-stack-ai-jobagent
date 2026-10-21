@@ -365,3 +365,76 @@ def test_a_conversation_the_person_started_is_logged_apart_from_outreach() -> No
         platform="boss", company="某公司", title="AI 产品经理", job_id=None, replied=True, now=NOW
     )
     assert answered.stage_to is ConversationStage.REPLIED
+
+
+def _answerable():  # type: ignore[no-untyped-def]
+    conversation, events = opened()
+    replied = receive(conversation, events, inbound("您好？"))
+    target = next(e for e in replied if e.kind is EventKind.INBOUND).event_id
+    return conversation, replied, target
+
+
+def test_a_redraft_at_the_same_point_remembers_the_first_draft() -> None:
+    conversation, replied, target = _answerable()
+    first = SERVICE.draft_reply(
+        conversation,
+        replied,
+        ReplyDraft(kind=ReplyKind.ANSWER, text="您好，在的。", in_reply_to=target),
+        now=NOW,
+    )
+    second = SERVICE.draft_reply(
+        conversation,
+        replied,
+        ReplyDraft(kind=ReplyKind.ANSWER, text="您好，在的，方便聊。", in_reply_to=target),
+        now=NOW,
+        replaces=first,
+        harness_version="HVER_ABC",
+    )
+    third = SERVICE.draft_reply(
+        conversation,
+        replied,
+        ReplyDraft(kind=ReplyKind.ANSWER, text="在的。", in_reply_to=target),
+        now=NOW,
+        replaces=second,
+    )
+
+    assert first.original_reply_digest is None
+    assert second.original_reply_digest == first.reply_digest
+    assert third.original_reply_digest == first.reply_digest
+    assert second.harness_version == "HVER_ABC"
+
+    approved = SERVICE.approve_reply(conversation, replied, second, answer="发", now=NOW)
+    assert approved.edited_by_human is True
+    assert approved.original_reply_digest == first.reply_digest
+    assert approved.harness_version == "HVER_ABC"
+
+
+def test_the_same_draft_asked_again_is_not_an_edit() -> None:
+    conversation, replied, target = _answerable()
+    draft = ReplyDraft(kind=ReplyKind.ANSWER, text="您好，在的。", in_reply_to=target)
+    first = SERVICE.draft_reply(conversation, replied, draft, now=NOW)
+    again = SERVICE.draft_reply(conversation, replied, draft, now=NOW, replaces=first)
+
+    assert again.original_reply_digest is None
+    approved = SERVICE.approve_reply(conversation, replied, again, answer="发", now=NOW)
+    assert approved.edited_by_human is False
+
+
+def test_an_earlier_question_from_another_point_is_not_a_draft_this_one_replaces() -> None:
+    conversation, replied, target = _answerable()
+    earlier = SERVICE.draft_reply(
+        conversation,
+        replied,
+        ReplyDraft(kind=ReplyKind.ANSWER, text="您好，在的。", in_reply_to=target),
+        now=NOW,
+    )
+    newer = receive(conversation, replied, inbound("在吗？"))
+    latest = next(e for e in reversed(newer) if e.kind is EventKind.INBOUND).event_id
+    ask = SERVICE.draft_reply(
+        conversation,
+        newer,
+        ReplyDraft(kind=ReplyKind.ANSWER, text="在的。", in_reply_to=latest),
+        now=NOW,
+        replaces=earlier,
+    )
+    assert ask.original_reply_digest is None

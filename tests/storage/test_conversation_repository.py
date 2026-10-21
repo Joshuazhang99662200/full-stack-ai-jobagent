@@ -75,3 +75,35 @@ def test_reply_failures_are_reported_per_platform(tmp_path: Path) -> None:
     assert store.get_ask(ask.ask_id) == ask
     assert store.reply_failures() == [(conversation.platform, NOW)]
     assert inbound().level is MessageLevel.L1
+
+
+def test_only_the_first_sighting_of_each_receipt_is_kept(tmp_path: Path) -> None:
+    from datetime import timedelta
+
+    from jobagent.schemas.patrol import ConversationReceipt
+
+    store = repository(tmp_path)
+    conversation, events = opened()
+    store.save_conversation(conversation)
+    store.append_events(events)
+    cid = conversation.conversation_id
+
+    def receipt(status: str, at_hours: int, snapshot: str) -> ConversationReceipt:
+        return ConversationReceipt(
+            conversation_id=cid,
+            status=status,  # type: ignore[arg-type]
+            observed_at=NOW + timedelta(hours=at_hours),
+            snapshot_id=snapshot,
+        )
+
+    assert store.record_receipts([receipt("delivered", 0, "PSNAP_A")]) == 1
+    assert (
+        store.record_receipts([receipt("delivered", 1, "PSNAP_B"), receipt("read", 1, "PSNAP_B")])
+        == 1
+    )
+
+    kept = store.receipts()
+    assert [(r.status, r.snapshot_id) for r in kept] == [
+        ("delivered", "PSNAP_A"),
+        ("read", "PSNAP_B"),
+    ]

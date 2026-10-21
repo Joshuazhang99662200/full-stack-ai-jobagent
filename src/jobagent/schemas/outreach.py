@@ -46,6 +46,12 @@ class OutreachDraft(ContractModel):
     platform: NonEmptyString
     text: NonEmptyString
     evidence_ids: list[EvidenceId] = Field(default_factory=list)
+    # How this greeting was written, so outcomes can be compared across ways of
+    # writing it: the opening used, the JD requirement the one concrete thing
+    # answers, and the experiment arm, if any. Labels only; they change no rule.
+    variant: str | None = None
+    hook_requirement: str | None = None
+    experiment_id: str | None = None
 
 
 class OutreachItem(ContractModel):
@@ -59,7 +65,10 @@ class OutreachItem(ContractModel):
     evidence_ids: list[EvidenceId] = Field(default_factory=list)
     # The job's latest match tier; None when the job was never assessed.
     match_tier: str | None = None
-    # Binds the job content, the platform and the exact words to this number.
+    variant: str | None = None
+    hook_requirement: str | None = None
+    experiment_id: str | None = None
+    # Binds the job content, the platform, the exact words and any strategy labels.
     item_digest: Digest
 
 
@@ -70,6 +79,8 @@ class OutreachBatch(ContractModel):
     policy_digest: Digest
     batch_digest: Digest
     created_at: datetime
+    # The HVER_* the greetings were drafted under. Not part of what is approved.
+    harness_version: str | None = None
 
 
 class OutreachRejection(ContractModel):

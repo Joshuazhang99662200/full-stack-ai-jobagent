@@ -13,6 +13,7 @@ from jobagent.schemas.conversation import (
     EventKind,
     ReplyResult,
 )
+from jobagent.schemas.patrol import ConversationReceipt
 from jobagent.storage.database import Database
 
 _HALTING_REPLIES = (ReplyResult.FAILED.value, ReplyResult.INTERVENTION.value)
@@ -149,6 +150,40 @@ class SqliteConversationRepository:
         if not rows:
             return None
         return ConversationEvent.model_validate_json(rows[0]["body"]).recorded_at
+
+    def record_receipts(self, receipts: Sequence[ConversationReceipt]) -> int:
+        """Keep the first sighting of each status per conversation; return how many were new."""
+        try:
+            with self.database.connect() as connection, connection:
+                before = connection.total_changes
+                connection.executemany(
+                    "INSERT OR IGNORE INTO conversation_receipts "
+                    "(conversation_id, status, observed_at, snapshot_id) VALUES (?, ?, ?, ?)",
+                    [
+                        (r.conversation_id, r.status, r.observed_at.isoformat(), r.snapshot_id)
+                        for r in receipts
+                    ],
+                )
+                return connection.total_changes - before
+        except sqlite3.Error as error:
+            self._raise("record conversation receipts", error)
+
+    def receipts(self) -> list[ConversationReceipt]:
+        rows = self._read(
+            "list conversation receipts",
+            "SELECT conversation_id, status, observed_at, snapshot_id "
+            "FROM conversation_receipts ORDER BY observed_at, conversation_id, status",
+            (),
+        )
+        return [
+            ConversationReceipt(
+                conversation_id=row["conversation_id"],
+                status=row["status"],
+                observed_at=datetime.fromisoformat(row["observed_at"]),
+                snapshot_id=row["snapshot_id"],
+            )
+            for row in rows
+        ]
 
     def _write(self, operation: str, sql: str, parameters: tuple[object, ...]) -> None:
         try:

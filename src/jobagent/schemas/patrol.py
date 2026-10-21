@@ -105,6 +105,9 @@ class SnapshotItem(ContractModel):
     unread: Annotated[int, Field(ge=0)] = 0
     # Who sent the last message: the recruiter, us, a platform notice, or unknown.
     last_from: Literal["them", "us", "system", "unknown"] = "unknown"
+    # What the board showed about our last message, when the host read it off the
+    # page. Left unknown, it is read from the preview's status word instead.
+    our_status: Literal["delivered", "read", "unknown"] = "unknown"
 
 
 class PatrolSnapshot(ContractModel):
@@ -131,3 +134,28 @@ class SnapshotDiff(ContractModel):
     gone: list[str] = Field(default_factory=list)
     # New or changed conversations whose latest message is from the recruiter.
     their_new_messages: list[SnapshotItem] = Field(default_factory=list)
+
+
+ReceiptStatus = Literal["delivered", "read"]
+
+
+class ConversationReceipt(ContractModel):
+    """A board showed our latest message in a conversation as delivered or read."""
+
+    conversation_id: NonEmptyString
+    status: ReceiptStatus
+    observed_at: datetime
+    snapshot_id: PatrolSnapshotId
+
+
+class UnmatchedReceipt(ContractModel):
+    """A status seen on a row no conversation could be matched to with certainty."""
+
+    key: NonEmptyString
+    status: ReceiptStatus
+    reason: Literal["no_match", "ambiguous"]
+
+
+class ReceiptReport(ContractModel):
+    receipts: list[ConversationReceipt] = Field(default_factory=list)
+    unmatched: list[UnmatchedReceipt] = Field(default_factory=list)

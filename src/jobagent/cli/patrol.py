@@ -15,6 +15,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.errors import ContractValidationError, JobAgentError
+from jobagent.patrol.receipts import receipts_from_snapshot
 from jobagent.patrol.schedule import decide
 from jobagent.patrol.snapshot import diff_snapshots
 from jobagent.schemas.patrol import (
@@ -22,8 +23,11 @@ from jobagent.schemas.patrol import (
     PatrolDecision,
     PatrolSchedule,
     PatrolSnapshot,
+    ReceiptReport,
     SnapshotItem,
 )
+from jobagent.schemas.sources import ObservabilitySpec
+from jobagent.sources import SourceRegistry
 from jobagent.storage.conversation_repository import SqliteConversationRepository
 from jobagent.storage.database import Database
 from jobagent.storage.patrol_repository import SqlitePatrolRepository
@@ -65,6 +69,22 @@ def _stores(database: Path) -> tuple[SqlitePatrolRepository, SqliteConversationR
     db = Database(database)
     db.migrate()
     return SqlitePatrolRepository(db), SqliteConversationRepository(db)
+
+
+def _observability(platform: str) -> ObservabilitySpec | None:
+    registry = SourceRegistry.default()
+    if platform not in registry.ids():
+        return None
+    return registry.get(platform).observability
+
+
+def _receipts(
+    snapshot: PatrolSnapshot, conversations: SqliteConversationRepository
+) -> tuple[ReceiptReport, int]:
+    report = receipts_from_snapshot(
+        snapshot, conversations.list_conversations(), _observability(snapshot.platform)
+    )
+    return report, conversations.record_receipts(report.receipts)
 
 
 def _decide(
@@ -149,7 +169,7 @@ def snapshot(
                 "The snapshot file must hold a JSON list of conversations.",
                 details={"file_name": items_path.name},
             ) from None
-        checks, _ = _stores(database)
+        checks, conversations = _stores(database)
         previous = next(iter(checks.snapshots(platform, limit=1)), None)
         current = PatrolSnapshot(
             snapshot_id=f"PSNAP_{uuid.uuid4().hex[:16].upper()}",
@@ -159,11 +179,16 @@ def snapshot(
             items=items,
         )
         checks.save_snapshot(current)
+        report, recorded = _receipts(current, conversations)
         _emit(
             {
                 "snapshot_id": current.snapshot_id,
                 "items": len(items),
                 "diff": diff_snapshots(previous, current).model_dump(mode="json"),
+                "receipts": {
+                    "recorded": recorded,
+                    "unmatched": [u.model_dump(mode="json") for u in report.unmatched],
+                },
             }
         )
     except (JobAgentError, ValueError) as error:
@@ -189,6 +214,33 @@ def snapshots(
                 }
                 for kept in checks.snapshots(platform, limit=limit)
             ]
+        )
+    except JobAgentError as error:
+        _fail(error)
+
+
+@patrol_app.command("receipts")
+def receipts(database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    """Replay every kept snapshot into read receipts; only first sightings are added."""
+    try:
+        checks, conversations = _stores(database)
+        kept = checks.all_snapshots()
+        recorded = 0
+        unmatched: dict[str, dict[str, str]] = {}
+        for snapshot in kept:
+            report, added = _receipts(snapshot, conversations)
+            recorded += added
+            for row in report.unmatched:
+                unmatched[f"{snapshot.platform}|{row.key}"] = {
+                    "platform": snapshot.platform,
+                    **row.model_dump(mode="json"),
+                }
+        _emit(
+            {
+                "snapshots": len(kept),
+                "recorded": recorded,
+                "unmatched": list(unmatched.values()),
+            }
         )
     except JobAgentError as error:
         _fail(error)

@@ -293,3 +293,30 @@ def test_screening_reads_the_company_and_flags_an_unknown_title(tmp_path: Path) 
     )
     assert code == 0 and isinstance(unknown, dict)
     assert unknown["screen"] == {"excluded": False, "term": None, "title_unknown": True}
+
+
+def test_a_reply_redrafted_before_approval_is_marked_as_edited(tmp_path: Path) -> None:
+    db, conversation_id, _ = greeted(tmp_path)
+    invoke(
+        "conversations", "inbound", conversation_id, "--text", "您好？", "--level", "l1", *db
+    )
+    _, first = invoke(
+        "conversations", "draft-reply", conversation_id, "--kind", "answer",
+        "--text", "您好，在的。", *db,
+    )
+    code, second = invoke(
+        "conversations", "draft-reply", conversation_id, "--kind", "answer",
+        "--text", "您好，在的，方便聊聊。", *db,
+    )
+    assert code == 0 and isinstance(first, dict) and isinstance(second, dict), second
+    assert second["original_reply_digest"] == first["reply_digest"]
+    assert second["harness_version"].startswith("HVER_")
+
+    invoke(
+        "conversations", "approve-reply", conversation_id, "--request", second["ask_id"],
+        "--answer", "发", *db,
+    )
+    _, shown = invoke("conversations", "show", conversation_id, *db)
+    assert isinstance(shown, dict)
+    approved = shown["events"][-1]
+    assert approved["kind"] == "reply_approved" and approved["edited_by_human"] is True

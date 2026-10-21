@@ -22,7 +22,7 @@ def test_migration_creates_candidate_schema_and_enables_foreign_keys(tmp_path: P
             ).fetchall()
         }
 
-    assert version == 9
+    assert version == 10
     assert foreign_keys == 1
     assert {
         "candidate_profiles",
@@ -31,6 +31,11 @@ def test_migration_creates_candidate_schema_and_enables_foreign_keys(tmp_path: P
         "interview_events",
         "patrol_checks",
         "outreach_withdrawals",
+        "conversation_receipts",
+        "job_search_hits",
+        "harness_versions",
+        "profile_snapshots",
+        "profile_versions",
     } <= tables
 
 
@@ -40,7 +45,7 @@ def test_migration_is_idempotent(tmp_path: Path) -> None:
     database.migrate()
 
     with database.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 10
 
 
 def test_connection_enforces_candidate_foreign_keys(tmp_path: Path) -> None:

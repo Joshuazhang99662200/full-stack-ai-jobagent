@@ -46,6 +46,27 @@ def _job_content(job: NormalizedJob) -> object:
     return job.model_dump(mode="json", exclude={"collected_at"})
 
 
+def _item_digest(job: NormalizedJob, draft: OutreachDraft) -> str:
+    content: dict[str, object] = {
+        "job": _job_content(job),
+        "platform": draft.platform,
+        "text": draft.text,
+    }
+    tags = {
+        name: value
+        for name, value in (
+            ("variant", draft.variant),
+            ("hook_requirement", draft.hook_requirement),
+            ("experiment_id", draft.experiment_id),
+        )
+        if value is not None
+    }
+    # Untagged items keep the digest they always had, so stored batches stay valid.
+    if tags:
+        content["tags"] = tags
+    return _digest(content)
+
+
 def policy_digest(policy: OutreachPolicy) -> str:
     return _digest(policy.model_dump(mode="json"))
 
@@ -81,6 +102,7 @@ class OutreachService:
         match_tiers: Mapping[str, str] | None = None,
         preferences: Mapping[str, float] | None = None,
         possible_match_min_preference: float | None = None,
+        harness_version: str | None = None,
     ) -> OutreachDraftReport:
         """List the drafts that pass every rule; return the rest with their reasons.
 
@@ -129,9 +151,10 @@ class OutreachService:
                     text=draft.text,
                     evidence_ids=draft.evidence_ids,
                     match_tier=tier,
-                    item_digest=_digest(
-                        {"job": _job_content(job), "platform": draft.platform, "text": draft.text}
-                    ),
+                    variant=draft.variant,
+                    hook_requirement=draft.hook_requirement,
+                    experiment_id=draft.experiment_id,
+                    item_digest=_item_digest(job, draft),
                 )
             )
         if not items:
@@ -144,6 +167,7 @@ class OutreachService:
                 policy_digest=policy_digest(policy),
                 batch_digest=_digest([[item.number, item.item_digest] for item in items]),
                 created_at=created_at,
+                harness_version=harness_version,
             ),
             rejected=rejected,
         )

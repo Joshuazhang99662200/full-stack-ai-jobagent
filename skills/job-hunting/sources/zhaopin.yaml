@@ -25,3 +25,20 @@ host_browser:
     - JD 取面板中「职位描述」到「职位发布者」之间,公司介绍与薪酬福利不进 jd_raw。
     - 面板里的公司名行位置不固定(猎头岗显示「客户公司:…」),以列表卡片上的公司名为准。
     - 列表页薪资可直接读取。
+observability:
+  # 2026-10-20 按已存快照核对:只出现过 [送达],尚未见到已读标记,已读率记为不可观测。
+  read_markers: []
+  delivered_markers: ["[送达]"]
+  # “谁看了我”在 /view/resume,不开会话即可读;每行有职位、公司、查看日期,不显示招聘者。
+  profile_views: true
+profile:
+  # 2026-10-20 只读实测(编辑后取消,未保存)。域名 i.zhaopin.com。
+  # 上限由“还可输入 N 个字”加现有字数推算,不是页面直接显示的。
+  edit_path: /resume
+  viewers_path: /view/resume
+  sections:
+    - {name: advantage, label: 个人优势, max_chars: 500, limit_source: inferred}
+    - {name: work_description, label: 工作/实习经历-工作描述, max_chars: 3000, limit_source: inferred, per_entry: true}
+    - {name: project_description, label: 项目经历-项目描述, per_entry: true}
+  reading_hints:
+    - 打开后会弹“附件中有1项内容可同步”,只点右上角 X 关闭,不要点“同步至在线简历”。

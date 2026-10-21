@@ -15,6 +15,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
+from jobagent.evals.versioning import read_harness_version
 from jobagent.jobs.preferences import preference_score
 from jobagent.outreach.service import OutreachService, contacted_job_ids
 from jobagent.schemas.common import ContractModel
@@ -26,8 +27,10 @@ from jobagent.schemas.outreach import (
     OutreachDraft,
     OutreachResult,
 )
+from jobagent.skill_resources import default_skill_root
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
+from jobagent.storage.evals_repository import SqliteEvalsRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 
@@ -151,16 +154,24 @@ def draft_batch(
                     preferences[job_id] = preference_score(
                         f"{job.title} {job.jd_raw}", context.preferred_factors
                     )[0]
+        moment = datetime.now(UTC)
+        version = read_harness_version(
+            default_skill_root(),
+            recorded_at=moment,
+            extra=[filter_context] if filter_context is not None else [],
+        )
+        SqliteEvalsRepository(db).save_harness_version(version)
         report = OutreachService().build_batch(
             drafts,
             jobs={job_id: job for job_id, job in found.items() if job is not None},
             already_contacted=contacted_job_ids(store.list_audits()),
             confirmed_evidence_ids=confirmed,
             batch_id=f"OBATCH_{uuid4().hex[:16].upper()}",
-            created_at=datetime.now(UTC),
+            created_at=moment,
             match_tiers=tiers,
             preferences=preferences,
             possible_match_min_preference=floor,
+            harness_version=version.version_id,
         )
         if report.batch is not None:
             store.save_batch(report.batch)

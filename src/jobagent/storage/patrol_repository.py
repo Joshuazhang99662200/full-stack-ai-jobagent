@@ -92,6 +92,17 @@ class SqlitePatrolRepository:
             self._raise("read patrol snapshots", error)
         return [PatrolSnapshot.model_validate_json(row["body"]) for row in rows]
 
+    def all_snapshots(self) -> list[PatrolSnapshot]:
+        """Every kept snapshot of every board, oldest first."""
+        try:
+            with self.database.connect() as connection:
+                rows = connection.execute(
+                    "SELECT snapshot_json AS body FROM patrol_snapshots ORDER BY captured_at"
+                ).fetchall()
+        except sqlite3.Error as error:
+            self._raise("read patrol snapshots", error)
+        return [PatrolSnapshot.model_validate_json(row["body"]) for row in rows]
+
     def _one(self, sql: str) -> PatrolCheck | None:
         try:
             with self.database.connect() as connection:

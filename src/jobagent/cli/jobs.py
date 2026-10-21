@@ -38,6 +38,7 @@ from jobagent.schemas.job_intelligence import (
     JobAssessment,
     JobIntelligencePolicies,
     JobListing,
+    JobSearchHit,
     JobSearchQuery,
     MatchThresholdPolicy,
     ObservationImportReport,
@@ -468,6 +469,15 @@ def import_observations(
             job = _normalizer_for(record.source).normalize(record)
             known_before = jobs.get_job(job.id) is not None
             jobs.save_job(job)
+            if record.search_term and record.search_term.strip():
+                jobs.record_search_hit(
+                    JobSearchHit(
+                        job_id=job.id,
+                        source=job.source,
+                        search_term=record.search_term.strip(),
+                        collected_at=record.collected_at,
+                    )
+                )
             report.stored.append(
                 ImportedObservation(
                     job_id=job.id,

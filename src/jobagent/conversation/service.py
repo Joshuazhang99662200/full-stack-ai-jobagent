@@ -372,8 +372,15 @@ class ConversationService:
         draft: ReplyDraft,
         *,
         now: datetime,
+        replaces: ConversationAsk | None = None,
+        harness_version: str | None = None,
     ) -> ConversationAsk:
-        """Check a host-drafted reply and turn it into a question for the person."""
+        """Check a host-drafted reply and turn it into a question for the person.
+
+        `replaces` is the question already put at this point, if any. A different
+        draft at the same point means the first one was not taken as it was, and
+        the first draft's digest is carried forward so the edit stays visible.
+        """
         problems = self._reply_problems(conversation, events, draft)
         if problems:
             raise ContractValidationError(
@@ -385,13 +392,21 @@ class ConversationService:
         reply_digest = _digest(
             {"conversation": conversation.conversation_id, **draft.model_dump(mode="json")}
         )
+        ask_id = self._ask_id(conversation, events, "R")
+        original: str | None = None
+        if replaces is not None and replaces.ask_id == ask_id:
+            original = replaces.original_reply_digest
+            if original is None and replaces.reply_digest != reply_digest:
+                original = replaces.reply_digest
         return ConversationAsk(
-            ask_id=self._ask_id(conversation, events, "R"),
+            ask_id=ask_id,
             conversation_id=conversation.conversation_id,
             subject="reply",
             anchor_seq=events[-1].seq,
             reply=draft,
             reply_digest=reply_digest,
+            original_reply_digest=original,
+            harness_version=harness_version,
             question=(
                 f"{conversation.platform}｜{conversation.company}｜{conversation.title}\n"
                 f"{heard}拟回复（{draft.kind.value}）：{draft.text}\n回复“发”即同意发送这一条。"
@@ -455,6 +470,9 @@ class ConversationService:
             reply_digest=ask.reply_digest,
             ask_id=ask.ask_id,
             attestation=answer.strip(),
+            edited_by_human=ask.original_reply_digest is not None,
+            original_reply_digest=ask.original_reply_digest,
+            harness_version=ask.harness_version,
         )
 
     def reply_gate(
@@ -688,6 +706,12 @@ class ConversationService:
             raise StaleApprovalError(
                 "The conversation moved on after the question was asked.", details=details
             )
+
+    def reply_ask_id(
+        self, conversation: Conversation, events: Sequence[ConversationEvent]
+    ) -> str:
+        """The id a reply question at this point gets; a redraft here reuses it."""
+        return self._ask_id(conversation, events, "R")
 
     @staticmethod
     def _ask_id(conversation: Conversation, events: Sequence[ConversationEvent], tag: str) -> str:

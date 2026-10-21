@@ -230,3 +230,27 @@ def test_a_withdrawn_question_can_no_longer_be_approved(tmp_path: Path) -> None:
     )
     assert code == 1 and isinstance(refused, dict)
     assert "withdrawn" in refused["error"]["message"].lower()
+
+
+def test_a_drafted_batch_carries_its_strategy_tags_and_harness_version(tmp_path: Path) -> None:
+    from jobagent.storage.database import Database
+    from jobagent.storage.evals_repository import SqliteEvalsRepository
+
+    database, ids = stored_jobs(tmp_path)
+    drafts = tmp_path / "drafts.json"
+    drafts.write_text(
+        json.dumps(
+            [{"job_id": ids[0], "platform": "boss", "text": GREETING, "variant": "opening_a"}]
+        ),
+        encoding="utf-8",
+    )
+    code, report = invoke("outreach", "draft-batch", str(drafts), "--database", str(database))
+    assert code == 0 and isinstance(report, dict), report
+
+    batch = report["batch"]
+    assert batch["items"][0]["variant"] == "opening_a"
+    version = SqliteEvalsRepository(Database(database)).get_harness_version(
+        batch["harness_version"]
+    )
+    assert version is not None
+    assert "references/message-generation.md" in [f.path for f in version.files]

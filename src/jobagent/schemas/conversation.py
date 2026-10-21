@@ -119,6 +119,11 @@ class ConversationEvent(ContractModel):
     resume_variant_id: str | None = None
     resume_digest: Digest | None = None
     pdf_digest: Digest | None = None
+    # On an approved reply: whether the person turned down an earlier draft put to
+    # them at the same point, the digest of that first draft, and the HVER_* in force.
+    edited_by_human: bool | None = None
+    original_reply_digest: Digest | None = None
+    harness_version: str | None = None
 
     @model_validator(mode="after")
     def require_the_fields_its_kind_implies(self) -> "ConversationEvent":
@@ -147,6 +152,10 @@ class ConversationAsk(ContractModel):
     reply_digest: Digest | None = None
     question: NonEmptyString
     asked_at: datetime
+    # Set when this question replaced an earlier draft at the same point: the
+    # digest of the first draft that was put to the person there.
+    original_reply_digest: Digest | None = None
+    harness_version: str | None = None
 
 
 class ReplyGateDecision(ContractModel):

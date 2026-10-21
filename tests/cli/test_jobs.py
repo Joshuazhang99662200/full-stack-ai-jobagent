@@ -603,6 +603,26 @@ def test_import_observations_is_idempotent(tmp_path: Path) -> None:
     assert first["stored"][0]["job_id"] == second["stored"][0]["job_id"]
 
 
+def test_import_keeps_every_search_that_turned_up_a_posting(tmp_path: Path) -> None:
+    """A job found again by another search keeps both; the first search is never lost."""
+    _, first, database_path = _import(tmp_path, [_observation(search_term="AI 产品经理")])
+    _import(
+        tmp_path,
+        [_observation(search_term="Agent 产品", collected_at="2026-10-14T10:00:00Z")],
+    )
+    _import(tmp_path, [_observation(search_term="AI 产品经理")])
+    _import(tmp_path, [_observation(source_job_id="nosearch")])
+
+    assert isinstance(first, dict)
+    job_id = first["stored"][0]["job_id"]
+    hits = SqliteJobRepository(Database(database_path)).search_hits()
+    assert [(h.job_id, h.search_term) for h in hits] == [
+        (job_id, "AI 产品经理"),
+        (job_id, "Agent 产品"),
+    ]
+    assert hits[0].source == "boss"
+
+
 def test_import_report_flags_known_and_contacted_postings(tmp_path: Path) -> None:
     _, first, _ = _import(tmp_path, [_observation()])
     assert isinstance(first, dict)

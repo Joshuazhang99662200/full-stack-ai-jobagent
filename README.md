@@ -142,7 +142,7 @@ jobagent jobs listings "AI Agent 产品负责人" --location 上海
 
 listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业都在),但**不能替代 JD**。定向改写仍需要 JD 正文,由人补齐后走 `jobs search` 那条完整链路。`jobs search --source liepin` 会被显式拒绝并指向本命令,而不是合成一段假 JD。
 
-需要先自行安装 [`liepin-cli`](https://github.com/liepin-tech-2026/liepin-cil) 并在可交互终端完成 `liepin-cli setup` 授权(粘贴猎聘官方 `x-user-token`)。该 CLI 的 `job apply` 与 `resume` 写入命令有意**不接入**——投递属于独立边界,在线简历保持只读。token 过期、401/403、验证码与风控一律返回 `USER_INTERVENTION_REQUIRED` 交还给人,不自动重试、不更换账号。
+需要先自行安装 [`liepin-cli`](https://github.com/liepin-tech-2026/liepin-cil) 并在可交互终端完成 `liepin-cli setup` 授权(粘贴猎聘官方 `x-user-token`)。寻源侧只读；独立投递连接器因无法传递获批附件和消息，在平台调用前停止并交人。`resume` 写入命令不接入。在线简历当前保持只读，后续仅允许通过 evals 在线简历飞轮，经证据复核、版本摘要人工审批与回读核对后更新，见 [评测操作边界](skills/job-hunting/references/evals.md)。token 过期、401/403、验证码与风控一律返回 `USER_INTERVENTION_REQUIRED` 交还给人,不自动重试、不更换账号。
 
 搜索与 Job Intelligence 是只读的。它们不暴露平台导航、投递准备、审批或投递操作。
 
@@ -176,6 +176,7 @@ listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业�
 - 默认时段：周日 20:00 到周五 20:00。平时每小时一次；一小时内有新来信时，改为每 15 分钟一次。
 - 开工 `record`、完工 `finish`。开工 45 分钟还没完工视为中断，下次醒来立即续查，所以用量耗尽或断网后能安全恢复。
 - `snapshot` 把一个站的整份消息列表存进本地库，并返回与上一份的差异：新会话、对方新消息、消失的会话、用户拉起但还没打招呼的会话。
+- 快照按来源清单声明同步提取我方消息的已读/送达回执；`receipts` 可回填旧快照，无法唯一匹配的行交人。当前只落地部分 P0 埋点，漏斗计算、诊断、实验与在线简历上线仍待后续阶段实现。
 
 规则全文见 [patrol.md](skills/job-hunting/references/patrol.md)、[conversation.md](skills/job-hunting/references/conversation.md)、[browser-sourcing.md](skills/job-hunting/references/browser-sourcing.md)。设计见 [outreach-design.md](docs/outreach-design.md)、[conversation-design.md](docs/conversation-design.md)。
 
@@ -225,7 +226,7 @@ jobagent optimizer capabilities --intent detect_candidate_evidence_gaps
 - [架构设计](docs/superpowers/specs/2026-08-21-jobagent-foundation-design.md)
 - [Job Intelligence 设计](docs/superpowers/specs/2026-08-21-job-intelligence-design.md)
 - [Optimizer 设计](docs/superpowers/specs/2026-08-22-resume-optimizer-router-skill-design.md)
-- [外联设计](docs/outreach-design.md) · [对话设计](docs/conversation-design.md) · [后半段评测设计（草案）](docs/evals-design.md) · [Harness Skill 设计](docs/harness-skill-design.md) · [Cowork 交接](docs/cowork-handoff.md)
+- [外联设计](docs/outreach-design.md) · [对话设计](docs/conversation-design.md) · [后半段评测与自进化设计](docs/evals-design.md) · [Harness Skill 设计](docs/harness-skill-design.md) · [Cowork 交接](docs/cowork-handoff.md)
 - [架构总览](docs/architecture.md) · [领域模型](docs/domain-model.md) · [开源复用评审](docs/oss-review.md)
 
 面向编码智能体的上下文在 [`skills/job-hunting/`](skills/job-hunting/SKILL.md);`docs/superpowers/` 下的 specs 与 plans 是历史评审记录,保持英文原样。

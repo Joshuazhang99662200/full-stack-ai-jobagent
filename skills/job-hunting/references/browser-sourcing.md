@@ -36,3 +36,5 @@ Boss、智联、猎聘这类主站,由宿主(Claude Code / Codex)在**用户自�
 每条记录至少包含:`source`(清单 id)、`source_job_id`(站内职位 id,取不到时用详情页地址中的 id 段)、`title`、`company`、`location`、`salary_text`、`jd_raw`、`url`(必须是该站详情页)、`collected_at`。看得到招聘方时一并记录 `recruiter`,猎聘的直招 / 猎头标记原样填进 `job_kind`。
 
 缺字段就留空,不要用列表摘要拼凑 JD。
+
+已知本次实际检索词时，把原文放进可选字段 `search_term`。导入会把命中记录独立追加到 `job_search_hits`，重存职位不会覆盖检索历史。缺失的历史检索词保持未知，不从职位名或筛选配置反推。

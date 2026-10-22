@@ -31,6 +31,8 @@
 | `add_jd` | 已落地 | `jobagent jobs add-jd`(用户自带的 JD 直接落库为 `JOB_*`,不需要 listing;来源默认 `manual`) |
 | `import_observations` | 已落地 | `jobagent jobs import-observations`(宿主在用户自己的浏览器里抓回的职位,按来源清单的 `host_browser` 校验后入库;浏览器操作本身是宿主能力) |
 | `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`(每站今天还能读几条详情,上限取清单 `max_detail_reads_per_day`,不超过 50) |
+| `search_log` | 已落地 | `jobagent jobs search-log`(每次搜索都记一笔:站、检索词、列出几条、其中新职位几条;零结果也记) |
+| `search_plan` | 已落地 | `jobagent jobs search-plan`(按站给出这一轮该用的检索词:多数名额轮换最久没搜过的词,一个名额给历史上带出强匹配/可能匹配最多的词;附每个词的搜索次数、新增、命中与匹配产出) |
 | `fetch_jd` | 已落地 | `jobagent jobs fetch-jd`(读公开详情页,把 `JobListing` 补齐为 `SourceJobRecord`) |
 | `fetch` | 已落地 | `jobagent jobs fetch` |
 | `normalize` | 已落地 | `jobagent jobs normalize` |
@@ -109,7 +111,7 @@
 
 ## 评测与在线简历(Evals / Profile)
 
-当前仅 P0 埋点已落地。设计稿中的 P1–P4 尚未提供可执行入口；数据库表不代表服务已经实现。
+当前仅 P0 的部分埋点已落地，操作与停止条件见 [evals.md](evals.md)。设计稿中的 P1–P4 尚未提供可执行入口；数据库表不代表服务已经实现。
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
@@ -118,10 +120,15 @@
 | 规则版本与草稿标签 | 已落地 | `HarnessVersion`、`read_harness_version`；招呼和回复起草留存规则摘要，招呼策略标签及回复重写记录用于后续度量，不触发实验或发送 |
 | 在线简历只读快照 | 已落地 | `jobagent profile snapshot`(存宿主读取的字段，摘要变化时生成本地版本，正文不回显，不写平台) |
 | 在线简历版本查询 | 已落地 | `jobagent profile versions`(按平台列出本地版本及变化字段，不上线、不回滚) |
+| 在线简历修改提案 | 已落地 | `jobagent profile propose`(针对当前版本写改动；只能改已有段落，字数按来源清单上限，引用证据须已确认，拒绝自证句；判定规则写进提案摘要) |
+| 在线简历修改提问 | 已落地 | `jobagent profile ask`(逐段列出现在与改后原文、依据和判定规则；只提问，不算批准) |
+| 在线简历修改批准 | 已落地 | `jobagent profile approve`(须先有提问；人的原话逐字存档；提问后任一站版本变化即作废) |
+| 在线简历修改放行 | 已落地 | `jobagent profile gate`(核对批准、当前版本与是否已记账，给出要填写的原文；仓库不操作网页) |
+| 在线简历修改记账 | 已落地 | `jobagent profile record`(applied 必须附回读，回读摘要与批准一致才生成 agent 版本，否则记 mismatch；intervention / failed 交人) |
 | 漏斗、指标与切片（P1） | 未开始 | 无评测契约或 CLI；不可从缺失回执推断未读率或零回复率 |
 | 诊断上下文（P2） | 未开始 | 无诊断服务或 CLI；P0 上线后先积累两周基线 |
 | 提案、实验与复核（P3） | 未开始 | 无提案审批、实验分配或复核入口 |
-| 在线简历飞轮（P4） | 未开始 | 尚无提案、审批、上线或回滚命令；当前平台在线简历保持只读，后续须经版本摘要人工审批与回读核对 |
+| 在线简历飞轮（P4）其余部分 | 未开始 | 条件回滚、收口与由诊断触发的提案尚无入口；回滚目前要作为一份新提案重新提问和批准 |
 
 ## 会话间信箱(Cowork ↔ Claude Code)
 
@@ -133,6 +140,15 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 回执 | 已落地 | `jobagent mailbox ack`(accepted / registered / done / rejected,附原因;Cowork 用 MCP `receipts` 读) |
 | 给 Cowork 留言 | 已落地 | `jobagent mailbox notify`(Cowork 用 MCP `notes_from_claude_code` 读) |
 | 登记会话身份 | 已落地 | `jobagent mailbox register-session` / `jobagent mailbox peers`(哪个会话担任 claude_code / cowork;回执与留言带上 session_id) |
+
+## 手机推送(飞书 bot)
+
+账本有新东西时,经飞书 bot(`lark-cli im +messages-send --as bot`)给本人推一条消息。会触发推送的有：待审批问题(含招呼原文)、招聘方新来信、新入库的强匹配和可能匹配职位、当天被叫停的站。巡检完成只会捎带进消息，单独不会触发推送。每一项按键去重，发送成功才记入 `.jobagent/feishu_push_state.json`，失败的下次重试，重跑不会重复发。接收人写在 `.jobagent/feishu_push.json`，三选一：`chat_id`、`user_id`(应用 bot，经 lark-cli 发)，或 `webhook` 加可选 `secret`(群自定义机器人，不需要建应用，也不需要企业认证)。没有这个文件就不推送。**推送本身只是告知**；审批可回到对话里回复，也可在飞书审批卡片上提交(见下表)。
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 推送更新 | 已落地 | `jobagent notify feishu`(`--dry-run` 只打印不发、不记)。`patrol finish`(可带 `--report <文件>`，把巡检汇报原文一并推送，超过 6000 字截断)与 `outreach ask` 结束后在配置存在时自动推送，结果写到 stderr，失败不影响原命令 |
+| 飞书卡片审批 | 已落地 | 应用 bot 配置下，`outreach ask` 后自动给每个待批问题发一张审批卡片(勾选 + 可改原文 + 提交)，`jobagent notify feishu` 也会补发。`jobagent notify feishu-listen`(`--hours 8`)在本机监听提交：只认 `user_id`/`owner` 本人、只认本机发出且未处理的卡片、每张卡只登记一次；勾选且未改的条目以提交内容为原话登记批准；改过的条目生成本人改写的新批次与新问题，另发确认卡，确认后才登记。卡片不触发发送，发送仍由浏览器会话按租约和节奏执行 |
 
 ## 消息与投递(Message / Application / Cluster)
 

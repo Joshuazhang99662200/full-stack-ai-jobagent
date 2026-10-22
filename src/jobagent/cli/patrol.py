@@ -14,6 +14,7 @@ from typing import Annotated, Never
 import typer
 from pydantic import TypeAdapter, ValidationError
 
+from jobagent.bridge.feishu_push import Update, auto_push, report_update
 from jobagent.errors import ContractValidationError, JobAgentError
 from jobagent.patrol.receipts import receipts_from_snapshot
 from jobagent.patrol.schedule import decide
@@ -138,14 +139,36 @@ def record(database: DatabaseOption = DEFAULT_DATABASE, now: NowOption = None) -
         _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
+def _push(database: Path, extra: list[Update] | None = None) -> None:
+    """Tell the phone what changed; the result goes to stderr so stdout stays the record."""
+    outcome = auto_push(database, extra=extra or [])
+    if outcome is not None:
+        typer.echo(json.dumps({"feishu": outcome}, ensure_ascii=False), err=True)
+
+
 @patrol_app.command("finish")
 def finish(
-    check_id: str, database: DatabaseOption = DEFAULT_DATABASE, now: NowOption = None
+    check_id: str,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    now: NowOption = None,
+    report: Annotated[
+        Path | None,
+        typer.Option("--report", help="The check's report, pushed to the phone word for word."),
+    ] = None,
 ) -> None:
     """Mark a check finished; the next one is paced from its start."""
     try:
+        extra = []
+        if report is not None:
+            try:
+                extra.append(report_update(check_id, report.read_text(encoding="utf-8")))
+            except (OSError, UnicodeDecodeError):
+                raise ContractValidationError(
+                    "The report file could not be read.", details={"file_name": report.name}
+                ) from None
         checks, _ = _stores(database)
         _emit(checks.finish(check_id, _now(now)).model_dump(mode="json"))
+        _push(database, extra)
     except (JobAgentError, ValueError) as error:
         _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 

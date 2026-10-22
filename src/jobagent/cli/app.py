@@ -10,6 +10,7 @@ from jobagent.cli.conversations import conversations_app
 from jobagent.cli.harness import harness_app
 from jobagent.cli.jobs import jobs_app
 from jobagent.cli.mailbox import mailbox_app
+from jobagent.cli.notify import notify_app
 from jobagent.cli.optimizer import optimizer_app
 from jobagent.cli.outreach import outreach_app
 from jobagent.cli.patrol import patrol_app
@@ -45,6 +46,7 @@ app.add_typer(conversations_app, name="conversations")
 app.add_typer(patrol_app, name="patrol")
 app.add_typer(profile_app, name="profile")
 app.add_typer(mailbox_app, name="mailbox")
+app.add_typer(notify_app, name="notify")
 
 
 if __name__ == "__main__":

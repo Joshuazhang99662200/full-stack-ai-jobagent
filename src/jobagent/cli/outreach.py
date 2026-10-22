@@ -14,6 +14,7 @@ from uuid import uuid4
 import typer
 from pydantic import TypeAdapter, ValidationError
 
+from jobagent.bridge.feishu_push import auto_push
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.versioning import read_harness_version
 from jobagent.jobs.preferences import preference_score
@@ -193,6 +194,9 @@ def ask(batch_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
         question = OutreachService().ask(batch)
         store.save_ask(question)
         _emit(question)
+        pushed = auto_push(database)
+        if pushed is not None:
+            typer.echo(json.dumps({"feishu": pushed}, ensure_ascii=False), err=True)
     except JobAgentError as error:
         _fail(error)
 

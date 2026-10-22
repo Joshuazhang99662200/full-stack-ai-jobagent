@@ -336,3 +336,21 @@ def test_a_batch_names_the_harness_version_it_was_drafted_under() -> None:
     )
     assert report.batch is not None and report.batch.harness_version == "HVER_ABC"
     assert build([draft(0)]).batch.harness_version is None  # type: ignore[union-attr]
+
+
+def test_a_greeting_the_person_rewrote_is_not_held_to_the_length_limit() -> None:
+    long_text = GREETING + "我" * 80
+    agent = build([draft(0, long_text)])
+    person = build([draft(0, long_text, written_by="person")])
+
+    assert agent.batch is None and agent.rejected[0].reasons == ["too_long"]
+    assert person.batch is not None
+    item = person.batch.items[0]
+    assert item.written_by == "person"
+    assert "本人改写" in OutreachService().ask(person.batch, asked_at=NOW).question
+    # Who wrote it is part of what was approved.
+    same_words_by_agent = build([draft(0)]).batch
+    assert same_words_by_agent is not None
+    rewritten = build([draft(0, written_by="person")]).batch
+    assert rewritten is not None
+    assert rewritten.items[0].item_digest != same_words_by_agent.items[0].item_digest

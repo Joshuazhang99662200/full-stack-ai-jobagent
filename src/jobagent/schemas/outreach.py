@@ -52,6 +52,9 @@ class OutreachDraft(ContractModel):
     variant: str | None = None
     hook_requirement: str | None = None
     experiment_id: str | None = None
+    # "person" when the candidate rewrote the words themselves: the length limit
+    # is theirs to waive; every other check still applies.
+    written_by: Literal["agent", "person"] = "agent"
 
 
 class OutreachItem(ContractModel):
@@ -68,6 +71,7 @@ class OutreachItem(ContractModel):
     variant: str | None = None
     hook_requirement: str | None = None
     experiment_id: str | None = None
+    written_by: Literal["agent", "person"] = "agent"
     # Binds the job content, the platform, the exact words and any strategy labels.
     item_digest: Digest
 

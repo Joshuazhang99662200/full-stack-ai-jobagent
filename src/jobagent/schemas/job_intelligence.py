@@ -49,6 +49,35 @@ class JobSearchHit(ContractModel):
     collected_at: datetime
 
 
+class SearchRun(ContractModel):
+    """One search the host ran on one board, kept even when it found nothing new."""
+
+    source: NonEmptyString
+    search_term: NonEmptyString
+    searched_at: datetime
+    results: int = Field(ge=0)
+    new: int = Field(ge=0)
+
+
+class SearchTermStat(ContractModel):
+    """How one search term has done on one board so far."""
+
+    term: NonEmptyString
+    searches: int = Field(ge=0)
+    results: int = Field(ge=0)
+    new: int = Field(ge=0)
+    hits: int = Field(ge=0)
+    # Stored jobs it turned up whose latest match is strong or possible.
+    promising: int = Field(ge=0)
+    last_searched: datetime | None = None
+
+
+class SearchPlan(ContractModel):
+    source: NonEmptyString
+    chosen: list[SearchTermStat]
+    stats: list[SearchTermStat]
+
+
 class JobListing(ContractModel):
     """A search-result row from a source that does not publish JD text.
 

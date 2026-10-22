@@ -26,6 +26,7 @@ from jobagent.jobs.normalization import JobNormalizer
 from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
 from jobagent.jobs.query_derivation import SearchQueryDeriver
 from jobagent.jobs.ranking import JobRanker
+from jobagent.jobs.search_plan import plan_searches
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
 from jobagent.outreach.service import PLATFORM_DAY, contacted_job_ids
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher, is_admissible
@@ -44,6 +45,7 @@ from jobagent.schemas.job_intelligence import (
     ObservationImportReport,
     RejectedObservation,
     RequirementMatchSet,
+    SearchRun,
     SourceJobRecord,
 )
 from jobagent.schemas.jobs import (
@@ -540,6 +542,90 @@ def sourcing_budget(database: DatabaseOption = DEFAULT_DATABASE) -> None:
                 "remaining": max(spec.max_detail_reads_per_day - read, 0),
             }
         typer.echo(json.dumps(budget, ensure_ascii=False, indent=2))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("search-log")
+def search_log(
+    source: str,
+    term: str,
+    results: Annotated[int, typer.Option("--results", help="Postings the search listed.")],
+    new: Annotated[int, typer.Option("--new", help="Of those, how many were not stored yet.")],
+    database: DatabaseOption = DEFAULT_DATABASE,
+) -> None:
+    """Log one search the host ran, even one that found nothing new."""
+    try:
+        if not term.strip():
+            raise ContractValidationError("A search term is required.")
+        if new > results:
+            raise ContractValidationError(
+                "New postings cannot exceed the postings listed.",
+                details={"results": results, "new": new},
+            )
+        run = SearchRun(
+            source=source,
+            search_term=term.strip(),
+            searched_at=datetime.now(UTC),
+            results=results,
+            new=new,
+        )
+        _, jobs = _repositories(database)
+        jobs.record_search(run)
+        _emit_model(run)
+    except ValidationError as error:
+        _input_error(str(error))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("search-plan")
+def search_plan(
+    filter_context: Annotated[
+        Path, typer.Option("--filter-context", help="Holds preferred_search_terms.")
+    ],
+    per_site: Annotated[int, typer.Option("--per-site", min=1, max=6)] = 3,
+    site: Annotated[
+        list[str] | None, typer.Option("--site", help="Board id; repeat. Default: all three.")
+    ] = None,
+    candidate: Annotated[
+        str | None, typer.Option("--candidate", help="Judge terms by this candidate's matches.")
+    ] = None,
+    database: DatabaseOption = DEFAULT_DATABASE,
+) -> None:
+    """Which preferred search terms each board should run next, with each term's record."""
+    try:
+        try:
+            raw = json.loads(filter_context.read_text(encoding="utf-8"))
+            terms = TypeAdapter(list[str]).validate_python(raw.get("preferred_search_terms", []))
+        except (OSError, ValueError, AttributeError) as error:
+            raise ContractValidationError(
+                "The filter context could not be read.",
+                details={"file_name": filter_context.name},
+            ) from error
+        if not any(t.strip() for t in terms):
+            raise ContractValidationError(
+                "The filter context has no preferred_search_terms to plan from."
+            )
+        _, jobs = _repositories(database)
+        runs, hits = jobs.searches(), jobs.search_hits()
+        tiers = (
+            jobs.latest_match_tiers(candidate, sorted({h.job_id for h in hits}))
+            if candidate
+            else {}
+        )
+        plans = {
+            board: plan_searches(
+                terms,
+                board,
+                runs=runs,
+                hits=hits,
+                tiers=tiers,
+                per_site=per_site,
+            ).model_dump(mode="json")
+            for board in (site or ["boss", "liepin", "zhaopin"])
+        }
+        typer.echo(json.dumps(plans, ensure_ascii=False, indent=2))
     except JobAgentError as error:
         _fail(error)
 

@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from jobagent.errors import StorageError
-from jobagent.schemas.job_intelligence import JobSearchHit
+from jobagent.schemas.job_intelligence import JobSearchHit, SearchRun
 from jobagent.schemas.jobs import (
     HardFilterResult,
     JobRequirementProfile,
@@ -73,6 +73,44 @@ class SqliteJobRepository:
                 )
         except sqlite3.Error as error:
             self._raise_storage_error("record job search hit", error)
+
+    def record_search(self, run: SearchRun) -> None:
+        try:
+            with self.database.connect() as connection, connection:
+                connection.execute(
+                    "INSERT INTO job_searches (source, search_term, searched_at, results, new) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        run.source,
+                        run.search_term,
+                        run.searched_at.isoformat(),
+                        run.results,
+                        run.new,
+                    ),
+                )
+        except sqlite3.Error as error:
+            self._raise_storage_error("record job search", error)
+
+    def searches(self) -> list[SearchRun]:
+        """Every logged search, oldest first."""
+        try:
+            with self.database.connect() as connection:
+                rows = connection.execute(
+                    "SELECT source, search_term, searched_at, results, new FROM job_searches "
+                    "ORDER BY searched_at, source, search_term"
+                ).fetchall()
+        except sqlite3.Error as error:
+            self._raise_storage_error("read job searches", error)
+        return [
+            SearchRun(
+                source=row["source"],
+                search_term=row["search_term"],
+                searched_at=datetime.fromisoformat(row["searched_at"]),
+                results=row["results"],
+                new=row["new"],
+            )
+            for row in rows
+        ]
 
     def search_hits(self) -> list[JobSearchHit]:
         """Every recorded search hit, oldest first."""

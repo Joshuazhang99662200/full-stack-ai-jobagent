@@ -79,3 +79,27 @@ def test_a_platform_lease_belongs_to_one_session_until_it_expires(tmp_path: Path
     assert store.acquire_lease("boss", "S2", now=later, ttl_seconds=1800)
     assert store.release_lease("boss", "S2")
     assert not store.holds_lease("boss", "S2", now=later.astimezone(UTC))
+
+
+def test_every_outreach_result_can_be_stored(tmp_path: Path) -> None:
+    store = repository(tmp_path)
+    batch = build([draft(0), draft(1), draft(2)]).batch
+    assert batch is not None
+    results = [OutreachResult.WITHDRAWN, OutreachResult.DUPLICATE_FOUND, OutreachResult.SENT]
+    for item, result in zip(batch.items, results, strict=True):
+        store.append_audit(
+            OutreachAudit(
+                audit_id=f"OAUDIT_{item.number}",
+                batch_id=batch.batch_id,
+                number=item.number,
+                job_id=item.job_id,
+                platform=item.platform,
+                item_digest=item.item_digest,
+                approval_id="OAPPROVAL_001",
+                approval_channel=ApprovalChannel.AGENT_RELAY,
+                result=result,
+                recorded_at=NOW,
+            )
+        )
+
+    assert [a.result for a in store.list_audits()] == results

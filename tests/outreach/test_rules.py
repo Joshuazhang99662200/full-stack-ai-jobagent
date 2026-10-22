@@ -27,3 +27,9 @@ def test_internal_terms_and_cliches_are_refused() -> None:
     assert "banned_phrase:修订率" in first_greeting_problems("专家修订率明显下降。")
     assert "banned_phrase:很感兴趣" in first_greeting_problems("我对贵司岗位很感兴趣。")
     assert "banned_phrase:HITL" in first_greeting_problems("设计了 hitl 兜底。")
+
+
+def test_the_length_limit_can_be_lifted_for_words_the_person_wrote() -> None:
+    long_text = "您" * 150 + "方便聊聊吗？"
+    assert "too_long" not in first_greeting_problems(long_text, length_limit=False)
+    assert "contains_number" in first_greeting_problems("做了 3 年", length_limit=False)

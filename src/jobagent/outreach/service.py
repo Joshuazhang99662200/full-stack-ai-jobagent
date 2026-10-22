@@ -64,6 +64,8 @@ def _item_digest(job: NormalizedJob, draft: OutreachDraft) -> str:
     # Untagged items keep the digest they always had, so stored batches stay valid.
     if tags:
         content["tags"] = tags
+    if draft.written_by == "person":
+        content["written_by"] = "person"
     return _digest(content)
 
 
@@ -154,6 +156,7 @@ class OutreachService:
                     variant=draft.variant,
                     hook_requirement=draft.hook_requirement,
                     experiment_id=draft.experiment_id,
+                    written_by=draft.written_by,
                     item_digest=_item_digest(job, draft),
                 )
             )
@@ -189,7 +192,9 @@ class OutreachService:
             return ["already_contacted"]
         if draft.job_id in listed:
             return ["duplicate_in_batch"]
-        reasons = first_greeting_problems(draft.text)
+        reasons = first_greeting_problems(
+            draft.text, length_limit=draft.written_by != "person"
+        )
         if any(evidence not in confirmed_evidence_ids for evidence in draft.evidence_ids):
             reasons.append("unconfirmed_evidence")
         return reasons
@@ -198,7 +203,8 @@ class OutreachService:
         """Put the numbered list to a person, word for word. This approves nothing."""
         lines = [
             f"{item.number}. 【{TIER_LABELS.get(item.match_tier, item.match_tier)}】"
-            f"{item.platform}｜{item.company}｜{item.title}\n   {item.text}"
+            f"{item.platform}｜{item.company}｜{item.title}"
+            f"{'（本人改写）' if item.written_by == 'person' else ''}\n   {item.text}"
             for item in batch.items
         ]
         question = (

@@ -113,9 +113,9 @@ M2 的说明：HR 已读之后通常会点开我方资料再决定回不回，�
 
 | # | 缺口 | 现状 | 补法 |
 |---|---|---|---|
-| D1 | 已读状态没结构化 | “[送达]/[已读]”混在 `SnapshotItem.preview` 文本里 | `SnapshotItem` 增加 `our_status: delivered / read / none / unknown`，由宿主读预览时填；仓库把快照和对话对上之后，追加一条 `READ_OBSERVED` 对话事件，只记第一次 |
+| D1 | 已读状态没结构化 | “[送达]/[已读]”混在 `SnapshotItem.preview` 文本里 | `SnapshotItem` 增加 `our_status: delivered / read / unknown`；宿主没填时，按来源清单 `observability` 声明的状态词从预览里解析。快照和对话对上之后，写入独立的 `conversation_receipts` 表，每条对话每种状态只记第一次。**不写成对话事件**：对话事件的 seq 是回复审批的锚点，插入回执会让待批回复误判为过期 |
 | D2 | 快照和对话对不上 | 快照 `key` 是“招聘方\|公司”，对话按 `conversation_id` 存 | 增加确定性匹配规则；匹配不上的进待人工确认清单，不靠猜 |
-| D3 | 不知道岗位是哪个搜索词带来的 | `job_provenance` 没有搜索词字段 | 迁移 0010：provenance 增加 `search_term` 和 `origin`；`jobs import-observations` 时带上。缺了这一项，关键词归因（J1/J2）没法做 |
+| D3 | 不知道岗位是哪个搜索词带来的 | `job_provenance` 没有搜索词字段 | 迁移 0010：`SourceJobRecord` 增加可选的 `search_term`，`jobs import-observations` 时写入独立的只追加表 `job_search_hits`。不改 `job_provenance`，因为每次重存职位都会重写它，首次命中的词会丢。缺了这一项，关键词归因（J1/J2）没法做 |
 | D4 | 招呼没有策略标签 | `OutreachItem` 只有原文 | 增加 `variant`（开头写法）、`hook_requirement`（那件“最贴 JD 的具体事”对应哪条 JD 要求）、`experiment_id`；这些标签计入条目摘要 |
 | D5 | 不知道当时的 harness 是哪个版本 | 无 | 新增 `harness_versions`：对 message-generation.md、filter_context、排序偏好等文件取摘要；每个批次和回复草稿都引用一个版本号 |
 | D6 | 人改过回复看不出来 | 获批文本即最终文本 | 获批事件增加 `edited_by_human` 和原草稿摘要 |

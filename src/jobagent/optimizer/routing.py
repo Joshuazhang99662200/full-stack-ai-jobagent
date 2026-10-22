@@ -12,21 +12,10 @@ Every lens draws on the *same* confirmed evidence. A lens may reorder, re-weight
 and re-word; it may never introduce a fact, and it may never change one.
 """
 
-from enum import StrEnum
-
-from pydantic import Field
-
 from jobagent.jobs.recruiter import is_routable
-from jobagent.schemas.common import ContractModel, NonEmptyString
 from jobagent.schemas.jobs import RecruiterInfo, RecruiterType
-
-
-class RewriteLens(StrEnum):
-    HEADHUNTER = "headhunter"
-    INTERNAL_HR = "internal_hr"
-    HIRING_MANAGER = "hiring_manager"
-    GENERAL = "general"
-
+from jobagent.schemas.optimizer import LensSelection as LensSelection
+from jobagent.schemas.optimizer import RewriteLens as RewriteLens
 
 # Each lens loads exactly one L2 policy body. Progressive loading means the
 # router must name the resource, not inline its content.
@@ -42,17 +31,6 @@ _BY_RECRUITER_TYPE = {
     RecruiterType.HR: RewriteLens.INTERNAL_HR,
     RecruiterType.HIRING_MANAGER: RewriteLens.HIRING_MANAGER,
 }
-
-
-class LensSelection(ContractModel):
-    """Which lens was chosen, and the observations that chose it."""
-
-    lens: RewriteLens
-    policy_path: NonEmptyString
-    reason: NonEmptyString
-    signals: list[str] = Field(default_factory=list)
-    # Set when a confident classification existed but was not strong enough to route.
-    declined_lens: RewriteLens | None = None
 
 
 class RewriteLensRouter:

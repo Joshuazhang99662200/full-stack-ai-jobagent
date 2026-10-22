@@ -168,3 +168,64 @@ def test_no_rag_evidence_prevents_supported_rag_match() -> None:
             "CAND_001",
             [evidence()],
         )
+
+
+def chinese_case(keywords: list[str], statement: str) -> tuple[Any, JobRequirementProfile, Any]:
+    normalized = job()
+    profile = JobRequirementProfile(
+        job_id=normalized.id,
+        requirements=[
+            JobRequirement(
+                id="REQ_001",
+                statement="Production Python experience.",
+                category="skill",
+                priority=RequirementPriority.MUST,
+                source_span="Build Python services",
+                keywords=keywords,
+            )
+        ],
+    )
+    item = evidence().model_copy(update={"statement": statement, "skills": []})
+    return normalized, profile, item
+
+
+def test_chinese_keywords_absent_from_the_evidence_are_rejected() -> None:
+    normalized, profile, item = chinese_case(["港口调度"], "把提示词沉淀为模块化 Skill。")
+
+    with pytest.raises(InvalidProviderOutputError, match="semantic") as caught:
+        ReasoningJobMatcher(FakeProvider(supported_output(normalized.id))).map(
+            normalized, profile, "CAND_001", [item]
+        )
+    assert caught.value.details["requirement_id"] == "REQ_001"
+
+
+def test_chinese_keywords_shared_with_the_evidence_pass() -> None:
+    normalized, profile, item = chinese_case(["工作流设计"], "按场景组装为 Agent 工作流。")
+
+    result = ReasoningJobMatcher(FakeProvider(supported_output(normalized.id))).map(
+        normalized, profile, "CAND_001", [item]
+    )
+
+    assert result.matches[0].outcome is RequirementMatchOutcome.SUPPORTED
+
+
+def test_generic_words_alone_do_not_count_as_overlap() -> None:
+    normalized, profile, item = chinese_case(["产品经验"], "具备产品经验与相关能力。")
+    profile.requirements[0] = profile.requirements[0].model_copy(
+        update={"keywords": ["产品经验", "港口"]}
+    )
+
+    with pytest.raises(InvalidProviderOutputError, match="semantic"):
+        ReasoningJobMatcher(FakeProvider(supported_output(normalized.id))).map(
+            normalized, profile, "CAND_001", [item]
+        )
+
+
+def test_bare_numbers_in_keywords_are_not_concepts() -> None:
+    normalized, profile, item = chinese_case(["3年"], "把提示词沉淀为模块化 Skill。")
+
+    result = ReasoningJobMatcher(FakeProvider(supported_output(normalized.id))).map(
+        normalized, profile, "CAND_001", [item]
+    )
+
+    assert result.matches[0].outcome is RequirementMatchOutcome.SUPPORTED

@@ -29,8 +29,14 @@ UNKNOWN_EVIDENCE = "unknown_evidence"
 UNCONFIRMED_EVIDENCE = "unconfirmed_evidence"
 
 
-def _metric_key(name: str, value: object, unit: str) -> tuple[str, str, str]:
-    return (name.strip().casefold(), str(value), unit.strip().casefold())
+def _metric_key(
+    name: str,
+    value: object,
+    unit: str,
+    population: str | None,
+    time_window: str | None,
+) -> tuple[str, str, str, str | None, str | None]:
+    return (name.strip().casefold(), str(value), unit.strip().casefold(), population, time_window)
 
 
 class ClaimVerifier:
@@ -93,7 +99,11 @@ class ClaimVerifier:
                 )
 
         total = len(ledger.claims)
-        coverage = 1.0 if total == 0 else supported / total
+        coverage = 0.0 if total == 0 else supported / total
+        if total == 0:
+            issues.append(
+                VerificationIssue(code="empty_ledger", message="A claim ledger is required.")
+            )
         blocking = bool(unsupported or contradicted or unsupported_metrics or exaggerations)
         return VerificationReport(
             passed=not blocking and coverage == 1.0 and not issues,
@@ -141,14 +151,25 @@ class ClaimVerifier:
     ) -> list[VerificationIssue]:
         """Re-derive every metric from evidence rather than trusting the label."""
         available = {
-            _metric_key(metric.name, metric.value, metric.unit)
+            _metric_key(
+                metric.name, metric.value, metric.unit, metric.population, metric.time_window
+            )
             for evidence_id in claim.evidence_ids
             if (item := by_id.get(evidence_id)) is not None
             for metric in item.metrics
         }
         found: list[VerificationIssue] = []
         for metric in claim.metric_facts:
-            if _metric_key(metric.name, metric.value, metric.unit) not in available:
+            if (
+                _metric_key(
+                    metric.name,
+                    metric.value,
+                    metric.unit,
+                    metric.population,
+                    metric.time_window,
+                )
+                not in available
+            ):
                 issue = VerificationIssue(
                     code=UNSUPPORTED_METRIC,
                     message=(

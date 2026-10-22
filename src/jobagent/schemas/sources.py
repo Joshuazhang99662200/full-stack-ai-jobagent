@@ -12,10 +12,13 @@ The four kinds cover what a board can actually offer:
 - `gated`        no lawful automated route exists; the workflow pauses for a human
 
 `gated` is a first-class kind on purpose. Modelling an unreachable board keeps
-the boundary visible instead of leaving a silent hole.
+the boundary visible instead of leaving a silent hole. Any kind, gated included,
+may also declare `host_browser`: how a host agent reads the board in the person's
+own signed-in browser. That is a host capability, not a repository route.
 """
 
 from enum import StrEnum
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
@@ -86,6 +89,97 @@ class PublicPageSpec(ContractModel):
 
 
 
+class HostBrowserSpec(ContractModel):
+    """How a host agent may read this board in the person's own browser session.
+
+    This is not an automated route: the repository never drives a browser. The host
+    searches and reads at human pace, in a session the person signed into, and hands
+    captured postings to `jobs import-observations`, which checks them against this
+    spec. Searching never contacts anyone; reaching out is a separate, approved act.
+    """
+
+    # Must contain `{query}`; may contain `{city}`, filled from `city_codes`.
+    search_url: NonEmptyString
+    city_codes: dict[str, NonEmptyString] = Field(default_factory=dict)
+    # A captured posting must come from one of these pages, or its provenance is false.
+    detail_url_prefixes: list[NonEmptyString] = Field(min_length=1)
+    # URL fragments or page wording meaning the board wants a person (verification,
+    # risk control). Seeing one ends this board for the session; it is never retried.
+    stop_markers: list[NonEmptyString] = Field(min_length=1)
+    max_pages_per_session: int = Field(default=3, ge=1, le=10)
+    min_seconds_between_pages: int = Field(default=15, ge=5)
+    # Detail pages a host may open in one board-day. A ceiling, never raised past 50.
+    max_detail_reads_per_day: int = Field(default=50, ge=1, le=50)
+    # Where the JD starts on the detail page, as a reading hint for the host.
+    jd_headings: list[NonEmptyString] = Field(default_factory=list)
+    # How the board renders things today, learned by reading it. Hints for the
+    # host only: no repository code depends on them.
+    detail_link_pattern: NonEmptyString | None = None
+    jd_selector: NonEmptyString | None = None
+    reading_hints: list[NonEmptyString] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def require_query_placeholder(self) -> "HostBrowserSpec":
+        if "{query}" not in self.search_url:
+            raise ValueError("search_url must contain the {query} placeholder")
+        return self
+
+
+class ObservabilitySpec(ContractModel):
+    """What a board shows about our own messages, learned by reading it.
+
+    The message list prefixes our latest message with a status word. Only words
+    actually seen on the board are declared; a board with no read marker has no
+    observable read receipt, and its read rate is reported as unobservable.
+    """
+
+    read_markers: list[NonEmptyString] = Field(default_factory=list)
+    # Seen while the message is delivered but not yet read (e.g. "[送达]", "[未读]").
+    delivered_markers: list[NonEmptyString] = Field(default_factory=list)
+    # Whether the board's "who viewed me" list can be read; None until measured.
+    profile_views: bool | None = None
+
+    @model_validator(mode="after")
+    def require_distinct_markers(self) -> "ObservabilitySpec":
+        if set(self.read_markers) & set(self.delivered_markers):
+            raise ValueError("a marker cannot mean both delivered and read")
+        return self
+
+
+class ProfileSectionSpec(ContractModel):
+    """One editable section of the person's online profile on this board.
+
+    `name` is the field name profile snapshots use. Sections repeated per entry
+    (work, projects) are snapshotted as `<name>#<n>`, counting from the top.
+    """
+
+    name: NonEmptyString
+    label: NonEmptyString
+    max_chars: int | None = Field(default=None, ge=1)
+    # "shown": the board prints the limit; "inferred": worked out from a counter
+    # such as "还可输入 N 个字". A limit must say which it is.
+    limit_source: Literal["shown", "inferred"] | None = None
+    per_entry: bool = False
+
+    @model_validator(mode="after")
+    def require_a_source_for_a_limit(self) -> "ProfileSectionSpec":
+        if (self.max_chars is None) != (self.limit_source is None):
+            raise ValueError("a limit and where it came from go together")
+        return self
+
+
+class ProfileSpec(ContractModel):
+    """Where the online profile lives on this board and how it is divided, as measured.
+
+    Reading hints for the host. Nothing here lets the repository write a profile.
+    """
+
+    edit_path: NonEmptyString
+    sections: list[ProfileSectionSpec] = Field(min_length=1)
+    viewers_path: NonEmptyString | None = None
+    reading_hints: list[NonEmptyString] = Field(default_factory=list)
+
+
 class GateSpec(ContractModel):
     """Why a board cannot be reached, and what the person should do instead."""
 
@@ -101,9 +195,15 @@ class SourceManifest(ContractModel):
     # Which onboarding tier this source was admitted at; see source-onboarding.md.
     onboarding_tier: int = Field(default=0, ge=0, le=5)
     notes: str = ""
+    # The currency this board quotes when it prints a bare amount such as `40-60k`.
+    # Left unset, such amounts stay unparsed rather than being assigned a guess.
+    default_currency: Annotated[str, Field(min_length=3, max_length=3)] | None = None
     listing: CliListingSpec | None = None
     detail: PublicPageSpec | None = None
     gate: GateSpec | None = None
+    host_browser: HostBrowserSpec | None = None
+    observability: ObservabilitySpec | None = None
+    profile: ProfileSpec | None = None
 
     @model_validator(mode="after")
     def require_the_spec_its_kind_implies(self) -> "SourceManifest":

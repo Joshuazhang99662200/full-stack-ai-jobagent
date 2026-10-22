@@ -17,6 +17,23 @@ _SALARY_PATTERN = re.compile(
     r"(?P<minimum>\d+(?:\.\d+)?)-(?P<maximum>\d+(?:\.\d+)?)\s+"
     r"(?P<period>\S+)$"
 )
+# `40-60k`, optionally annotated with the number of monthly payouts per year
+# (`·15薪`). The form names no currency, so it only parses for a source that
+# declares one. The annualisation count annotates the range rather than scaling
+# it, and `MoneyRange` has nowhere to record it, so the monthly range is kept
+# exactly as published.
+_THOUSANDS_SALARY_PATTERN = re.compile(
+    r"^(?P<minimum>\d+(?:\.\d+)?)-(?P<maximum>\d+(?:\.\d+)?)k(?:·\d+薪)?$",
+    re.IGNORECASE,
+)
+_THOUSAND = Decimal(1000)
+# The same range written in Chinese units: `2.5-3万` (ten thousands) or `4000-8000元`.
+# Like the `k` form it is a monthly range; `·N薪` annotates it and never scales it.
+# Daily pay (`元/天`) does not match and stays unparsed rather than being guessed.
+_CHINESE_UNIT_SALARY_PATTERN = re.compile(
+    r"^(?P<minimum>\d+(?:\.\d+)?)-(?P<maximum>\d+(?:\.\d+)?)(?P<unit>万|元)(?:·\d+薪)?$"
+)
+_CHINESE_UNITS = {"万": Decimal(10000), "元": Decimal(1)}
 
 
 def _canonical(value: str) -> str:
@@ -25,6 +42,15 @@ def _canonical(value: str) -> str:
 
 class JobNormalizer:
     """Normalize observable fields without interpreting the JD."""
+
+    def __init__(self, default_currency: str | None = None) -> None:
+        """Take the currency a source publishes implicitly, when it declares one.
+
+        Boards that quote `40-60k` never name a currency. Guessing one would put a
+        fact into the record that the source never published, so the currency comes
+        from the source manifest or the salary stays unparsed.
+        """
+        self.default_currency = None if default_currency is None else default_currency.upper()
 
     def normalize(self, raw_record: SourceJobRecord) -> NormalizedJob:
         try:
@@ -66,19 +92,37 @@ class JobNormalizer:
             warnings=warnings,
         )
 
-    @staticmethod
-    def _parse_salary(salary_text: str | None) -> tuple[MoneyRange | None, str | None]:
+    def _parse_salary(self, salary_text: str | None) -> tuple[MoneyRange | None, str | None]:
         if salary_text is None or not salary_text.strip():
             return None, None
-        match = _SALARY_PATTERN.fullmatch(_canonical(salary_text))
-        if match is None:
+        canonical = _canonical(salary_text)
+        match = _SALARY_PATTERN.fullmatch(canonical)
+        if match is not None:
+            return (
+                MoneyRange(
+                    currency=match.group("currency").upper(),
+                    minimum=Decimal(match.group("minimum")),
+                    maximum=Decimal(match.group("maximum")),
+                    period=match.group("period").casefold(),
+                ),
+                None,
+            )
+        if self.default_currency is None:
+            return None, "SALARY_UNPARSED"
+        thousands = _THOUSANDS_SALARY_PATTERN.fullmatch(canonical)
+        chinese = _CHINESE_UNIT_SALARY_PATTERN.fullmatch(canonical)
+        if thousands is not None:
+            scale, found = _THOUSAND, thousands
+        elif chinese is not None:
+            scale, found = _CHINESE_UNITS[chinese.group("unit")], chinese
+        else:
             return None, "SALARY_UNPARSED"
         return (
             MoneyRange(
-                currency=match.group("currency").upper(),
-                minimum=Decimal(match.group("minimum")),
-                maximum=Decimal(match.group("maximum")),
-                period=match.group("period").casefold(),
+                currency=self.default_currency,
+                minimum=Decimal(found.group("minimum")) * scale,
+                maximum=Decimal(found.group("maximum")) * scale,
+                period="month",
             ),
             None,
         )

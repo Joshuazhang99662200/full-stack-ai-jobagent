@@ -2,9 +2,11 @@
 
 import hashlib
 import sqlite3
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from jobagent.errors import StorageError
+from jobagent.schemas.job_intelligence import JobSearchHit, SearchRun
 from jobagent.schemas.jobs import (
     HardFilterResult,
     JobRequirementProfile,
@@ -60,6 +62,75 @@ class SqliteJobRepository:
                     )
         except sqlite3.Error as error:
             self._raise_storage_error("save normalized job", error)
+
+    def record_search_hit(self, hit: JobSearchHit) -> None:
+        try:
+            with self.database.connect() as connection, connection:
+                connection.execute(
+                    "INSERT OR IGNORE INTO job_search_hits "
+                    "(job_id, source, search_term, collected_at) VALUES (?, ?, ?, ?)",
+                    (hit.job_id, hit.source, hit.search_term, hit.collected_at.isoformat()),
+                )
+        except sqlite3.Error as error:
+            self._raise_storage_error("record job search hit", error)
+
+    def record_search(self, run: SearchRun) -> None:
+        try:
+            with self.database.connect() as connection, connection:
+                connection.execute(
+                    "INSERT INTO job_searches (source, search_term, searched_at, results, new) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        run.source,
+                        run.search_term,
+                        run.searched_at.isoformat(),
+                        run.results,
+                        run.new,
+                    ),
+                )
+        except sqlite3.Error as error:
+            self._raise_storage_error("record job search", error)
+
+    def searches(self) -> list[SearchRun]:
+        """Every logged search, oldest first."""
+        try:
+            with self.database.connect() as connection:
+                rows = connection.execute(
+                    "SELECT source, search_term, searched_at, results, new FROM job_searches "
+                    "ORDER BY searched_at, source, search_term"
+                ).fetchall()
+        except sqlite3.Error as error:
+            self._raise_storage_error("read job searches", error)
+        return [
+            SearchRun(
+                source=row["source"],
+                search_term=row["search_term"],
+                searched_at=datetime.fromisoformat(row["searched_at"]),
+                results=row["results"],
+                new=row["new"],
+            )
+            for row in rows
+        ]
+
+    def search_hits(self) -> list[JobSearchHit]:
+        """Every recorded search hit, oldest first."""
+        try:
+            with self.database.connect() as connection:
+                rows = connection.execute(
+                    "SELECT job_id, source, search_term, collected_at FROM job_search_hits "
+                    "ORDER BY collected_at, job_id, search_term"
+                ).fetchall()
+        except sqlite3.Error as error:
+            self._raise_storage_error("read job search hits", error)
+        return [
+            JobSearchHit(
+                job_id=row["job_id"],
+                source=row["source"],
+                search_term=row["search_term"],
+                collected_at=datetime.fromisoformat(row["collected_at"]),
+            )
+            for row in rows
+        ]
 
     def get_job(self, job_id: str) -> NormalizedJob | None:
         try:
@@ -197,6 +268,23 @@ class SqliteJobRepository:
                 )
         except sqlite3.Error as error:
             self._raise_storage_error("save job match", error)
+
+    def latest_match_tiers(self, candidate_id: str, job_ids: Sequence[str]) -> dict[str, str]:
+        """The most recent match decision per job for this candidate."""
+        tiers: dict[str, str] = {}
+        try:
+            with self.database.connect() as connection:
+                for job_id in job_ids:
+                    row = connection.execute(
+                        "SELECT result_json FROM job_matches WHERE candidate_id = ? AND job_id = ? "
+                        "ORDER BY updated_at DESC LIMIT 1",
+                        (candidate_id, job_id),
+                    ).fetchone()
+                    if row is not None:
+                        tiers[job_id] = MatchResult.model_validate_json(row[0]).decision.value
+        except sqlite3.Error as error:
+            self._raise_storage_error("read match tiers", error)
+        return tiers
 
     def get_match(
         self,

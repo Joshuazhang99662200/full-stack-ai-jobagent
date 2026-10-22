@@ -132,3 +132,98 @@ def test_multiple_reject_reasons_keep_catalog_order() -> None:
         "LOCATION_HARD_CONSTRAINT",
         "ROLE_EXCLUSION",
     ]
+
+
+def test_city_constraint_accepts_a_district_scoped_posting() -> None:
+    """Boards publish `城市-区`; a candidate who accepts the city accepts its districts."""
+    normalized = job(location="上海-浦东新区")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["上海"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.PASS
+    assert result.reasons == []
+
+
+def test_district_constraint_reviews_a_city_scoped_posting() -> None:
+    """A city-wide posting may or may not sit in the district the candidate named."""
+    normalized = job(location="上海")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["上海-浦东新区"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.REVIEW
+    assert result.reasons[0].rule_id == "LOCATION_HARD_CONSTRAINT"
+
+
+def test_a_different_city_still_rejects() -> None:
+    normalized = job(location="北京-朝阳区")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["上海"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.REJECT
+    assert result.reasons[0].rule_id == "LOCATION_HARD_CONSTRAINT"
+
+
+def test_location_segments_never_match_on_a_bare_substring() -> None:
+    """`海` is a substring of `上海` but is not one of its segments."""
+    normalized = job(location="上海-浦东新区")
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=["海"]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is FilterDecision.REJECT
+
+
+def test_an_unstated_salary_counts_as_meeting_the_floor_when_the_person_says_so() -> None:
+    normalized = job(salary="面议")
+    floor = MoneyRange(currency="DKK", minimum=600000, period="year")
+
+    default = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id), context(minimum_compensation=floor),
+        HardFilterPolicy(),
+    )
+    accepted = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(minimum_compensation=floor, unstated_compensation_passes=True),
+        HardFilterPolicy(),
+    )
+
+    assert default.decision is FilterDecision.REVIEW
+    assert accepted.decision is FilterDecision.PASS
+
+
+def test_an_exception_phrase_keeps_a_product_role_past_an_excluded_term() -> None:
+    normalized = job(title="AI投顾专家")
+
+    blocked = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id), context(excluded_role_terms=["投顾"]),
+        HardFilterPolicy(),
+    )
+    allowed = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(excluded_role_terms=["投顾"], excluded_role_exceptions=["AI投顾"]),
+        HardFilterPolicy(),
+    )
+
+    assert blocked.decision is FilterDecision.REJECT
+    assert allowed.decision is FilterDecision.PASS

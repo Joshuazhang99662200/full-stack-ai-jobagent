@@ -5,6 +5,7 @@ already present in the profile and is backed by confirmed evidence, so searching
 can never introduce a claim the candidate has not confirmed.
 """
 
+import re
 from collections.abc import Sequence
 
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem, Experience
@@ -17,10 +18,25 @@ from jobagent.schemas.job_intelligence import (
 
 # Ordered strongest-signal-first; ties inside a tier break on support count.
 _ORIGIN_RANK = {
-    SearchTermOrigin.HEADLINE: 0,
-    SearchTermOrigin.RECENT_TITLE: 1,
-    SearchTermOrigin.SKILL: 2,
+    SearchTermOrigin.TARGET_ROLE: 0,
+    SearchTermOrigin.TARGET_VARIANT: 1,
+    SearchTermOrigin.HEADLINE: 2,
+    SearchTermOrigin.RECENT_TITLE: 3,
+    SearchTermOrigin.SKILL: 4,
 }
+
+# Job boards title AI product roles with these qualifiers. A qualifier is offered
+# only when confirmed evidence mentions one of its cues, so a variant never claims
+# a direction the candidate has no record in.
+_ROLE_QUALIFIERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Agent", ("agent", "智能体")),
+    ("Skill", ("skill",)),
+    ("大模型", ("大模型", "llm")),
+    ("AI", ("ai", "人工智能")),
+)
+
+_CJK = r"[\u3400-\u9fff]"
+_TRAILING_CJK = re.compile(rf"{_CJK}+$")
 
 
 # Headlines are positioning statements ("role · credential · pitch"), so only the
@@ -31,6 +47,17 @@ _HEADLINE_SEPARATORS = "·|｜/、,，;；"  # noqa: RUF001
 
 def _normalized(value: str) -> str:
     return " ".join(value.split()).casefold()
+
+
+def _compact(term: str) -> str:
+    """Drop the spaces boards treat as separators next to Chinese text."""
+    collapsed = " ".join(term.split())
+    return re.sub(rf"\s+(?={_CJK})|(?<={_CJK})\s+", "", collapsed)
+
+
+def _role_noun(target: str) -> str | None:
+    match = _TRAILING_CJK.search(_compact(target))
+    return match.group(0) if match else None
 
 
 def _headline_term(headline: str | None) -> str | None:
@@ -55,6 +82,7 @@ class SearchQueryDeriver:
         evidence: Sequence[EvidenceItem],
         *,
         location: str | None = None,
+        target_roles: Sequence[str] = (),
     ) -> SearchQuerySuggestionSet:
         confirmed = {item.id: item for item in evidence if item.user_confirmed}
         skipped = len(evidence) - len(confirmed)
@@ -69,9 +97,13 @@ class SearchQueryDeriver:
             if key in seen:
                 return
             supporting = sorted(item for item in evidence_ids if item in confirmed)
-            if origin is not SearchTermOrigin.HEADLINE and not supporting:
-                # Only the headline may stand without a direct evidence link; it is
-                # the candidate's own positioning rather than a factual claim.
+            stated_by_candidate = origin in (
+                SearchTermOrigin.HEADLINE,
+                SearchTermOrigin.TARGET_ROLE,
+            )
+            if not stated_by_candidate and not supporting:
+                # Only the headline and a stated target may stand without a direct
+                # evidence link; they are the candidate's own positioning.
                 return
             seen.add(key)
             collected.append(
@@ -84,13 +116,27 @@ class SearchQueryDeriver:
                 )
             )
 
+        targets = [_compact(target) for target in target_roles if target.strip()]
+        for target in targets:
+            add(target, SearchTermOrigin.TARGET_ROLE, ())
+        for noun in dict.fromkeys(noun for t in targets if (noun := _role_noun(t))):
+            for qualifier, cues in _ROLE_QUALIFIERS:
+                backing = [
+                    item.id
+                    for item in confirmed.values()
+                    if any(cue in _evidence_text(item) for cue in cues)
+                ]
+                add(f"{qualifier}{noun}", SearchTermOrigin.TARGET_VARIANT, backing)
+
         add(_headline_term(profile.headline), SearchTermOrigin.HEADLINE, ())
 
-        for experience in _most_recent_first(profile):
-            add(experience.title, SearchTermOrigin.RECENT_TITLE, experience.evidence_ids)
-
-        for skill in profile.skills:
-            add(skill.name, SearchTermOrigin.SKILL, skill.evidence_ids)
+        if not targets:
+            # A stated target replaces backward-looking titles and bare skill names:
+            # neither is a title the candidate is now looking for.
+            for experience in _most_recent_first(profile):
+                add(experience.title, SearchTermOrigin.RECENT_TITLE, experience.evidence_ids)
+            for skill in profile.skills:
+                add(skill.name, SearchTermOrigin.SKILL, skill.evidence_ids)
 
         collected.sort(key=lambda item: (_ORIGIN_RANK[item.origin], -item.support_count, item.term))
         return SearchQuerySuggestionSet(
@@ -106,3 +152,7 @@ def _most_recent_first(profile: CandidateProfile) -> list[Experience]:
         return (0 if start is None else 1, "" if start is None else start.isoformat())
 
     return sorted(profile.experiences, key=sort_key, reverse=True)
+
+
+def _evidence_text(item: EvidenceItem) -> str:
+    return " ".join([item.statement, *item.skills, *item.domains]).casefold()

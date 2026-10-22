@@ -146,6 +146,104 @@ def test_draft_interview_confirmation_flow_is_explicit(tmp_path: Path) -> None:
     assert status["readiness"]["confirmed_evidence_count"] == 1
 
 
+def _imported_question(tmp_path: Path) -> tuple[Path, str]:
+    database = tmp_path / "candidate.sqlite3"
+    draft_path = tmp_path / "draft.json"
+    draft = CandidateDraft(
+        candidate_id="CAND_001",
+        profile=CandidateProfile(
+            id="CAND_001",
+            full_name="Ada Lovelace",
+            experiences=[
+                Experience(
+                    id="EXP_001",
+                    company="Analytical Engines",
+                    title="Engineer",
+                    time_range=TimeRange(),
+                    evidence_ids=["EVID_001"],
+                )
+            ],
+        ),
+        evidence=[
+            EvidenceItem(
+                id="EVID_001",
+                type=EvidenceType.EXPERIENCE,
+                statement="Built internal Python tooling.",
+                source=SourceReference(type=SourceType.RESUME, reference="RESUME_001:page:1"),
+                confidence=Confidence.EXPLICIT,
+            )
+        ],
+    )
+    draft_path.write_text(draft.model_dump_json(), encoding="utf-8")
+    invoke("candidate", "import-draft", str(draft_path), "--database", str(database))
+    _, question = invoke("candidate", "question", "CAND_001", "--database", str(database))
+    assert isinstance(question, dict)
+    return database, question["id"]
+
+
+def test_answer_metric_option_records_structured_metrics(tmp_path: Path) -> None:
+    database, question_id = _imported_question(tmp_path)
+
+    code, outcome = invoke(
+        "candidate",
+        "answer",
+        "CAND_001",
+        question_id,
+        "--answer",
+        "Revision rate fell from 70% to 26%.",
+        "--metric",
+        "revision rate after|26|%",
+        "--database",
+        str(database),
+    )
+
+    assert code == 0
+    assert isinstance(outcome, dict)
+    metrics = outcome["draft_evidence"]["metrics"]
+    assert [(m["name"], m["value"], m["unit"]) for m in metrics] == [
+        ("revision rate after", "26", "%")
+    ]
+    assert outcome["draft_evidence"]["user_confirmed"] is False
+
+
+def test_answer_rejects_malformed_or_unstated_metric(tmp_path: Path) -> None:
+    database, question_id = _imported_question(tmp_path)
+
+    malformed = runner.invoke(
+        app,
+        [
+            "candidate",
+            "answer",
+            "CAND_001",
+            question_id,
+            "--answer",
+            "Revision rate fell to 26%.",
+            "--metric",
+            "revision rate 26%",
+            "--database",
+            str(database),
+        ],
+    )
+    unstated = runner.invoke(
+        app,
+        [
+            "candidate",
+            "answer",
+            "CAND_001",
+            question_id,
+            "--answer",
+            "Revision rate fell sharply.",
+            "--metric",
+            "revision rate after|26|%",
+            "--database",
+            str(database),
+        ],
+    )
+
+    assert malformed.exit_code != 0
+    assert unstated.exit_code != 0
+
+
 def test_parse_error_does_not_echo_private_resume_body(tmp_path: Path) -> None:
     invalid_resume = tmp_path / "resume.pdf"
     invalid_resume.write_text("PRIVATE RESUME BODY", encoding="utf-8")

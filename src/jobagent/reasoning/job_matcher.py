@@ -18,11 +18,26 @@ from jobagent.schemas.jobs import JobRequirementProfile, NormalizedJob
 PROMPT_ID = "job.match.evidence.v1"
 
 
+# Words so common in job text that sharing one says nothing about a match.
+GENERIC_WORDS = ("产品", "经验", "能力", "以上", "相关", "负责", "熟悉", "具备", "优先", "理解")
+_GENERIC = re.compile("|".join(GENERIC_WORDS))
+
+
 def _tokens(value: str) -> set[str]:
-    return set(re.findall(r"[a-z0-9+#.]+", value.casefold()))
+    """Latin words and Chinese character pairs; bare numbers and generic words say nothing."""
+    folded = value.casefold()
+    tokens = {
+        token
+        for token in re.findall(r"[a-z0-9+#.]+", folded)
+        if not re.fullmatch(r"[0-9.]+", token)
+    }
+    for run in re.findall(r"[\u4e00-\u9fff]+", folded):
+        for piece in _GENERIC.split(run):
+            tokens.update(piece[index : index + 2] for index in range(len(piece) - 1))
+    return tokens
 
 
-def _is_admissible(item: EvidenceItem) -> bool:
+def is_admissible(item: EvidenceItem) -> bool:
     return item.user_confirmed and item.confidence is not Confidence.WEAK
 
 
@@ -46,7 +61,7 @@ class ReasoningJobMatcher:
             "evidence": [
                 {
                     **item.model_dump(mode="json"),
-                    "admissible": _is_admissible(item),
+                    "admissible": is_admissible(item),
                 }
                 for item in evidence
             ],
@@ -95,7 +110,7 @@ class ReasoningJobMatcher:
         if {item.requirement_id for item in mappings.matches} != set(requirements_by_id):
             ReasoningJobMatcher._invalid(job.id, candidate_id, "requirement coverage mismatch")
         evidence_by_id = {item.id: item for item in evidence}
-        admissible_ids = {item.id for item in evidence if _is_admissible(item)}
+        admissible_ids = {item.id for item in evidence if is_admissible(item)}
         for mapping in mappings.matches:
             cited_ids = set(mapping.evidence_ids)
             if not cited_ids <= set(evidence_by_id):
@@ -105,7 +120,12 @@ class ReasoningJobMatcher:
                 RequirementMatchOutcome.PARTIAL,
             }:
                 if not cited_ids or not cited_ids <= admissible_ids:
-                    ReasoningJobMatcher._invalid(job.id, candidate_id, "inadmissible support")
+                    ReasoningJobMatcher._invalid(
+                        job.id,
+                        candidate_id,
+                        "inadmissible support",
+                        requirement_id=mapping.requirement_id,
+                    )
                 requirement = requirements_by_id[mapping.requirement_id]
                 requirement_tokens = {
                     token for keyword in requirement.keywords for token in _tokens(keyword)
@@ -126,18 +146,29 @@ class ReasoningJobMatcher:
                             job.id,
                             candidate_id,
                             "semantic evidence mismatch",
+                            requirement_id=mapping.requirement_id,
                         )
             if mapping.outcome is RequirementMatchOutcome.MISSING and cited_ids:
-                ReasoningJobMatcher._invalid(job.id, candidate_id, "missing match cites evidence")
+                ReasoningJobMatcher._invalid(
+                    job.id,
+                    candidate_id,
+                    "missing match cites evidence",
+                    requirement_id=mapping.requirement_id,
+                )
 
     @staticmethod
-    def _invalid(job_id: str, candidate_id: str, reason: str) -> None:
+    def _invalid(
+        job_id: str, candidate_id: str, reason: str, *, requirement_id: str | None = None
+    ) -> None:
+        details = {
+            "prompt_id": PROMPT_ID,
+            "job_id": job_id,
+            "candidate_id": candidate_id,
+            "reason": reason,
+        }
+        if requirement_id is not None:
+            details["requirement_id"] = requirement_id
         raise InvalidProviderOutputError(
             "Job match provider output failed semantic or evidence validation.",
-            details={
-                "prompt_id": PROMPT_ID,
-                "job_id": job_id,
-                "candidate_id": candidate_id,
-                "reason": reason,
-            },
+            details=details,
         )

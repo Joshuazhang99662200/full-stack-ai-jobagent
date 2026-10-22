@@ -11,9 +11,11 @@ same contract, and extracted evidence still arrives unconfirmed.
 """
 
 import json
+import shlex
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from jobagent.capabilities import ReasoningOutputT
 from jobagent.errors import AgentHandoffRequiredError, ContractValidationError
@@ -22,18 +24,40 @@ from jobagent.schemas.reasoning import ReasoningHandoffRequest
 
 # How the agent resumes the workflow once it has written the requested contract.
 _RESUME_COMMANDS = {
-    "candidate.extract_draft.v1": "jobagent candidate import-draft {output_path}",
-    "job.requirements.extract.v1": "jobagent jobs requirements {job_id} {output_path}",
-    "job.match.evidence.v1": "jobagent jobs match {job_id} <requirements.json> {output_path}",
-    "resume.tailor.v1": "jobagent optimizer assemble {output_path} --variant-id <VARIANT_ID>",
+    "candidate.extract_draft.v1": ["jobagent", "candidate", "import-draft", "{output_path}"],
+    "job.requirements.extract.v1": [
+        "jobagent",
+        "jobs",
+        "requirements",
+        "{job_id}",
+        "{output_path}",
+    ],
+    "job.match.evidence.v1": [
+        "jobagent",
+        "jobs",
+        "match",
+        "{job_id}",
+        "<requirements.json>",
+        "{output_path}",
+    ],
+    "resume.tailor.v1": [
+        "jobagent",
+        "optimizer",
+        "review",
+        "{output_path}",
+        "<candidate-id>",
+        "<job-id>",
+        "<base-resume.json>",
+    ],
 }
 
 
 class AgentHandoffProvider:
     """Emit a typed reasoning request for the calling agent to satisfy."""
 
-    def __init__(self, handoff_dir: Path) -> None:
+    def __init__(self, handoff_dir: Path, *, resume_argv: list[str] | None = None) -> None:
         self._handoff_dir = handoff_dir
+        self._resume_argv = resume_argv
 
     def generate(
         self,
@@ -49,8 +73,22 @@ class AgentHandoffProvider:
                 details={"prompt_id": prompt_id, "known": list(registered_prompt_ids())},
             )
 
-        self._handoff_dir.mkdir(parents=True, exist_ok=True)
-        output_path = self._handoff_dir / f"{prompt_id}.output.json"
+        request_id = uuid4().hex
+        directory = self._handoff_dir.resolve() / request_id
+        directory.mkdir(parents=True, exist_ok=False)
+        output_path = directory / f"{prompt_id}.output.json"
+        request_path = directory / f"{prompt_id}.request.json"
+        argv = [
+            token.replace("{output_path}", str(output_path))
+            .replace("{request_path}", str(request_path))
+            .replace("{job_id}", str(context.get("job_id", "<job-id>")))
+            for token in (
+                self._resume_argv
+                or _RESUME_COMMANDS.get(
+                    prompt_id, ["jobagent", "<resume-command>", "{output_path}"]
+                )
+            )
+        ]
         request = ReasoningHandoffRequest(
             prompt_id=prompt_id,
             output_contract=output_type.__name__,
@@ -58,9 +96,10 @@ class AgentHandoffProvider:
             context=dict(context),
             output_schema=output_type.model_json_schema(),
             output_path=str(output_path),
-            resume_command=self._resume_command(prompt_id, context, output_path),
+            resume_command=shlex.join(argv),
+            request_id=request_id,
+            resume_argv=argv,
         )
-        request_path = self._handoff_dir / f"{prompt_id}.request.json"
         request_path.write_text(
             request.model_dump_json(indent=2),
             encoding="utf-8",
@@ -74,17 +113,8 @@ class AgentHandoffProvider:
                 "output_path": str(output_path),
                 "output_contract": output_type.__name__,
                 "resume_command": request.resume_command,
+                "resume_argv": request.resume_argv,
             },
-        )
-
-    @staticmethod
-    def _resume_command(
-        prompt_id: str, context: Mapping[str, Any], output_path: Path
-    ) -> str:
-        template = _RESUME_COMMANDS.get(prompt_id, "jobagent <resume-command> {output_path}")
-        return template.format(
-            output_path=output_path,
-            job_id=context.get("job_id", "<job-id>"),
         )
 
 

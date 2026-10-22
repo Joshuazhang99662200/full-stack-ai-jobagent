@@ -12,6 +12,24 @@ from jobagent.schemas.reasoning import ReasoningHandoffRequest
 CONTEXT = {"candidate_id": "CAND_001", "pages": [{"page_number": 1, "text": "Experience"}]}
 
 
+def test_concurrent_requests_have_distinct_paths_and_structured_resume_argv(tmp_path):
+    paths = []
+    for _ in range(2):
+        with pytest.raises(AgentHandoffRequiredError) as caught:
+            AgentHandoffProvider(tmp_path / "with spaces").generate(
+                prompt_id="candidate.extract_draft.v1",
+                context=CONTEXT,
+                output_type=CandidateDraft,
+            )
+        paths.append(caught.value.details["request_path"])
+        request = ReasoningHandoffRequest.model_validate_json(
+            Path(paths[-1]).read_text(encoding="utf-8")
+        )
+        assert request.resume_argv[-1] == request.output_path
+    assert paths[0] != paths[1]
+    assert all(Path(p).exists() for p in paths)
+
+
 def test_provider_satisfies_the_reasoning_port(tmp_path: Path) -> None:
     assert isinstance(AgentHandoffProvider(tmp_path), ReasoningProvider)
 
@@ -30,9 +48,7 @@ def test_handoff_needs_no_credentials_and_emits_a_self_contained_request(
 
     assert caught.value.code == "AGENT_HANDOFF_REQUIRED"
     request_path = Path(caught.value.details["request_path"])
-    request = ReasoningHandoffRequest.model_validate_json(
-        request_path.read_text(encoding="utf-8")
-    )
+    request = ReasoningHandoffRequest.model_validate_json(request_path.read_text(encoding="utf-8"))
 
     # Everything the agent needs must be in the file — instructions, source
     # context, and the exact schema of the contract to produce.

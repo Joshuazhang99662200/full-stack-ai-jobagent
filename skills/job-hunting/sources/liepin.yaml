@@ -2,6 +2,7 @@ schema_version: "1.0"
 id: liepin
 display_name: 猎聘
 kind: listing_cli
+default_currency: CNY
 onboarding_tier: 1
 notes: >-
   官方系 CLI(liepin-cli),用户自行粘贴 x-user-token 授权。只用只读的 job search;
@@ -54,3 +55,33 @@ detail:
     block_limit: 2000
     stop_tokens: [聊一聊, 立即沟通, 收藏]
     noise_tokens: [在线, 已认证, 刚刚活跃]
+host_browser:
+  search_url: "https://www.liepin.com/zhaopin/?key={query}&dq={city}"
+  city_codes: {上海: "020", 北京: "010", 杭州: "070020", 深圳: "050090"}
+  detail_url_prefixes: ["https://www.liepin.com/job/", "https://www.liepin.com/a/"]
+  stop_markers: ["safe.liepin.com", "账号行为异常", "短信验证", "验证码"]
+  max_pages_per_session: 3
+  min_seconds_between_pages: 20
+  jd_headings: [职位介绍]
+  reading_hints:
+    - 未登录访问搜索页会弹出登录框(含“获取验证码”),命中停止标志即停,不处理登录。
+    - 详情页 /a/ 是猎头岗,/job/ 是企业直招。标题在 .name.ellipsis-2,薪资在 .salary,JD 取 .job-intro-container 中「职位介绍」到「其他信息」之间。
+    - .company-name 是页面下方「猜你喜欢」的公司,不要用。直招岗公司名取页面标题「-<公司>上海招聘信息-猎聘」一段;猎头岗取招聘者一行「顾问 · <猎头公司>」,雇主通常保密。
+    - 地点取页头薪资后面的那一段,不要在全文里匹配「上海…」,会命中推荐位。
+observability:
+  # 2026-10-20 按已存快照核对:我方最后一条消息前缀出现过 [未读] 与 [已读]。
+  read_markers: ["[已读]"]
+  delivered_markers: ["[未读]"]
+  # “谁看过我”在 /resume/viewed-log,不开会话即可读;每行有招聘者、职务、公司、相对时间。
+  profile_views: true
+profile:
+  # 2026-10-20 只读实测(编辑后取消,未保存)。域名 c.liepin.com。
+  edit_path: /resume/edit
+  viewers_path: /resume/viewed-log
+  sections:
+    - {name: highlights, label: 优势亮点, max_chars: 1000, limit_source: shown}
+    - {name: work_duties, label: 工作经历-职责业绩, max_chars: 2000, limit_source: shown, per_entry: true}
+    - {name: project, label: 项目经历, per_entry: true}
+  reading_hints:
+    - “核心技能树”和“个人优势”是“优势亮点”同一个文本框里的两个小标题,共用 1000 字。
+    - 看过我列表每页 10 行,只保留最近 3 个月;查看时间是相对时间(1天前、1周前)。

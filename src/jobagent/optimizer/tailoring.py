@@ -18,30 +18,24 @@ from datetime import UTC, datetime
 
 from jobagent.capabilities import ReasoningProvider
 from jobagent.errors import ContractValidationError
+from jobagent.optimizer.context import select_evidence
 from jobagent.optimizer.diffing import ResumeDiffBuilder
+from jobagent.optimizer.review import draft_digest, evidence_digest, verify_draft
 from jobagent.optimizer.routing import LensSelection
-from jobagent.optimizer.verification import ClaimVerifier
+from jobagent.reasoning.prompts import system_prompt
 from jobagent.schemas.candidate import EvidenceItem
-from jobagent.schemas.common import ContractModel
 from jobagent.schemas.jobs import JobRequirementProfile
 from jobagent.schemas.optimizer import (
     BaseResumeDocument,
-    ClaimLedger,
-    KeywordCoverageReport,
-    OptimizedResumeItem,
+    ClaimReviewSet,
     ResumeVariant,
+)
+from jobagent.schemas.optimizer import (
+    TailoredDraft as TailoredDraft,
 )
 from jobagent.skill_resources import read_reference
 
 PROMPT_ID = "resume.tailor.v1"
-
-
-class TailoredDraft(ContractModel):
-    """What the reasoning step returns: rewritten items plus their claim ledger."""
-
-    items: list[OptimizedResumeItem]
-    claim_ledger: ClaimLedger
-    keyword_coverage: KeywordCoverageReport
 
 
 class ResumeTailor:
@@ -59,8 +53,9 @@ class ResumeTailor:
         lens: LensSelection,
         target_role: str,
         variant_id: str,
+        candidate_id: str = "",
     ) -> ResumeVariant:
-        confirmed = [item for item in evidence if item.user_confirmed]
+        confirmed, omitted = select_evidence(evidence, requirements, base_resume)
         if not confirmed:
             raise ContractValidationError(
                 "Tailoring needs confirmed evidence; none of the supplied evidence is confirmed.",
@@ -69,6 +64,9 @@ class ResumeTailor:
 
         lens_body = read_reference(lens.policy_path)
         context = {
+            "candidate_id": candidate_id,
+            "variant_id": variant_id,
+            "job_id": requirements.job_id,
             "target_role": target_role,
             "lens": lens.lens.value,
             "lens_policy": lens_body,
@@ -76,6 +74,9 @@ class ResumeTailor:
             "requirements": requirements.model_dump(mode="json"),
             "base_resume": base_resume.model_dump(mode="json"),
             "confirmed_evidence": [item.model_dump(mode="json") for item in confirmed],
+            "omitted_evidence_ids": omitted,
+            "context_selection": "base_references_or_requirement_terms; unconfirmed excluded",
+            "prompt_bundle_digest": _digest(lens_body, base_resume.source_digest),
         }
         draft = self.provider.generate(
             prompt_id=PROMPT_ID,
@@ -83,7 +84,17 @@ class ResumeTailor:
             output_type=TailoredDraft,
         )
 
-        verification = ClaimVerifier().verify(draft.claim_ledger, confirmed)
+        review = self.provider.generate(
+            prompt_id="resume.verify.v1",
+            output_type=ClaimReviewSet,
+            context={
+                "draft": draft.model_dump(mode="json"),
+                "confirmed_evidence": context["confirmed_evidence"],
+                "draft_digest": draft_digest(draft),
+                "evidence_digest": evidence_digest(confirmed),
+            },
+        )
+        verification = verify_draft(draft, confirmed, review)
         diff = ResumeDiffBuilder().build(base_resume.items, draft.items)
         return ResumeVariant(
             id=variant_id,
@@ -104,5 +115,5 @@ class ResumeTailor:
 
 def _digest(lens_body: str, source_digest: str) -> str:
     """Bind a variant to the exact lens text and base resume that produced it."""
-    payload = f"{PROMPT_ID}\n{source_digest}\n{lens_body}".encode()
+    payload = f"{system_prompt(PROMPT_ID)}\n{source_digest}\n{lens_body}".encode()
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"

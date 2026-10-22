@@ -2,6 +2,7 @@
 
 import hashlib
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from jobagent.candidate.ports import CandidateRepository
 from jobagent.errors import ContractValidationError
@@ -15,6 +16,7 @@ from jobagent.jobs.ports import (
     JobRepository,
     JobRequirementExtractor,
 )
+from jobagent.jobs.preferences import preference_score
 from jobagent.jobs.ranking import JobRanker
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.job_intelligence import (
@@ -23,8 +25,15 @@ from jobagent.schemas.job_intelligence import (
     JobIntelligencePolicies,
     JobIntelligenceRun,
     JobSearchQuery,
+    RankedJob,
 )
-from jobagent.schemas.jobs import FilterDecision
+from jobagent.schemas.jobs import (
+    FilterDecision,
+    HardFilterResult,
+    JobRequirementProfile,
+    MatchResult,
+    NormalizedJob,
+)
 
 
 def _digest_model(value: ContractModel) -> str:
@@ -86,6 +95,27 @@ class JobIntelligenceWorkflow:
         source_records = self.source.search(query)
         normalized = [self.normalizer.normalize(record) for record in source_records]
         deduplicated = self.deduplicator.deduplicate(normalized, policies.deduplication)
+        for job in deduplicated.jobs:
+            self.job_repository.save_job(job)
+        assessed = self.assess(deduplicated.jobs, candidate_id, filter_context, policies)
+        return JobIntelligenceRun(
+            candidate_id=candidate_id,
+            query=query,
+            normalized_jobs=deduplicated.jobs,
+            requirements=assessed.requirements,
+            filter_results=assessed.filter_results,
+            matches=assessed.matches,
+            ranked_jobs=assessed.ranked_jobs,
+        )
+
+    def assess(
+        self,
+        jobs: Sequence[NormalizedJob],
+        candidate_id: str,
+        filter_context: CandidateFilterContext,
+        policies: JobIntelligencePolicies,
+    ) -> "JobAssessmentRun":
+        """Extract requirements, filter, match and rank jobs that are already stored."""
         evidence = self.candidate_repository.list_evidence(candidate_id)
         sorted_evidence = sorted(evidence, key=lambda item: item.id)
         evidence_digest = _digest_models(sorted_evidence)
@@ -96,8 +126,7 @@ class JobIntelligenceWorkflow:
         filter_results = {}
         matches = {}
         assessments: list[JobAssessment] = []
-        for job in deduplicated.jobs:
-            self.job_repository.save_job(job)
+        for job in jobs:
             requirements = self.requirement_extractor.extract(job)
             requirements_digest = self.job_repository.save_requirements(requirements)
             requirement_profiles.append(requirements)
@@ -141,6 +170,9 @@ class JobIntelligenceWorkflow:
                 ),
                 0.0,
             )
+            preference, hits = preference_score(
+                f"{job.title} {job.jd_raw}", filter_context.preferred_factors
+            )
             assessments.append(
                 JobAssessment(
                     job_id=job.id,
@@ -148,15 +180,22 @@ class JobIntelligenceWorkflow:
                     match_result=match_result,
                     published_at=job.published_at,
                     must_have_score=must_have_score,
+                    preference_score=preference,
+                    preference_hits=hits,
                 )
             )
 
-        return JobIntelligenceRun(
-            candidate_id=candidate_id,
-            query=query,
-            normalized_jobs=deduplicated.jobs,
+        return JobAssessmentRun(
             requirements=requirement_profiles,
             filter_results=filter_results,
             matches=matches,
             ranked_jobs=self.ranker.rank(assessments),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class JobAssessmentRun:
+    requirements: list[JobRequirementProfile]
+    filter_results: dict[str, HardFilterResult]
+    matches: dict[str, MatchResult]
+    ranked_jobs: list[RankedJob]

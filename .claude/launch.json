@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "patrol-dashboard",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-I", "scripts/patrol_dashboard.py", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}

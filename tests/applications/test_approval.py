@@ -12,7 +12,11 @@ from jobagent.errors import (
     StaleApprovalError,
     UnverifiedResumeVariantError,
 )
-from jobagent.schemas.applications import ApplicationPackage, DeliveryPolicy
+from jobagent.schemas.applications import (
+    ApplicationPackage,
+    ApprovalChannel,
+    DeliveryPolicy,
+)
 
 from .conftest import JobFactory, PackageFactory, VariantFactory, build_variant
 
@@ -184,3 +188,89 @@ def test_delivery_policy_cannot_represent_a_bypass() -> None:
     ):
         with pytest.raises(ValueError, match=field):
             DeliveryPolicy(**{field: value})
+
+
+def relay(
+    package: ApplicationPackage,
+    *,
+    request: object | None = None,
+    answer: str = "同意投这个岗",
+) -> object:
+    service = ApplicationApprovalService()
+    return service.approve(
+        package,
+        POLICY,
+        confirmed=True,
+        channel=ApprovalChannel.AGENT_RELAY,
+        attestation=answer,
+        request=service.ask(package, POLICY) if request is None else request,
+        approved_at=datetime(2026, 8, 26, 10, 0, tzinfo=UTC),
+    )
+
+
+def test_asking_poses_a_question_without_approving_anything(
+    package: ApplicationPackage,
+) -> None:
+    question = ApplicationApprovalService().ask(package, POLICY)
+    digests = compute_digests(package, POLICY)
+
+    assert question.application_id == package.application_id
+    assert question.job_digest == digests.job_digest
+    assert not isinstance(question, type(relay(package)))
+
+
+def test_relayed_approval_records_the_channel_and_the_persons_own_words(
+    package: ApplicationPackage,
+) -> None:
+    record = relay(package, answer="同意投这个岗")
+
+    assert record.approved_by == "human"
+    assert record.channel is ApprovalChannel.AGENT_RELAY
+    assert record.attestation == "同意投这个岗"
+    assert record.request_id is not None
+
+
+def test_relayed_approval_needs_a_question_that_was_actually_asked(
+    package: ApplicationPackage,
+) -> None:
+    """The planner must not decide before it has the person's answer in hand."""
+    with pytest.raises(ApprovalRequiredError) as caught:
+        ApplicationApprovalService().approve(
+            package,
+            POLICY,
+            confirmed=True,
+            channel=ApprovalChannel.AGENT_RELAY,
+            attestation="同意",
+            request=None,
+        )
+
+    assert caught.value.code == "APPROVAL_REQUIRED"
+
+
+def test_a_question_asked_about_another_package_does_not_approve_this_one(
+    package_factory: PackageFactory,
+) -> None:
+    approved_package = package_factory()
+    other = package_factory(application_id="APP_OTHER_001")
+    stale_question = ApplicationApprovalService().ask(other, POLICY)
+
+    with pytest.raises(ApprovalRequiredError):
+        relay(approved_package, request=stale_question)
+
+
+def test_an_edited_package_invalidates_the_question_that_was_asked(
+    package_factory: PackageFactory,
+) -> None:
+    """A person answered about what they were shown, not about what came after."""
+    package = package_factory()
+    question = ApplicationApprovalService().ask(package, POLICY)
+    edited = package.model_copy(update={"message": "A different message entirely."})
+
+    with pytest.raises(ApprovalRequiredError):
+        relay(edited, request=question)
+
+
+@pytest.mark.parametrize("answer", ["", "   ", "\t\n"])
+def test_an_empty_answer_is_not_consent(package: ApplicationPackage, answer: str) -> None:
+    with pytest.raises(ApprovalRequiredError):
+        relay(package, answer=answer)

@@ -11,6 +11,15 @@ from jobagent import skill_resources
 from jobagent.cli import optimizer as optimizer_cli
 from jobagent.cli.app import app
 from jobagent.errors import CapabilityRegistryError
+from jobagent.schemas.candidate import (
+    CandidateProfile,
+    Confidence,
+    EvidenceItem,
+    EvidenceType,
+)
+from jobagent.schemas.common import SourceReference, SourceType
+from jobagent.storage.candidate_repository import SqliteCandidateRepository
+from jobagent.storage.database import Database
 
 runner = CliRunner()
 
@@ -27,7 +36,13 @@ def test_optimizer_exposes_tailoring_but_never_delivery() -> None:
     optimizer_command = root_command.commands["optimizer"]
 
     assert isinstance(optimizer_command, TyperGroup)
-    assert set(optimizer_command.commands) == {"capabilities", "tailor", "assemble"}
+    assert set(optimizer_command.commands) == {
+        "capabilities",
+        "base-resume",
+        "tailor",
+        "assemble",
+        "review",
+    }
     # Tailoring is in scope; approval and delivery never are.
     for forbidden in (
         "run",
@@ -201,3 +216,60 @@ def test_registry_failure_is_structured_stdout_json_with_empty_stderr(
     assert payload["error"]["code"] == "CAPABILITY_REGISTRY_INVALID"
     assert payload["error"]["details"] == {"path": "optimizer/index/repository.yaml"}
     assert set(payload["error"]) == {"code", "message", "details"}
+
+
+def seed_evidence(database_path: Path, *, confirmed: bool) -> None:
+    database = Database(database_path)
+    database.migrate()
+    repository = SqliteCandidateRepository(database)
+    repository.save_profile(CandidateProfile(id="CAND_001"))
+    repository.upsert_evidence(
+        "CAND_001",
+        EvidenceItem(
+            id="EVID_PYTHON",
+            type=EvidenceType.SKILL,
+            statement="Built Python services for production.",
+            skills=["Python"],
+            source=SourceReference(type=SourceType.RESUME, reference="RESUME_001:page:1"),
+            confidence=Confidence.EXPLICIT,
+            user_confirmed=confirmed,
+        ),
+    )
+
+
+def test_base_resume_projects_confirmed_evidence_into_the_tailoring_input(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "jobagent.sqlite3"
+    seed_evidence(database_path, confirmed=True)
+
+    code, payload = invoke(
+        "optimizer", "base-resume", "CAND_001", "--database", str(database_path)
+    )
+
+    assert code == 0
+    assert isinstance(payload, dict)
+    assert payload["items"] == [
+        {
+            "schema_version": "1.0",
+            "id": "ITEM_PYTHON",
+            "section": "skills",
+            "text": "Built Python services for production.",
+            "evidence_ids": ["EVID_PYTHON"],
+        }
+    ]
+    assert payload["source_digest"].startswith("sha256:")
+
+
+def test_base_resume_refuses_when_no_evidence_is_confirmed(tmp_path: Path) -> None:
+    """Tailoring from unconfirmed evidence is exactly what the gate exists to stop."""
+    database_path = tmp_path / "jobagent.sqlite3"
+    seed_evidence(database_path, confirmed=False)
+
+    code, payload = invoke(
+        "optimizer", "base-resume", "CAND_001", "--database", str(database_path)
+    )
+
+    assert code == 1
+    assert isinstance(payload, dict)
+    assert payload["error"]["code"] == "CONTRACT_VALIDATION_ERROR"

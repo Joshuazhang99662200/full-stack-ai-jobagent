@@ -4,7 +4,7 @@
 
 不是每个平台都提供 JD 正文。结果页只给摘要字段的来源实现 `JobListingSource`,只暴露 `search_listings`,返回 `JobListing`。listing 可以驱动发现与确定性硬过滤,但**永远不能冒充完整职位观测**:两个端口刻意分开,就是为了让「没有 JD」这件事在类型层面无法被绕过。绝不用摘要字段合成 `jd_raw`。
 
-`LiepinCliJobSource` 是第一个真实来源:它把外部 `liepin-cli` 当作不透明进程边界,只调用只读的 `job search`,并实现 `JobListingSource`。该 CLI 的 `job apply` 与 `resume` 写入命令**不接入**,投递必须走独立边界,在线简历保持只读。token 过期、401/403、验证码与风控翻译为 `USER_INTERVENTION_REQUIRED`;退出码 2 在非交互环境下不打印任何提示,一律按需要人工授权处理。输出不是合法 JSON 或缺少契约必填字段时翻译为 `INVALID_PROVIDER_OUTPUT`。子进程输出可能是 GBK 而非 UTF-8,连接器自行解码。上游未声明许可证,因此除进程调用外不得复用其代码。
+`LiepinCliJobSource` 是第一个真实来源:它把外部 `liepin-cli` 当作不透明进程边界,只调用只读的 `job search`,并实现 `JobListingSource`。寻源侧不接入 `job apply` 与 `resume` 写入命令。独立投递连接器无法传递获批附件与消息，实际提交在平台调用前停止并交人。在线简历当前保持只读，后续版本更新仅走 [evals.md](evals.md) 的审批与回读流程，不接入零散的 CLI 写操作。token 过期、401/403、验证码与风控翻译为 `USER_INTERVENTION_REQUIRED`;退出码 2 在非交互环境下不打印任何提示,一律按需要人工授权处理。输出不是合法 JSON 或缺少契约必填字段时翻译为 `INVALID_PROVIDER_OUTPUT`。子进程输出可能是 GBK 而非 UTF-8,连接器自行解码。上游未声明许可证,因此除进程调用外不得复用其代码。
 
 投递能力必须放在独立的连接器边界内。后续具备投递能力的 `JobSource` 可以增加投递包检查与提交方法,并配备独立的授权与审批门禁。职位情报不得 import 或调用该投递表面。
 

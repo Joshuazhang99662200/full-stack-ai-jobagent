@@ -16,6 +16,7 @@
 - `GapDetector.detect` 从档案、证据、未知项与目标岗位推导出当前缺口。
 - `AdaptiveInterview.next_question` 返回零个或一个问题,并尊重最近的缺口 ID。
 - `AdaptiveInterview.record_answer` 返回 `InterviewOutcome`;回答会带出一条未确认的面试证据,而跳过只带出一个事件。
+- 回答里说出的数字用 `candidate answer --metric 'name|value|unit'`(可重复)记为结构化指标;数值必须在回答原文中出现,否则拒绝。没有结构化指标的数字过不了 `assemble` 的指标门禁。
 - `CandidateReadinessService.evaluate` 报告描述完整度与证据就绪度。
 
 面向本地操作者的工作流,路由到 `jobagent candidate ingest`、`import-draft`、`question`、`answer`、`confirm` 与 `status`。这些命令输出 JSON,并通过 `--database` 使用 SQLite。

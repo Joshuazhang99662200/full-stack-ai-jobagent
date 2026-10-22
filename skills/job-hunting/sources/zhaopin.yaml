@@ -2,6 +2,7 @@ schema_version: "1.0"
 id: zhaopin
 display_name: 智联招聘
 kind: public_page
+default_currency: CNY
 onboarding_tier: 4
 notes: >-
   无官方 MCP/CLI,无官方开源仓库;职位详情页服务端渲染且 robots.txt 未禁止,
@@ -9,3 +10,35 @@ notes: >-
 detail:
   start_headings: [职位描述, 岗位职责, 职位信息]
   stop_headings: [职位福利, 公司介绍, 公司简介, 工作地址, 举报, 猜你喜欢, 相似职位]
+host_browser:
+  search_url: "https://www.zhaopin.com/jobs/?jl={city}&kw={query}"
+  city_codes: {上海: "538", 北京: "530", 杭州: "653", 深圳: "765"}
+  detail_url_prefixes: ["https://www.zhaopin.com/jobdetail/", "https://jobs.zhaopin.com/"]
+  stop_markers: ["passport.zhaopin.com", "安全验证", "Security Verification", "滑块", "验证码"]
+  max_pages_per_session: 3
+  min_seconds_between_pages: 15
+  jd_headings: [职位描述, 岗位职责]
+  jd_selector: ".job-detail-panel"
+  reading_hints:
+    - 职位卡片是 div.job-card,本身不带链接;点卡片后右侧 .job-detail-panel 切换为该职位。
+    - 面板里的详情链接带查询参数,取链接时先去掉 ? 之后的部分。
+    - JD 取面板中「职位描述」到「职位发布者」之间,公司介绍与薪酬福利不进 jd_raw。
+    - 面板里的公司名行位置不固定(猎头岗显示「客户公司:…」),以列表卡片上的公司名为准。
+    - 列表页薪资可直接读取。
+observability:
+  # 2026-10-20 按已存快照核对:只出现过 [送达],尚未见到已读标记,已读率记为不可观测。
+  read_markers: []
+  delivered_markers: ["[送达]"]
+  # “谁看了我”在 /view/resume,不开会话即可读;每行有职位、公司、查看日期,不显示招聘者。
+  profile_views: true
+profile:
+  # 2026-10-20 只读实测(编辑后取消,未保存)。域名 i.zhaopin.com。
+  # 上限由“还可输入 N 个字”加现有字数推算,不是页面直接显示的。
+  edit_path: /resume
+  viewers_path: /view/resume
+  sections:
+    - {name: advantage, label: 个人优势, max_chars: 500, limit_source: inferred}
+    - {name: work_description, label: 工作/实习经历-工作描述, max_chars: 3000, limit_source: inferred, per_entry: true}
+    - {name: project_description, label: 项目经历-项目描述, per_entry: true}
+  reading_hints:
+    - 打开后会弹“附件中有1项内容可同步”,只点右上角 X 关闭,不要点“同步至在线简历”。

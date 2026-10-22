@@ -32,7 +32,9 @@ from jobagent.errors import (
 )
 from jobagent.schemas.applications import (
     ApplicationPackage,
+    ApprovalChannel,
     ApprovalRecord,
+    ApprovalRequest,
     DeliveryPolicy,
     DeliveryRequest,
 )
@@ -152,7 +154,10 @@ def _emit_dry_run(
         json.dumps(
             {
                 "dry_run": {
-                    "would_send": True,
+                    "would_send": bool(getattr(source, "supports_custom_artifacts", True)),
+                    "manual_handover_required": not bool(
+                        getattr(source, "supports_custom_artifacts", True)
+                    ),
                     "application_id": request.application_id,
                     "platform": package.job.source,
                     "connector": type(source).__name__,
@@ -230,9 +235,35 @@ def preview(
         _fail(error)
 
 
+@applications_app.command("ask")
+def ask(
+    package_path: Annotated[Path, typer.Argument(help="ApplicationPackage JSON from preview.")],
+) -> None:
+    """Pose the approval decision to a person. This is not an approval.
+
+    An agent relaying a decision must first have asked for one. Emitting the
+    question as its own artifact is what makes that order checkable: `approve`
+    refuses a relayed answer whose question does not exist or no longer describes
+    the package.
+    """
+    try:
+        package = _load_model(package_path, ApplicationPackage)
+        _emit(ApplicationApprovalService().ask(package, DeliveryPolicy()))
+    except JobAgentError as error:
+        _fail(error)
+
+
 @applications_app.command("approve")
 def approve(
     package_path: Annotated[Path, typer.Argument(help="ApplicationPackage JSON from preview.")],
+    request_path: Annotated[
+        Path | None,
+        typer.Option("--request", help="ApprovalRequest JSON from `ask`, for a relayed answer."),
+    ] = None,
+    answer: Annotated[
+        str,
+        typer.Option("--answer", help="The person's own words, recorded verbatim."),
+    ] = "",
     confirm: Annotated[
         bool,
         typer.Option("--confirm", help="Record that a person reviewed and approved this package."),
@@ -240,14 +271,18 @@ def approve(
 ) -> None:
     """Bind a human decision to the exact job, resume, message and policy.
 
-    Approval is the one step an automated caller must not be able to perform for
-    itself, so `--confirm` alone is not enough: the command also requires an
-    interactive terminal and a code typed back from the summary it prints. The
-    code is derived from the artifacts, so approving means having looked at them.
+    Two channels, one rule: the decision must be a person's, and it must exist
+    before this command runs.
 
-    This stops an agent that drives the CLI. It does not stop one that imports
-    `ApplicationApprovalService` directly — that boundary is the CLI, not the
-    library, and the distinction is documented rather than papered over.
+    At a terminal, `--confirm` prints the artifacts and asks for a code typed back.
+    Through an agent, `--request` plus `--answer` relay a decision the person
+    already gave, and the posed question is checked against the current artifacts
+    so the answer provably concerns what they were shown.
+
+    Neither channel proves who pressed the keys: on one machine the agent holds the
+    same shell the person does. What is enforced is that the planner cannot mint a
+    decision it never asked for, and the record says which channel it came through
+    instead of claiming a terminal it never had.
     """
     try:
         package = _load_model(package_path, ApplicationPackage)
@@ -256,12 +291,22 @@ def approve(
                 "Approval requires an explicit human confirmation.",
                 details={"application_id": package.application_id},
             )
-        _require_interactive_confirmation(package)
+        service = ApplicationApprovalService()
+        if request_path is None and not answer:
+            _require_interactive_confirmation(package)
+            _emit(service.approve(package, DeliveryPolicy(), confirmed=True))
+            return
+        request = (
+            _load_model(request_path, ApprovalRequest) if request_path is not None else None
+        )
         _emit(
-            ApplicationApprovalService().approve(
+            service.approve(
                 package,
                 DeliveryPolicy(),
                 confirmed=True,
+                channel=ApprovalChannel.AGENT_RELAY,
+                attestation=answer,
+                request=request,
             )
         )
     except JobAgentError as error:

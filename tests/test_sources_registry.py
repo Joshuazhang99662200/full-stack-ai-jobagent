@@ -130,3 +130,112 @@ def test_no_manifest_can_express_delivery() -> None:
     fields = set(SourceManifest.model_fields)
     for forbidden in ("apply", "submit", "deliver", "send", "credentials", "cookie"):
         assert forbidden not in fields
+
+
+def test_main_boards_declare_a_host_browser_route_with_stop_markers() -> None:
+    registry = SourceRegistry.default()
+
+    for source_id in ("boss", "zhaopin", "liepin"):
+        spec = registry.get(source_id).host_browser
+        assert spec is not None, source_id
+        assert "{query}" in spec.search_url
+        assert spec.detail_url_prefixes
+        assert spec.stop_markers
+    # The host route never turns a gated board into a repository-side scrape.
+    assert registry.get("boss").kind is SourceKind.GATED
+
+
+def test_host_browser_search_url_must_take_the_query(tmp_path: Path) -> None:
+    payload = {
+        **CUSTOM,
+        "host_browser": {
+            "search_url": "https://acme.example/jobs",
+            "detail_url_prefixes": ["https://acme.example/job/"],
+            "stop_markers": ["captcha"],
+        },
+    }
+    path = write(tmp_path, "acme", payload)
+
+    with pytest.raises(ContractValidationError, match="did not satisfy"):
+        load_manifest(path)
+
+
+def test_host_browser_spec_cannot_express_contact_or_delivery() -> None:
+    from jobagent.schemas.sources import HostBrowserSpec
+
+    fields = set(HostBrowserSpec.model_fields)
+    for forbidden in ("apply", "submit", "deliver", "send", "message", "credentials", "cookie"):
+        assert not any(forbidden in field for field in fields)
+
+
+def test_host_routes_carry_reading_hints_and_a_daily_read_cap() -> None:
+    registry = SourceRegistry.default()
+
+    for source_id in ("boss", "zhaopin"):
+        spec = registry.get(source_id).host_browser
+        assert spec is not None
+        assert spec.reading_hints, source_id
+        assert 1 <= spec.max_detail_reads_per_day <= 50
+    boss = registry.get("boss").host_browser
+    assert boss is not None and boss.detail_link_pattern == "/job_detail/"
+
+
+def test_boards_declare_what_they_show_about_our_own_messages() -> None:
+    """Read receipts are learned by reading each board, never assumed."""
+    registry = SourceRegistry.default()
+
+    boss = registry.get("boss").observability
+    liepin = registry.get("liepin").observability
+    zhaopin = registry.get("zhaopin").observability
+
+    assert boss is not None and boss.read_markers == ["[已读]"]
+    assert boss.delivered_markers == ["[送达]"]
+    assert liepin is not None and liepin.read_markers == ["[已读]"]
+    assert liepin.delivered_markers == ["[未读]"]
+    # Zhaopin has only ever shown "[送达]"; until a read marker is seen, read
+    # receipts there stay unobservable rather than assumed.
+    assert zhaopin is not None and zhaopin.read_markers == []
+    assert zhaopin.delivered_markers == ["[送达]"]
+    assert registry.get("mock").observability is None
+
+
+def test_a_marker_may_not_mean_both_delivered_and_read(tmp_path: Path) -> None:
+    payload = {
+        **CUSTOM,
+        "observability": {"read_markers": ["[已读]"], "delivered_markers": ["[已读]"]},
+    }
+    with pytest.raises(ContractValidationError):
+        load_manifest(write(tmp_path, "acme-board", payload))
+
+
+def test_boards_declare_their_profile_sections_as_measured() -> None:
+    registry = SourceRegistry.default()
+
+    boss = registry.get("boss").profile
+    liepin = registry.get("liepin").profile
+    zhaopin = registry.get("zhaopin").profile
+    assert boss is not None and liepin is not None and zhaopin is not None
+
+    assert {s.name: s.max_chars for s in boss.sections}["advantage"] == 1000
+    assert {s.name: s.max_chars for s in liepin.sections}["highlights"] == 1000
+    # Zhaopin shows only "还可输入 N 个字", so its limits are inferred, not read.
+    advantage = next(s for s in zhaopin.sections if s.name == "advantage")
+    assert advantage.limit_source == "inferred"
+
+    observability = {m.id: m.observability for m in registry.all() if m.observability}
+    assert observability["liepin"].profile_views is True
+    assert observability["zhaopin"].profile_views is True
+    assert observability["boss"].profile_views is None  # not yet measured
+    assert liepin.viewers_path == "/resume/viewed-log"
+
+
+def test_a_profile_section_limit_says_where_it_came_from(tmp_path: Path) -> None:
+    payload = {
+        **CUSTOM,
+        "profile": {
+            "edit_path": "/resume",
+            "sections": [{"name": "advantage", "label": "个人优势", "max_chars": 500}],
+        },
+    }
+    with pytest.raises(ContractValidationError):
+        load_manifest(write(tmp_path, "acme-board", payload))

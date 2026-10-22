@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Annotated, Any, Never
 from uuid import uuid4
@@ -26,6 +27,7 @@ from jobagent.schemas.candidate import (
     InterviewEvent,
     InterviewEventType,
     InterviewQuestion,
+    MetricFact,
 )
 from jobagent.schemas.common import ContractModel
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
@@ -63,6 +65,16 @@ def _fail(error: JobAgentError) -> Never:
 
 def _input_error(message: str) -> Never:
     _fail(ContractValidationError(message))
+
+
+def _parse_metric(raw: str) -> MetricFact:
+    parts = [part.strip() for part in raw.split("|")]
+    if len(parts) != 3 or not all(parts):
+        _input_error("A --metric must be written as 'name|value|unit'.")
+    try:
+        return MetricFact(name=parts[0], value=Decimal(parts[1]), unit=parts[2])
+    except (InvalidOperation, ValidationError):
+        _input_error("A --metric value must be a number.")
 
 
 def _emit_handoff(handoff: AgentHandoffRequiredError) -> None:
@@ -228,10 +240,18 @@ def answer(
     database: DatabaseOption = DEFAULT_DATABASE,
     answer_text: Annotated[str | None, typer.Option("--answer")] = None,
     skip: Annotated[bool, typer.Option("--skip")] = False,
+    metric: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--metric",
+            help="A number stated in the answer, as 'name|value|unit'. Repeatable.",
+        ),
+    ] = None,
 ) -> None:
     """Record an answer or skip and create only draft evidence."""
     if skip == (answer_text is not None):
         _input_error("Provide exactly one of --answer or --skip.")
+    metrics = [_parse_metric(raw) for raw in metric or []]
     try:
         repository = _repository(database)
         _required_profile(repository, candidate_id)
@@ -240,6 +260,7 @@ def answer(
             question_id=question_id,
             answer=answer_text,
             skipped=skip,
+            metrics=metrics,
         )
         outcome = AdaptiveInterview().record_answer(
             selected,

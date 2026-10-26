@@ -26,6 +26,7 @@ from jobagent.jobs.normalization import JobNormalizer
 from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
 from jobagent.jobs.query_derivation import SearchQueryDeriver
 from jobagent.jobs.ranking import JobRanker
+from jobagent.jobs.search_learning import learn_search
 from jobagent.jobs.search_plan import plan_searches
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
 from jobagent.outreach.service import PLATFORM_DAY, contacted_job_ids
@@ -54,6 +55,7 @@ from jobagent.schemas.jobs import (
     JobRequirementProfile,
     NormalizedJob,
 )
+from jobagent.schemas.search_learning import SearchLearningRequest
 from jobagent.schemas.sources import SourceManifest
 from jobagent.sources import SourceRegistry
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
@@ -1000,6 +1002,15 @@ def match(
             MatchThresholdPolicy(),
         )
         _emit_model(result)
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("learn-search")
+def learn_search_command(signals_path: Path) -> None:
+    """Derive bounded search priorities from private owner signals, without I/O side effects."""
+    try:
+        _emit_model(learn_search(_load_model(signals_path, SearchLearningRequest)))
     except JobAgentError as error:
         _fail(error)
 

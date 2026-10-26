@@ -69,7 +69,7 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
-| 清单校验 | 已落地 | `jobagent outreach draft-batch`(宿主起草的首条招呼按职位、联系记录、字数、数字、黑名单、证据逐条校验,不合格退回;带 `--candidate` 时按匹配度级联:强匹配在前、可能匹配在后,弱匹配与不匹配退回) |
+| 清单校验 | 已落地 | `jobagent outreach draft-batch`(宿主全文生成并独立复核；按职位、联系记录、数字、禁用词、证据逐条校验，不设置首招字数硬上限；带 `--candidate` 时按匹配度级联，弱匹配与不匹配退回) |
 | 提问 | 已落地 | `jobagent outreach ask`(逐字列出编号清单,**本身不是审批**) |
 | 审批 | 已落地 | `jobagent outreach approve`(中继通道:`--request` + `--items` + `--answer`,问必须先于答,清单改动即作废) |
 | 站点租约 | 已落地 | `jobagent outreach lease`(一个站同一时间只允许一个会话发送) |

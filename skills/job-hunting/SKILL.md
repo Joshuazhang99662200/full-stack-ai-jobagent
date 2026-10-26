@@ -40,7 +40,7 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 - **按 JD 生成简历**(含用户自带的 JD、用户在 Word 里改过的稿)时,先阅读 [references/resume-pipeline.md](references/resume-pipeline.md):入库、事实确认、改写、独立复核、版面门禁、手改合并全程走这条链路,不用裸 LLM 改写。
 - 处理常规简历接地时,阅读 [references/resume-grounding.md](references/resume-grounding.md)。母版简历重构与 JD 定向改写请路由到 [optimizer/SKILL.md](optimizer/SKILL.md);该嵌套技能自行决定后续策略选择。
 - 处理简历渲染、模板或 ATS 关键词覆盖时,阅读 [references/rendering-ats.md](references/rendering-ats.md)。排版与出 PDF 默认路由到外部技能 resume-builder;它是下游消费者,**不替代证据契约与蕴含校验**。
-- 撰写打招呼语、求职信或投递邮件时,阅读 [references/message-generation.md](references/message-generation.md)。起草首条招呼时再读 [references/greeting-writing.md](references/greeting-writing.md),按其中流程从话术库挑句子。
+- 撰写打招呼语、求职信或投递邮件时，阅读 [references/message-generation.md](references/message-generation.md)。首条招呼按 [references/greeting-writing.md](references/greeting-writing.md) 阅读完整 JD、已确认证据和适用偏好后生成全文，再独立复核；不调用旧话术库或固定结构，仓库不设置首招字数硬上限。
 - **首条招呼之后的跟进**(读新消息、分级、回复、确认意向、发简历)时,阅读 [references/conversation.md](references/conversation.md):对方消息交给 `jobagent conversations inbound` 记录并推进阶段;回复一条一审,经 `reply-gate` 放行后才发;L3 与危险来信只摘要、交人。
 - **定时巡检或轮询**(抓新职位、对比上次快照读新回复、按来源分开记账、推送待审批事项)时,阅读 [references/patrol.md](references/patrol.md):先跑 `jobagent patrol next`,不到时间就结束;巡检从不自行发送。
 - **批量发首条招呼**时,先按 message-generation.md「首条招呼」起草,再走 `jobagent outreach draft-batch → ask → approve → lease → next → record`:人逐字看过编号清单并回答后才可发送;每条发送前由 `next` 复核租约、审批时效、间隔与每日上限;失败或风控当天叫停该站。宿主只在 `next` 放行后操作浏览器。

@@ -164,7 +164,7 @@ listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业�
 ```
 
 **首条招呼（`jobagent outreach …`）**
-- 起草规则见 [message-generation.md](skills/job-hunting/references/message-generation.md)「首条招呼」。仓库确定性地检查以下几项：长度不超过 120 字、不写数字、黑名单词、每句话都引用已确认证据、同一职位只发一次。
+- 起草规则见 [message-generation.md](skills/job-hunting/references/message-generation.md)「首条招呼」。宿主按完整 JD 与已确认证据生成全文并独立复核；仓库核对数字、禁用词、证据和联系记录，不要求固定开头、话术库挑句或首招字数硬上限。
 - 带 `--candidate` 时按匹配档位级联排序：本人挑的 → 强匹配 → 可能匹配 → 未评估。弱匹配、不匹配整条退回。`--filter-context` 里的偏好因子只决定同档内的先后。
 - 审批走中继通道：先 `ask` 把编号清单逐字摆给人，人回复后用 `approve --answer "<原话>"` 登记。清单一改，审批即作废。
 - 发送有站点租约（一个站同一时间只允许一个会话发）、最小间隔 30 秒、每站每天最多 50 条。遇到失败、登录、验证或风控，该站当天停发，交给人处理。

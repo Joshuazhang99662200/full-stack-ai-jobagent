@@ -52,8 +52,7 @@ class OutreachDraft(ContractModel):
     variant: str | None = None
     hook_requirement: str | None = None
     experiment_id: str | None = None
-    # "person" when the candidate rewrote the words themselves: the length limit
-    # is theirs to waive; every other check still applies.
+    # Authorship is retained for review and audit; the same content checks apply.
     written_by: Literal["agent", "person"] = "agent"
 
 

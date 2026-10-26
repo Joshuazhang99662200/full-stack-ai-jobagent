@@ -2,13 +2,11 @@
 """Deterministic checks for a first greeting.
 
 The wording rules live in references/message-generation.md ("首条招呼"); this module
-enforces the parts of them a machine can check exactly: length, numbers, and banned
+enforces the parts of them a machine can check exactly: numbers and banned
 phrases. Anything it cannot check stays with the person who approves the batch.
 """
 
 import re
-
-MAX_GREETING_CHARS = 120
 
 # The only places a number may appear: "0 到 1" phrasing, and a title in 《》.
 _ALLOWED_NUMBER_SPANS = (re.compile(r"0\s*到\s*1"), re.compile(r"《[^》]*》"))
@@ -17,15 +15,9 @@ _ANY_DIGIT = re.compile(r"[0-9０-９]")
 BANNED_PHRASES = ("修订率", "HITL", "智能体协作", "很感兴趣", "期待交流", "既懂")
 
 
-def first_greeting_problems(text: str, *, length_limit: bool = True) -> list[str]:
-    """Return the rules this greeting breaks; an empty list means it may be listed.
-
-    The length limit keeps drafted greetings short; words the person wrote
-    themselves are theirs to size, so callers lift it for those.
-    """
+def first_greeting_problems(text: str) -> list[str]:
+    """Check content; full-message writing has no repository character ceiling."""
     problems: list[str] = []
-    if length_limit and len("".join(text.split())) > MAX_GREETING_CHARS:
-        problems.append("too_long")
     stripped = text
     for allowed in _ALLOWED_NUMBER_SPANS:
         stripped = allowed.sub("", stripped)

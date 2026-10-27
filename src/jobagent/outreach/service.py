@@ -192,9 +192,7 @@ class OutreachService:
             return ["already_contacted"]
         if draft.job_id in listed:
             return ["duplicate_in_batch"]
-        reasons = first_greeting_problems(
-            draft.text, length_limit=draft.written_by != "person"
-        )
+        reasons = first_greeting_problems(draft.text)
         if any(evidence not in confirmed_evidence_ids for evidence in draft.evidence_ids):
             reasons.append("unconfirmed_evidence")
         return reasons

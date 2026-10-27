@@ -11,9 +11,9 @@ def test_a_compliant_greeting_has_no_problems() -> None:
     assert first_greeting_problems(GOOD) == []
 
 
-def test_length_counts_non_whitespace_characters() -> None:
-    assert "too_long" in first_greeting_problems("您" * 121)
-    assert "too_long" not in first_greeting_problems("您 " * 120)
+def test_full_message_greetings_have_no_legacy_character_limit() -> None:
+    assert first_greeting_problems("您" * 240) == []
+    assert first_greeting_problems("您 " * 240) == []
 
 
 def test_numbers_are_refused_outside_the_two_exceptions() -> None:
@@ -29,7 +29,7 @@ def test_internal_terms_and_cliches_are_refused() -> None:
     assert "banned_phrase:HITL" in first_greeting_problems("设计了 hitl 兜底。")
 
 
-def test_the_length_limit_can_be_lifted_for_words_the_person_wrote() -> None:
-    long_text = "您" * 150 + "方便聊聊吗？"
-    assert "too_long" not in first_greeting_problems(long_text, length_limit=False)
-    assert "contains_number" in first_greeting_problems("做了 3 年", length_limit=False)
+def test_long_greetings_still_obey_content_checks() -> None:
+    long_text = "您" * 150
+    assert "contains_number" in first_greeting_problems(long_text + "做了 3 年")
+    assert "banned_phrase:很感兴趣" in first_greeting_problems(long_text + "很感兴趣")

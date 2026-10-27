@@ -11,6 +11,8 @@
 
 ## 候选人(Candidate)
 
+Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)。GitHub 读取、私有持久记忆、网页、定时和通知委托实际宿主，需逐项验收；公开代码可用不代表 Muse 真实账号已接通。旧本地桥接不是新入口的前置条件。
+
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | `parse_resume` | 已落地 | `jobagent candidate ingest` · `PdfResumeParser.parse` |
@@ -25,6 +27,7 @@
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | `suggest_queries` | 已落地 | `jobagent jobs suggest-queries`(从已确认证据确定性推导检索词;`--target-role` 围绕目标岗位生成) |
+| 双层搜索学习 | 已落地 | `jobagent jobs learn-search`：原始 signal → 引文核验、独立正例与反例 → 有版本的软优先级；用户主动加岗可作为正例，最多增加两个查询，不改硬条件、事实或审批；私有存储与调度委托宿主 |
 | `search` | 已落地 | `jobagent jobs search`(`--source mock` 合成 fixture,产出含 JD 的 `SourceJobRecord`) |
 | `search_listings` | 已落地 | `jobagent jobs listings`(`--source liepin`,产出**不含 JD** 的 `JobListing`) |
 | `ingest_jd` | 已落地 | `jobagent jobs ingest-jd`(人工补 JD 正文,门控平台的唯一路径) |
@@ -66,7 +69,7 @@
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
-| 清单校验 | 已落地 | `jobagent outreach draft-batch`(宿主起草的首条招呼按职位、联系记录、字数、数字、黑名单、证据逐条校验,不合格退回;带 `--candidate` 时按匹配度级联:强匹配在前、可能匹配在后,弱匹配与不匹配退回) |
+| 清单校验 | 已落地 | `jobagent outreach draft-batch`(宿主全文生成并独立复核；按职位、联系记录、数字、禁用词、证据逐条校验，不设置首招字数硬上限；带 `--candidate` 时按匹配度级联，弱匹配与不匹配退回) |
 | 提问 | 已落地 | `jobagent outreach ask`(逐字列出编号清单,**本身不是审批**) |
 | 审批 | 已落地 | `jobagent outreach approve`(中继通道:`--request` + `--items` + `--answer`,问必须先于答,清单改动即作废) |
 | 站点租约 | 已落地 | `jobagent outreach lease`(一个站同一时间只允许一个会话发送) |

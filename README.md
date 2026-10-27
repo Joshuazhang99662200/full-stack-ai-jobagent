@@ -1,6 +1,10 @@
-# 求职 Harness：Codex / Claude Code Skill
+# 求职 Harness：Muse / Personal AI / Codex / Claude Code
 
-从 GitHub 安装后，在 Codex 或 Claude Code 中用自然语言启动的求职能力集合。宿主提供推理与交互，本项目提供技能上下文、运行状态、证据契约与逐份审批门禁。
+从公开 GitHub 仓库接入个人 AI，在自己的对话中提供履历和 Markdown，再由宿主完成网页搜索、内容生成与定时任务。本项目提供可复用规则、证据契约、双层搜索学习与逐项审批门禁。
+
+**Muse 等个人 AI 从 [宿主入口](hosts/personal-ai/README.md) 开始**，其中有可复制的启动文本、私有记忆和定时任务协议。新路径不依赖本地浏览器控制、Codex 中继或飞书推送。各人使用自己的资料、私有存储和账号；仓库不携带个人履历。GitHub 读取、宿主执行和真实平台操作需分别验收，目前未宣称 Muse 账号已经接通。
+
+最小新增能力为 `jobagent jobs learn-search`：从用户主动添加的岗位与真实反馈归纳特征，核对支持及反例后调整软搜索优先级。搜索可由宿主定时触发；投递仍须批准具体岗位、全文和附件。下文保留现有 Python 核心与编码宿主的可选安装方式。
 
 JobAgent 是一组原子、可审计的能力,覆盖候选人知识、职位情报、证据接地的简历优化、投递包评审与经审批的投递。它被设计为可从 Python、CLI、MCP 与编码智能体技能中调用。
 
@@ -160,7 +164,7 @@ listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业�
 ```
 
 **首条招呼（`jobagent outreach …`）**
-- 起草规则见 [message-generation.md](skills/job-hunting/references/message-generation.md)「首条招呼」。仓库确定性地检查以下几项：长度不超过 120 字、不写数字、黑名单词、每句话都引用已确认证据、同一职位只发一次。
+- 起草规则见 [message-generation.md](skills/job-hunting/references/message-generation.md)「首条招呼」。宿主按完整 JD 与已确认证据生成全文并独立复核；仓库核对数字、禁用词、证据和联系记录，不要求固定开头、话术库挑句或首招字数硬上限。
 - 带 `--candidate` 时按匹配档位级联排序：本人挑的 → 强匹配 → 可能匹配 → 未评估。弱匹配、不匹配整条退回。`--filter-context` 里的偏好因子只决定同档内的先后。
 - 审批走中继通道：先 `ask` 把编号清单逐字摆给人，人回复后用 `approve --answer "<原话>"` 登记。清单一改，审批即作废。
 - 发送有站点租约（一个站同一时间只允许一个会话发）、最小间隔 30 秒、每站每天最多 50 条。遇到失败、登录、验证或风控，该站当天停发，交给人处理。

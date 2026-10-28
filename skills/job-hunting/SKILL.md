@@ -28,6 +28,8 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 
 ## 上下文路由
 
+- Muse旧JD回填或初稿/最终稿差异、本人规则推广时，加载 [references/muse-backfill-and-diff.md](references/muse-backfill-and-diff.md)；仅已确认规则可作为生成偏好。
+
 - Muse旧队列迁移、扩展预算、登录判定或轮末验收时，按需加载 [references/muse-host-adoption.md](references/muse-host-adoption.md)。
 
 - 用户从聊天、消息列表或卡片加岗，以及恢复人工加岗任务时，优先加载 [references/manual-job-intake.md](references/manual-job-intake.md)。先持久入队，再取全文/起草；next逐步恢复，明确兴趣才参与偏好，下一轮必须领取实际计划。

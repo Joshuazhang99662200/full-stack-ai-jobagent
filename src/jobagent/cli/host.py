@@ -12,10 +12,21 @@ from pydantic import ValidationError
 from jobagent.cli.private_io import fail, open_database, read_model
 from jobagent.errors import ContractValidationError, JobAgentError
 from jobagent.schemas.host_checks import HostPageObservation, HostRoundInput, HostTwoRoundInput
-from jobagent.schemas.host_migration import LegacyTrackingBinding, QueueMigrationConfig
+from jobagent.schemas.host_migration import (
+    LegacyBackfillBinding,
+    LegacyTrackingBinding,
+    QueueMigrationConfig,
+)
+from jobagent.schemas.message_diff import (
+    MessageDiffInput,
+    MessageRuleConfirmation,
+    MessageRuleProposal,
+)
+from jobagent.storage.host_backfill import HostBackfillService
 from jobagent.storage.host_checks import HostPageService
 from jobagent.storage.host_migration import HostQueueMigrator
 from jobagent.storage.host_reports import HostRoundReporter
+from jobagent.storage.message_diff_repository import MessageDiffRepository
 
 host_app = typer.Typer(help="Offline Muse adoption, page evidence and round reports.")
 DatabaseOption = Annotated[Path, typer.Option("--database")]
@@ -144,3 +155,63 @@ def round_template(candidate_id: str, domain: str) -> None:
             "template_only": True,
         }
     )
+
+
+@host_app.command("backfill-plan")
+def backfill_plan(
+    migration_id: str,
+    candidate: CandidateOption,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    priority: Annotated[str | None, typer.Option("--priority")] = None,
+) -> None:
+    output(
+        lambda: HostBackfillService(open_database(database)).plan(
+            migration_id, candidate, priority.split(",") if priority is not None else None
+        )
+    )
+
+
+@host_app.command("backfill-attach")
+def backfill_attach(path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    output(
+        lambda: HostBackfillService(open_database(database)).attach(
+            read_model(path, LegacyBackfillBinding).model_dump(), now=datetime.now(UTC)
+        )
+    )
+
+
+@host_app.command("message-diff")
+def message_diff(path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    output(
+        lambda: MessageDiffRepository(open_database(database)).record(
+            read_model(path, MessageDiffInput).model_dump(), now=datetime.now(UTC)
+        )
+    )
+
+
+@host_app.command("diff-report")
+def diff_report(candidate_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    output(lambda: MessageDiffRepository(open_database(database)).report(candidate_id))
+
+
+@host_app.command("rule-propose")
+def rule_propose(path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    output(
+        lambda: MessageDiffRepository(open_database(database)).propose(
+            read_model(path, MessageRuleProposal).model_dump(), now=datetime.now(UTC)
+        )
+    )
+
+
+@host_app.command("rule-confirm")
+def rule_confirm(path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    output(
+        lambda: MessageDiffRepository(open_database(database)).confirm(
+            read_model(path, MessageRuleConfirmation).model_dump(), now=datetime.now(UTC)
+        )
+    )
+
+
+@host_app.command("confirmed-rules")
+def confirmed_rules(candidate_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    output(lambda: MessageDiffRepository(open_database(database)).confirmed_rules(candidate_id))

@@ -6,6 +6,7 @@ from pydantic import AwareDatetime, Field, HttpUrl, StringConstraints
 
 from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.common import ContractModel, Digest
+from jobagent.schemas.job_intake import IntakeSnapshot
 
 MigrationKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,80}$")]
 
@@ -69,3 +70,10 @@ class LegacyTrackingBinding(ContractModel):
     row_id: str
     candidate_id: CandidateId
     tracking_id: str
+
+
+class LegacyBackfillBinding(ContractModel):
+    migration_id: MigrationKey
+    row_id: str
+    candidate_id: CandidateId
+    snapshot: IntakeSnapshot

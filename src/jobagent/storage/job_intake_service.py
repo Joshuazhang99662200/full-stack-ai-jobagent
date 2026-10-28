@@ -47,7 +47,10 @@ class JobIntakeService:
     def prepare(
         self, command: IntakeCommand, kind: str, extra: object = None
     ) -> tuple[IntakeRecord, str, bool]:
-        digest = canonical_digest([kind, command.model_dump(mode="json"), extra])
+        command_data = command.model_dump(mode="json")
+        if isinstance(command, IntakeSnapshot) and command.observation_id is None:
+            command_data.pop("observation_id", None)  # Preserve PR5 retry digests.
+        digest = canonical_digest([kind, command_data, extra])
         current = self.repository.get(command.intake_id, command.candidate_id)
         with self.database.connect() as connection:
             old = connection.execute(
@@ -324,6 +327,17 @@ class JobIntakeService:
         if replay:
             return row
         snapshot = self.knowledge.get(cmd.snapshot_id)
+        observation = next(
+            (
+                d
+                for d in self.knowledge.discoveries(snapshot.job_id)
+                if d.observation_id == (cmd.observation_id or snapshot.observation_id)
+            ),
+            None,
+        )
+        if observation is None or observation.snapshot_id != snapshot.snapshot_id:
+            reject("Snapshot observation must reference this exact content version.")
+        fetched_at = observation.fetched_at
         job = self.jobs.get_job(row.job_id or snapshot.job_id)
         if (
             job is None
@@ -338,11 +352,11 @@ class JobIntakeService:
             or snapshot.platform != job.source
             or snapshot.completeness != "full"
             or snapshot.snapshot_id != self.knowledge.list_snapshots(job.id)[-1].snapshot_id
-            or snapshot.fetched_at > now
+            or fetched_at > now
         ):
             reject("Snapshot must be the matching current complete JD.")
         if cmd.attempt_id is None:
-            if snapshot.fetched_at >= row.created_at:
+            if fetched_at >= row.created_at:
                 reject("A new platform detail fetch needs its recorded sourcing attempt.")
         else:
             with self.database.connect() as connection:
@@ -367,7 +381,7 @@ class JobIntakeService:
                 and attempt.url == job.url
                 and run.candidate_id == row.candidate_id
                 and result.outcome == "complete"
-                and attempt.occurred_at <= snapshot.fetched_at <= result.completed_at <= now
+                and attempt.occurred_at <= fetched_at <= result.completed_at <= now
             ):
                 reject("Detail evidence does not match this read, candidate or target.")
         if job.jd_raw.strip() != snapshot.jd_text.strip():
@@ -383,7 +397,10 @@ class JobIntakeService:
                     }
                 ),
                 "observation_id": "INTAKE_"
-                + canonical_digest([row.intake_id, cmd.snapshot_id])[7:],
+                + canonical_digest(
+                    [row.intake_id, cmd.snapshot_id, cmd.observation_id, cmd.attempt_id]
+                )[7:],
+                "fetched_at": fetched_at,
                 "discovery_kind": "manual",
                 "query_hit": None,
             }

@@ -202,3 +202,16 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 简历渲染 | 已落地 | `jobagent harness render`(只排版不改字:已校验变体 + 页首 → PDF / Word,PDF 当场跑 check-pdf;需要 `render` 可选依赖) |
 | 实际结果汇总 | 已落地 | `jobagent harness report`(当前运行绑定的投递包；无审计 unknown，mock 为 simulated) |
 | 浏览器/安全凭证/调度 | 委托外部技能 | 使用实际宿主能力，先探测；缺能力交人，不提供云 VM 或 OS 服务 |
+
+
+## JD 与已发送观察补充
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 审计回读绑定建档 | 已落地 | `jobagent tracking start`；仅消费已有批准与 sent 审计，不发送 |
+| 预执行门禁投影 | 已落地 | `jobagent tracking pending`；读取各站现有租约，不授予执行权 |
+| 追加观察与状态转移 | 已落地 | `jobagent tracking event`；CAS版本、证据校验、暂停/归档 |
+| 当前状态 | 已落地 | `jobagent tracking status`；候选人作用域 |
+| 到期只读检查清单 | 已落地 | `jobagent tracking due`；默认1/3/7/14天 |
+| 追加历史 | 已落地 | `jobagent tracking history`；关闭后保留 |
+| 结果模式报告 | 已落地 | `jobagent tracking report`；不自动调整词库 |

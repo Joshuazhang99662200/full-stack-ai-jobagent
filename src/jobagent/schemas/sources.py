@@ -108,7 +108,7 @@ class HostBrowserSpec(ContractModel):
     stop_markers: list[NonEmptyString] = Field(min_length=1)
     max_pages_per_session: int = Field(default=3, ge=1, le=10)
     min_seconds_between_pages: int = Field(default=15, ge=5)
-    # Detail pages a host may open in one board-day. A ceiling, never raised past 50.
+    # Conservative board-day default; an explicit sourcing budget profile may override it.
     max_detail_reads_per_day: int = Field(default=50, ge=1, le=50)
     # Where the JD starts on the detail page, as a reading hint for the host.
     jd_headings: list[NonEmptyString] = Field(default_factory=list)

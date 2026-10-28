@@ -1,4 +1,5 @@
 """Atomic, append-only metering for host search and detail reads."""
+
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -30,8 +31,10 @@ def _bounds(now: datetime) -> tuple[str, str]:
     return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
 
 
-def _same_request(request: SourcingRunRequest | SourcingAttemptRequest | SourcingResultRequest,
-                  stored: SourcingRun | SourcingAttempt | SourcingResult) -> bool:
+def _same_request(
+    request: SourcingRunRequest | SourcingAttemptRequest | SourcingResultRequest,
+    stored: SourcingRun | SourcingAttempt | SourcingResult,
+) -> bool:
     return request.model_dump() == stored.model_dump(include=set(type(request).model_fields))
 
 
@@ -51,7 +54,8 @@ class SqliteSourcingRepository:
     @staticmethod
     def _get_run(connection: sqlite3.Connection, run_id: str) -> SourcingRun:
         row = connection.execute(
-            "SELECT run_json FROM sourcing_runs WHERE run_id = ?", (run_id,),
+            "SELECT run_json FROM sourcing_runs WHERE run_id = ?",
+            (run_id,),
         ).fetchone()
         if row is None:
             raise ContractValidationError("Unknown sourcing run.")
@@ -61,17 +65,25 @@ class SqliteSourcingRepository:
         with self.database.connect() as connection:
             return self._get_run(connection, run_id)
 
-    def start_run(self, request: SourcingRunRequest, *, now: datetime,
-                  daily_cap: int) -> SourcingRun:
+    def start_run(
+        self, request: SourcingRunRequest, *, now: datetime, daily_cap: int
+    ) -> SourcingRun:
         _bounds(now)
+        expected_cap = request.daily_detail_cap or 50
+        if not 1 <= daily_cap <= expected_cap or (
+            request.budget_profile == "muse-expanded-v1" and daily_cap != expected_cap
+        ):
+            raise ContractValidationError("Program daily cap does not match the explicit policy.")
         run = SourcingRun(
             **request.model_dump(exclude={"schema_version"}),
-            opened_at=now.astimezone(UTC), daily_detail_limit=daily_cap,
+            opened_at=now.astimezone(UTC),
+            daily_detail_limit=daily_cap,
         )
         with self._write() as connection:
             self._capture_legacy(connection, request.source, now)
             row = connection.execute(
-                "SELECT run_json FROM sourcing_runs WHERE run_id = ?", (request.run_id,),
+                "SELECT run_json FROM sourcing_runs WHERE run_id = ?",
+                (request.run_id,),
             ).fetchone()
             if row is not None:
                 old = SourcingRun.model_validate_json(row["run_json"])
@@ -85,8 +97,9 @@ class SqliteSourcingRepository:
         return run
 
     @staticmethod
-    def _budget(connection: sqlite3.Connection, source: str, daily_cap: int,
-                now: datetime) -> SourcingBudget:
+    def _budget(
+        connection: sqlite3.Connection, source: str, daily_cap: int, now: datetime
+    ) -> SourcingBudget:
         start, end = _bounds(now)
         attempts = [
             SourcingAttempt.model_validate_json(row["attempt_json"])
@@ -105,7 +118,8 @@ class SqliteSourcingRepository:
         # Old imports are a conservative observed-job estimate, never reconstructed
         # attempts. New attempts and their stored job must not consume twice.
         legacy_keys = {
-            row["source_job_id"] for row in connection.execute(
+            row["source_job_id"]
+            for row in connection.execute(
                 "SELECT source_job_id FROM sourcing_legacy_reads "
                 "WHERE source = ? AND observed_day = ?",
                 (source, now.astimezone(SOURCING_DAY).date().isoformat()),
@@ -113,15 +127,16 @@ class SqliteSourcingRepository:
         }
         for row in connection.execute("SELECT job_json FROM normalized_jobs").fetchall():
             job = NormalizedJob.model_validate_json(row["job_json"])
-            if (job.source == source
-                    and job.collected_at.astimezone(SOURCING_DAY).date()
-                    == now.astimezone(SOURCING_DAY).date()
-                    and (
-                        " ".join(job.source_job_id.split()).casefold() not in first_reads
-                        or job.collected_at < first_reads[
-                            " ".join(job.source_job_id.split()).casefold()
-                        ]
-                    )):
+            if (
+                job.source == source
+                and job.collected_at.astimezone(SOURCING_DAY).date()
+                == now.astimezone(SOURCING_DAY).date()
+                and (
+                    " ".join(job.source_job_id.split()).casefold() not in first_reads
+                    or job.collected_at
+                    < first_reads[" ".join(job.source_job_id.split()).casefold()]
+                )
+            ):
                 legacy_keys.add(" ".join(job.source_job_id.split()).casefold())
         results = [
             SourcingResult.model_validate_json(row["result_json"])
@@ -134,8 +149,11 @@ class SqliteSourcingRepository:
         legacy = len(legacy_keys)
         used = len(details) + legacy
         return SourcingBudget(
-            source=source, daily_cap=daily_cap, read_today=used,
-            remaining=max(0, daily_cap-used), legacy_unmetered=legacy,
+            source=source,
+            daily_cap=daily_cap,
+            read_today=used,
+            remaining=max(0, daily_cap - used),
+            legacy_unmetered=legacy,
             query_attempts_today=sum(item.kind == "query" for item in attempts),
             listing_observations_today=sum(item.listing_count or 0 for item in results),
             halted=any(item.outcome == "gate" for item in results),
@@ -160,8 +178,11 @@ class SqliteSourcingRepository:
         for row in connection.execute("SELECT job_json FROM normalized_jobs").fetchall():
             job = NormalizedJob.model_validate_json(row["job_json"])
             key = " ".join(job.source_job_id.split()).casefold()
-            if (job.source == source and job.collected_at.astimezone(SOURCING_DAY).date() == day
-                    and (key not in first_reads or job.collected_at < first_reads[key])):
+            if (
+                job.source == source
+                and job.collected_at.astimezone(SOURCING_DAY).date() == day
+                and (key not in first_reads or job.collected_at < first_reads[key])
+            ):
                 connection.execute(
                     "INSERT OR IGNORE INTO sourcing_legacy_reads "
                     "(source, source_job_id, observed_day) VALUES (?, ?, ?)",
@@ -183,7 +204,8 @@ class SqliteSourcingRepository:
             budget = self._budget(connection, run.source, run.daily_detail_limit, now)
             rows = connection.execute(
                 "SELECT kind, count(*) AS used FROM sourcing_attempts "
-                "WHERE run_id = ? GROUP BY kind", (run.run_id,),
+                "WHERE run_id = ? GROUP BY kind",
+                (run.run_id,),
             ).fetchall()
             counts = {row["kind"]: row["used"] for row in rows}
             queries, details = counts.get("query", 0), counts.get("detail", 0)
@@ -191,39 +213,62 @@ class SqliteSourcingRepository:
                 "SELECT attempt_json FROM sourcing_attempts WHERE attempt_id = ?",
                 (request.attempt_id,),
             ).fetchone()
-            previous = None if old is None else SourcingAttempt.model_validate_json(
-                old["attempt_json"],
+            previous = (
+                None
+                if old is None
+                else SourcingAttempt.model_validate_json(
+                    old["attempt_json"],
+                )
             )
             if previous is not None and not _same_request(request, previous):
                 raise ContractValidationError("An attempt ID cannot change its target.")
             reason: SourcingRefusal | None = (
-                "already_reserved" if previous is not None else refusal_reason(
-                    request, run, budget, query_count=queries, detail_count=details, now=now,
+                "already_reserved"
+                if previous is not None
+                else refusal_reason(
+                    request,
+                    run,
+                    budget,
+                    query_count=queries,
+                    detail_count=details,
+                    now=now,
                 )
             )
             if reason is not None:
                 return SourcingPermit(
-                    allowed=False, reason=reason,
-                    query_remaining=max(0, run.query_limit-queries),
-                    detail_remaining=max(0, run.detail_limit-details),
-                    budget=budget, attempt=previous,
+                    allowed=False,
+                    reason=reason,
+                    query_remaining=max(0, run.query_limit - queries),
+                    detail_remaining=max(0, run.detail_limit - details),
+                    budget=budget,
+                    attempt=previous,
                 )
             attempt = SourcingAttempt(
                 **request.model_dump(exclude={"schema_version"}),
-                source=run.source, occurred_at=now.astimezone(UTC),
+                source=run.source,
+                occurred_at=now.astimezone(UTC),
             )
             connection.execute(
                 "INSERT INTO sourcing_attempts "
                 "(attempt_id, run_id, source, kind, occurred_at, attempt_json) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
-                (attempt.attempt_id, attempt.run_id, attempt.source, attempt.kind,
-                 attempt.occurred_at.isoformat(), attempt.model_dump_json()),
+                (
+                    attempt.attempt_id,
+                    attempt.run_id,
+                    attempt.source,
+                    attempt.kind,
+                    attempt.occurred_at.isoformat(),
+                    attempt.model_dump_json(),
+                ),
             )
             budget = self._budget(connection, run.source, run.daily_detail_limit, now)
             return SourcingPermit(
-                allowed=True, reason="allowed", attempt=attempt, budget=budget,
-                query_remaining=max(0, run.query_limit-queries-(request.kind == "query")),
-                detail_remaining=max(0, run.detail_limit-details-(request.kind == "detail")),
+                allowed=True,
+                reason="allowed",
+                attempt=attempt,
+                budget=budget,
+                query_remaining=max(0, run.query_limit - queries - (request.kind == "query")),
+                detail_remaining=max(0, run.detail_limit - details - (request.kind == "detail")),
             )
 
     def complete(self, request: SourcingResultRequest, *, now: datetime) -> SourcingResult:
@@ -238,10 +283,23 @@ class SqliteSourcingRepository:
             attempt = SourcingAttempt.model_validate_json(row["attempt_json"])
             if attempt.kind == "detail" and request.listing_count is not None:
                 raise ContractValidationError("Detail results cannot claim listing observations.")
-            if (attempt.kind == "query" and request.outcome == "complete"
-                    and request.listing_count is None):
+            if (
+                attempt.kind == "query"
+                and request.outcome == "complete"
+                and request.listing_count is None
+            ):
                 raise ContractValidationError(
                     "Completed queries must record observed listing count."
+                )
+            run = self._get_run(connection, attempt.run_id)
+            if (
+                run.budget_profile == "muse-expanded-v1"
+                and attempt.kind == "query"
+                and request.listing_count is not None
+                and request.listing_count > 10
+            ):
+                raise ContractValidationError(
+                    "Expanded queries observe at most the first ten rows."
                 )
             old = connection.execute(
                 "SELECT result_json FROM sourcing_results WHERE attempt_id = ?",
@@ -254,12 +312,17 @@ class SqliteSourcingRepository:
                 return previous
             result = SourcingResult(
                 **request.model_dump(exclude={"schema_version"}),
-                source=attempt.source, completed_at=now.astimezone(UTC),
+                source=attempt.source,
+                completed_at=now.astimezone(UTC),
             )
             connection.execute(
                 "INSERT INTO sourcing_results "
                 "(attempt_id, source, completed_at, result_json) VALUES (?, ?, ?, ?)",
-                (result.attempt_id, result.source,
-                 result.completed_at.isoformat(), result.model_dump_json()),
+                (
+                    result.attempt_id,
+                    result.source,
+                    result.completed_at.isoformat(),
+                    result.model_dump_json(),
+                ),
             )
             return result

@@ -74,6 +74,7 @@ def start(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite
             proof,
             candidate_id=request.candidate_id,
             tracking_id=request.tracking_id or "TRACK_" + text_digest(proof.send_reference)[7:31],
+            next_poll_at=request.next_poll_at,
             now=datetime.now(UTC),
         )
         _echo(result.model_dump(mode="json"))

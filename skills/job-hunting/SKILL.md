@@ -28,6 +28,8 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 
 ## 上下文路由
 
+- Muse旧队列迁移、扩展预算、登录判定或轮末验收时，按需加载 [references/muse-host-adoption.md](references/muse-host-adoption.md)。
+
 - 用户从聊天、消息列表或卡片加岗，以及恢复人工加岗任务时，优先加载 [references/manual-job-intake.md](references/manual-job-intake.md)。先持久入队，再取全文/起草；next逐步恢复，明确兴趣才参与偏好，下一轮必须领取实际计划。
 
 - 需要JD快照、原文特征、私有词库或组合查询时，只加载 [references/jd-knowledge.md](references/jd-knowledge.md) 与当前域文件，不预读所有JD和行业。

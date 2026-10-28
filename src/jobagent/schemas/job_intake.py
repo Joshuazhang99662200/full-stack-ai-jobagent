@@ -10,6 +10,7 @@ from jobagent.schemas.job_intelligence import CandidateFilterContext, JobListing
 from jobagent.schemas.jobs import JobId
 from jobagent.schemas.outreach import OutreachDraft
 from jobagent.schemas.search_learning import SearchLearningRequest, SearchSignal
+from jobagent.schemas.sourcing import QueryBudget
 
 IntakeKey = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
@@ -115,6 +116,7 @@ class IntakeRecord(ContractModel):
     updated_at: AwareDatetime
     job_id: JobId | None = None
     listing: JobListing | None = None
+    legacy_snapshot_id: Digest | None = None
     job_url: HttpUrl | None = None
     source_job_id: str | None = None
     snapshot_id: str | None = None
@@ -152,12 +154,11 @@ class IntakeLegacyScope(ContractModel):
     historical_signals: list[SearchSignal] = Field(default_factory=list, max_length=2000)
 
 
-class IntakeStrategyInput(ContractModel):
+class IntakeStrategyInput(QueryBudget):
     candidate_id: CandidateId
     domain: NonEmptyString
     source: NonEmptyString
     baseline_queries: list[NonEmptyString] = Field(min_length=1, max_length=10)
-    query_limit: int = Field(default=3, ge=1, le=6)
     snapshot_ids: list[str] = Field(default_factory=list, max_length=2000)
     historical_learning: SearchLearningRequest | None = None
 

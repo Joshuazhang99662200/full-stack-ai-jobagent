@@ -60,4 +60,4 @@ BOSS/智联网页发送属于宿主动作，仓库没有新增平台投递连接
 
 ## 寻源策略修订（38afd89 后的独立改动）
 
-岗位偏好与文案反馈已拆分；默认按薪资区间能达到本人底线的规则筛选。每站新轮次先通过 sourcing-start 固定预算，每次搜索/详情先 sourcing-reserve，结果以 sourcing-result 追加。默认3查询/20详情尝试，来源每日详情上限仍不超过50，失败和重复读取占额。具体 JSON、恢复规则与宿主适应性调整见 [寻源政策](../../skills/job-hunting/references/sourcing-budget.md)。快照词库与自动组合引擎尚未实现，不将文档政策当作真实 Muse 联调结果。
+岗位偏好与文案反馈已拆分；默认按薪资区间能达到本人底线的规则筛选。每站新轮次先通过 sourcing-start 固定预算，每次搜索/详情先 sourcing-reserve，结果以 sourcing-result 追加。默认3查询/20详情尝试，来源每日详情上限仍不超过50，失败和重复读取占额。具体 JSON、恢复规则与宿主适应性调整见 [寻源政策](../../skills/job-hunting/references/sourcing-budget.md)。快照、因子化、MD词库和组合引擎已落地，按 [知识路由](../../skills/job-hunting/references/jd-knowledge.md) 分步调用；已发消息按 [跟踪协议](../../skills/job-hunting/references/sent-tracking.md) 只读观察，不能据此自动回复。真实 Muse 联调仍未执行。

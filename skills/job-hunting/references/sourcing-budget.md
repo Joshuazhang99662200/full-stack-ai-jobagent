@@ -45,3 +45,8 @@ sourcing-budget 的 read_today = 记录的详情尝试 + 未精确计量的旧�
 “岗位合适但改招呼”可同时为 like/revise；仅接受或改写文案不产生岗位正负信号，也不擦除此前岗位选择。neutral 是明确撤回先前岗位偏好。拒绝薪资、地点或文案不能自动把行业/技术词写入 rejected_features；特征反例仍需本人明确点名。
 
 学习输出仅调整软查询优先级。本人喜欢岗位、接受文案、阅读许可都不等于发送批准。最终准确全文和附件继续走既有逐项审批。
+
+
+## 组合计划与真实执行
+
+当前域快照/词库/组合按 [jd-knowledge.md](jd-knowledge.md) 加载；combinations只是计划，之后每次真实操作仍按本文预占。记录计划ID、实际query_hit/search_term、列表结果、详情完整性和来源引用；推荐/手工岗位不伪造查询。已发观察另读 [sent-tracking.md](sent-tracking.md)，状态报告不替代寻源报告，不自动改变预算或词库。

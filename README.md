@@ -237,4 +237,4 @@ jobagent optimizer capabilities --intent detect_candidate_evidence_gaps
 
 ## Muse 寻源策略修订
 
-基于 38afd89 的独立改动：岗位偏好与文案反馈分开、薪资默认按区间与底线及以上有重叠即通过、查询/列表/详情预算分开计量。宿主先预占再读取，失败/重复阅读不退额，来源详情每日上限保持<=50。[调用方式与迁移说明](docs/muse-fetch-strategy-2026-10-28.md)。本阶段尚不包含自动 JD 词库与组合查询引擎。
+基于 38afd89 的独立改动：岗位偏好与文案反馈分开、薪资默认按区间与底线及以上有重叠即通过、查询/列表/详情预算分开计量。宿主先预占再读取，失败/重复阅读不退额，来源详情每日上限保持<=50。[调用方式与迁移说明](docs/muse-fetch-strategy-2026-10-28.md)。已补齐原文快照、特征证据、可编辑MD词库、组合查询和已发送观察状态机；见 [词库格式](docs/jd-lexicon-spec.md)、[跟踪协议](skills/job-hunting/references/sent-tracking.md) 与 [本轮交付映射](docs/muse-knowledge-tracking-2026-10-28.md)。真实 Muse 验收仍待执行。

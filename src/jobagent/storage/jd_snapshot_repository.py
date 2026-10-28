@@ -1,17 +1,19 @@
 """Append-only JD content, discoveries and derived feature versions."""
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 
 from jobagent.errors import ContractValidationError, StorageError
 from jobagent.jobs.jd_snapshot import canonical_digest, make_snapshot, snapshot_content_digest
+from jobagent.jobs.lexicon import lexicon_digest, serialize_lexicon
 from jobagent.schemas.jd_snapshot import (
     JDSnapshot,
     JDSnapshotInput,
     SnapshotCaptureResult,
     SnapshotDiscovery,
 )
-from jobagent.schemas.lexicon import JDFeatureSet
+from jobagent.schemas.lexicon import CombinationPlan, CombinationRequest, JDFeatureSet, Lexicon
 from jobagent.storage.database import Database
 
 
@@ -132,6 +134,13 @@ class SqliteJDSnapshotRepository:
             snapshot.jd_text_hash,
         ):
             raise ContractValidationError("Features belong to a different snapshot.")
+
+        if (features.company, features.fetched_at, features.completeness) != (
+            snapshot.company,
+            snapshot.fetched_at,
+            snapshot.completeness,
+        ):
+            raise ContractValidationError("Feature metadata does not match the original snapshot.")
         if snapshot.completeness != "full" and features.features:
             raise ContractValidationError("Incomplete snapshots cannot contribute features.")
         if any(snapshot.jd_text[f.start : f.end] != f.evidence for f in features.features):
@@ -153,9 +162,83 @@ class SqliteJDSnapshotRepository:
             raise StorageError("Feature ledger unavailable.") from error
         return feature_id
 
-    def feature_sets(self) -> list[JDFeatureSet]:
+    def feature_sets(self, snapshot_ids: list[str] | None = None) -> list[JDFeatureSet]:
         with self.database.connect() as connection:
             rows = connection.execute(
-                "SELECT feature_json FROM jd_feature_sets ORDER BY rowid",
+                "SELECT feature_json FROM jd_feature_sets WHERE rowid IN "
+                "(SELECT MAX(rowid) FROM jd_feature_sets GROUP BY snapshot_id) ORDER BY rowid",
             ).fetchall()
-        return [JDFeatureSet.model_validate_json(row["feature_json"]) for row in rows]
+        values = [JDFeatureSet.model_validate_json(row["feature_json"]) for row in rows]
+        return (
+            values
+            if snapshot_ids is None
+            else [value for value in values if value.snapshot_id in snapshot_ids]
+        )
+
+    def save_lexicon(self, candidate_id: str, lexicon: Lexicon) -> str:
+        digest = lexicon_digest(lexicon)
+        try:
+            with self.database.connect() as connection, connection:
+                connection.execute(
+                    "INSERT OR IGNORE INTO jd_lexicon_versions VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        candidate_id,
+                        digest,
+                        lexicon.domain,
+                        lexicon.model_dump_json(),
+                        serialize_lexicon(lexicon),
+                        datetime.now(UTC).isoformat(),
+                    ),
+                )
+        except sqlite3.Error as error:
+            raise StorageError("Lexicon version ledger unavailable.") from error
+        return digest
+
+    def get_lexicon(self, candidate_id: str, version_digest: str) -> dict[str, object]:
+        with self.database.connect() as connection:
+            row = connection.execute(
+                "SELECT lexicon_json, markdown_text FROM jd_lexicon_versions "
+                "WHERE candidate_id = ? AND version_digest = ?",
+                (candidate_id, version_digest),
+            ).fetchone()
+        if row is None:
+            raise ContractValidationError("Private lexicon version not found for this candidate.")
+        return {
+            "lexicon": Lexicon.model_validate_json(row["lexicon_json"]).model_dump(mode="json"),
+            "markdown": row["markdown_text"],
+            "version_digest": version_digest,
+        }
+
+    def save_plan(
+        self, lexicon: Lexicon, request: CombinationRequest, plan: CombinationPlan
+    ) -> None:
+        try:
+            with self.database.connect() as connection, connection:
+                connection.execute(
+                    "INSERT OR IGNORE INTO jd_query_plans VALUES (?, ?, ?, ?, ?)",
+                    (
+                        plan.version,
+                        request.candidate_id,
+                        request.source,
+                        json.dumps(
+                            {
+                                "lexicon": lexicon.model_dump(mode="json"),
+                                "request": request.model_dump(mode="json"),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        plan.model_dump_json(),
+                    ),
+                )
+        except sqlite3.Error as error:
+            raise StorageError("Query plan ledger unavailable.") from error
+
+    def get_plan(self, plan_id: str) -> dict[str, object]:
+        with self.database.connect() as connection:
+            row = connection.execute(
+                "SELECT input_json, plan_json FROM jd_query_plans WHERE plan_id = ?",
+                (plan_id,),
+            ).fetchone()
+        if row is None:
+            raise ContractValidationError("Private query plan not found.")
+        return {"input": json.loads(row["input_json"]), "plan": json.loads(row["plan_json"])}

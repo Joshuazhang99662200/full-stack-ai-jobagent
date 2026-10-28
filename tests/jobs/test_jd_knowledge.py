@@ -218,3 +218,43 @@ def test_invalid_model_schema_dimension_evidence_or_alias_falls_back(tmp_path):
         assert output.factorization == "fallback"
         assert output.features == baseline.features
         assert output.issues and "PRIVATE_SENTINEL" not in str(output.issues)
+
+
+def test_clause_boundary_does_not_negate_the_next_preferred_skill(tmp_path):
+    from jobagent.jobs.jd_features import extract_features
+
+    result = extract_features(
+        snapshot(tmp_path, jd_text="不要求 Python，RAG 经验优先。"),
+        lexicon(),
+    )
+    rag = next(f for f in result.features if f.term == "RAG")
+    assert rag.polarity == "positive" and rag.requirement_level == "preferred"
+
+
+def test_model_offsets_beyond_raw_text_fall_back(tmp_path):
+    from jobagent.jobs.jd_factorization import factorize
+    from jobagent.jobs.jd_features import extract_features
+
+    snap = snapshot(tmp_path)
+    proposal = extract_features(snap, lexicon()).model_dump(mode="json")
+    proposal["features"] = [
+        {
+            "dimension": "scenario",
+            "term": snap.jd_text,
+            "evidence": snap.jd_text,
+            "start": 0,
+            "end": len(snap.jd_text) + 1,
+        }
+    ]
+    assert factorize(snap, lexicon(), proposal).factorization == "fallback"
+
+
+def test_feature_store_refuses_company_or_clock_tampering(tmp_path):
+    from jobagent.jobs.jd_features import extract_features
+
+    store = repo(tmp_path)
+    snap = store.capture(capture()).snapshot
+    value = extract_features(snap, lexicon())
+    with pytest.raises(ContractValidationError):
+        store.save_features(value.model_copy(update={"company": "伪造公司"}), "sha256:policy")
+    assert store.feature_sets() == []

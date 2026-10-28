@@ -9,7 +9,8 @@ from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
 from jobagent.schemas.job_intelligence import SourceJobRecord
 
 SearchFeature = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60),
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=60),
 ]
 OWNER_CHOICES = frozenset({"user_added", "like", "dislike"})
 
@@ -18,11 +19,35 @@ class SearchSignal(ContractModel):
     event_id: NonEmptyString
     candidate_id: CandidateId
     kind: Literal[
-        "user_added", "like", "dislike", "greeting_edit", "recruiter_reply", "no_reply", "feedback",
+        "user_added",
+        "like",
+        "dislike",
+        "greeting_edit",
+        "recruiter_reply",
+        "no_reply",
+        "feedback",
     ]
     occurred_at: AwareDatetime
     job_preference: Literal["like", "dislike", "neutral"] | None = None
     message_feedback: Literal["accept", "revise", "reject"] | None = None
+    query_term: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+        | None
+    ) = None
+    rejection_reason: (
+        Literal[
+            "direction",
+            "salary",
+            "location",
+            "responsibilities",
+            "level",
+            "wording",
+            "facts",
+            "defer",
+            "other",
+        ]
+        | None
+    ) = None
     owner_text: str = ""
     job: SourceJobRecord
     features: dict[SearchFeature, NonEmptyString] = Field(default_factory=dict, max_length=12)
@@ -47,13 +72,22 @@ class SearchSignal(ContractModel):
             not self.owner_text.strip()
         ):
             raise ValueError("Owner choices require the actual owner's words.")
-        if any(term not in quote or quote not in self.job.jd_raw
-               for term, quote in self.features.items()):
+        if self.query_term is not None and self.query_term != self.job.search_term:
+            raise ValueError("Query attribution must match the actual search discovery.")
+        if self.rejection_reason == "direction" and self.owner_preference != "dislike":
+            raise ValueError("Direction rejection requires an explicit job dislike.")
+        if any(
+            term not in quote or quote not in self.job.jd_raw
+            for term, quote in self.features.items()
+        ):
             raise ValueError("Features must be grounded in exact JD quotes.")
-        if self.rejected_features and (self.owner_preference != "dislike" or any(
-            term not in self.features or term not in self.owner_text
-            for term in self.rejected_features
-        )):
+        if self.rejected_features and (
+            self.owner_preference != "dislike"
+            or any(
+                term not in self.features or term not in self.owner_text
+                for term in self.rejected_features
+            )
+        ):
             raise ValueError("Counterexamples require an explicitly named feature.")
         return self
 

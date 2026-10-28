@@ -7,7 +7,13 @@ can never introduce a claim the candidate has not confirmed.
 
 import re
 from collections.abc import Sequence
+from datetime import datetime
+from itertools import product
 
+from jobagent.errors import ContractValidationError
+from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.jobs.lexicon import lexicon_digest
+from jobagent.jobs.search_learning import latest_owner_signals, rebuild_lexicon
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem, Experience
 from jobagent.schemas.job_intelligence import (
     JobSearchQuery,
@@ -15,6 +21,14 @@ from jobagent.schemas.job_intelligence import (
     SearchQuerySuggestionSet,
     SearchTermOrigin,
 )
+from jobagent.schemas.lexicon import (
+    CombinationPlan,
+    CombinationQuery,
+    CombinationRequest,
+    Lexicon,
+    LexiconTerm,
+)
+from jobagent.schemas.search_learning import SearchLearningRequest, SearchSignal
 
 # Ordered strongest-signal-first; ties inside a tier break on support count.
 _ORIGIN_RANK = {
@@ -143,6 +157,123 @@ class SearchQueryDeriver:
             candidate_id=profile.id,
             suggestions=collected[: self._max_suggestions],
             skipped_unconfirmed_evidence_count=skipped,
+        )
+
+    def derive_combinations(self, lexicon: Lexicon, request: CombinationRequest) -> CombinationPlan:
+        """Generate bounded combinations with verifiable sources, rotation and cooldown."""
+        learning = request.learning or SearchLearningRequest(
+            candidate_id=request.candidate_id,
+            baseline_queries=request.baseline_queries,
+        )
+        compiled = rebuild_lexicon(lexicon, request.feature_sets, learning).lexicon
+        stats = {(t.dimension, t.term.casefold()): t for t in compiled.terms}
+        pools: dict[str, list[LexiconTerm]] = {}
+        for term in lexicon.terms:
+            measured = stats[(term.dimension, term.term.casefold())]
+            if term.dimension not in {"domain", "scenario", "tech", "role"} or term.weight <= 0:
+                continue
+            if not term.seed and measured.independent_companies < 2:
+                continue
+            pools.setdefault(term.dimension, []).append(measured)
+        if any(len(pool) > 20 for pool in pools.values()):
+            raise ContractValidationError("Too many eligible terms in one facet; narrow the scope.")
+        penalties: dict[str, list[SearchSignal]] = {}
+        for event in latest_owner_signals(learning):
+            if (
+                event.owner_preference == "dislike"
+                and event.rejection_reason == "direction"
+                and event.query_term is not None
+                and event.job.source == request.source
+            ):
+                penalties.setdefault(event.query_term, []).append(event)
+        candidates: dict[str, CombinationQuery] = {}
+        priority: dict[str, int] = {}
+        for tier, template in enumerate(lexicon.combinations):
+            dimensions = re.findall(r"\{([a-z_]+)\}", template)
+            if any(dimension not in pools for dimension in dimensions):
+                continue
+            for combination_terms in product(*(pools[dimension] for dimension in dimensions)):
+                components = {term.dimension: term.term for term in combination_terms}
+                query = " ".join(term.term for term in combination_terms)
+                if len(query) > 200:
+                    raise ContractValidationError("A combination exceeds the query contract.")
+                if query in candidates:
+                    continue
+                negatives = penalties.get(query, [])
+                companies = {e.job.company.strip().casefold() for e in negatives}
+                demoted = len(negatives) >= 3 and len(companies) >= 3
+                common = set.intersection(*(set(term.source_refs) for term in combination_terms))
+                weight = sum(
+                    term.weight * (1 + term.preference_weight) for term in combination_terms
+                ) / len(combination_terms)
+                reason = (
+                    "manual_seed"
+                    if all(term.seed for term in combination_terms)
+                    else ("independent_snapshot_repetition")
+                )
+                if not common:
+                    reason += "; cooccurrence_not_observed"
+                if demoted:
+                    reason += "; three_independent_direction_rejections"
+                candidates[query] = CombinationQuery(
+                    query=query,
+                    combination=components,
+                    weight=weight,
+                    reason=reason,
+                    source=lexicon.lexicon_version + "/" + lexicon_digest(lexicon),
+                    snapshot_ids=sorted(common),
+                    demoted=demoted,
+                    feedback_event_ids=sorted(e.event_id for e in negatives) if demoted else [],
+                )
+                priority[query] = tier
+                if len(candidates) > 256:
+                    raise ContractValidationError(
+                        "Combination limit reached; narrow the private scope."
+                    )
+        last: dict[str, datetime] = {}
+        for run in request.history:
+            if run.source == request.source:
+                if run.searched_at.tzinfo is None:
+                    raise ContractValidationError("Query history needs timezone-aware timestamps.")
+                last[run.search_term] = max(
+                    last.get(run.search_term, run.searched_at), run.searched_at
+                )
+
+        def order(query: CombinationQuery) -> tuple[bool, bool, float, float, int, str]:
+            previous = last.get(query.query)
+            return (
+                query.demoted,
+                previous is not None,
+                previous.timestamp() if previous is not None else 0.0,
+                -query.weight,
+                priority[query.query],
+                query.query,
+            )
+
+        ranked = sorted(candidates.values(), key=order)
+        ready = [
+            query
+            for query in ranked
+            if query.query not in last
+            or (request.now - last[query.query]).total_seconds() >= request.cooldown_hours * 3600
+        ]
+        chosen = ready[: request.query_limit]
+        chosen_names = {query.query for query in chosen}
+        return CombinationPlan(
+            candidate_id=request.candidate_id,
+            source=request.source,
+            version=canonical_digest(
+                {
+                    "policy": "combination-v1",
+                    "lexicon": lexicon_digest(lexicon),
+                    "request": request.model_dump(mode="json"),
+                }
+            ),
+            lexicon_version=lexicon.lexicon_version,
+            status="ready" if chosen else "cooldown" if ranked else "needs_seed",
+            ordered_queries=chosen,
+            deferred_queries=[query for query in ranked if query.query not in chosen_names],
+            fallback_queries=request.baseline_queries[: request.query_limit] if not ranked else [],
         )
 
 

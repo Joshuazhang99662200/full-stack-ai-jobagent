@@ -8,8 +8,8 @@ from jobagent.schemas.lexicon import JDFeature, JDFeatureSet, Lexicon
 
 
 def span_attributes(text: str, start: int, end: int) -> dict[str, str]:
-    before = re.split(r"[。；;\n]", text[:start])[-1]
-    after = re.split(r"[。；;\n]", text[end:])[0]
+    before = re.split(r"[。；;，,\n]", text[:start])[-1]
+    after = re.split(r"[。；;，,\n]", text[end:])[0]
     context = before[-24:] + text[start:end] + after[:24]
     negated = bool(
         re.search(r"不要求|无需|不需要|不涉及|非必须|not required|no need", context, re.I)
@@ -72,6 +72,9 @@ def extract_features(snapshot: JDSnapshot, lexicon: Lexicon) -> JDFeatureSet:
         job_id=snapshot.job_id,
         snapshot_version=snapshot.snapshot_version,
         jd_text_hash=snapshot.jd_text_hash,
+        company=snapshot.company,
+        fetched_at=snapshot.fetched_at,
+        completeness=snapshot.completeness,
         features=features,
         factor_summary=summarize(features),
     )

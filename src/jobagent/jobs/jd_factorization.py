@@ -33,13 +33,23 @@ def factorize(snapshot: JDSnapshot, lexicon: Lexicon, proposal: object | None) -
         snapshot.jd_text_hash,
     ):
         issues.append("snapshot_binding_mismatch")
+    if (result.company, result.fetched_at, result.completeness) != (
+        snapshot.company,
+        snapshot.fetched_at,
+        snapshot.completeness,
+    ):
+        issues.append("snapshot_metadata_mismatch")
     for index, feature in enumerate(result.features):
         span = snapshot.jd_text[feature.start : feature.end]
         known = [term for term in lexicon.terms if term.term.casefold() == feature.term.casefold()]
         aliases = [term.term.casefold() for term in known]
         aliases.extend(alias.casefold() for term in known for alias in term.aliases)
         attributes = span_attributes(snapshot.jd_text, feature.start, feature.end)
-        if feature.end <= feature.start or span != feature.evidence:
+        if (
+            feature.end <= feature.start
+            or feature.end > len(snapshot.jd_text)
+            or span != feature.evidence
+        ):
             issues.append(f"feature_evidence_invalid:{index}")
         if known and (
             not any(term.dimension == feature.dimension for term in known)

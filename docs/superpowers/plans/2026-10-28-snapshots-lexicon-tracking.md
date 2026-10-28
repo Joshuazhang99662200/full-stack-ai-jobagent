@@ -20,14 +20,14 @@
 - [x] 跑快照、特征、导入及迁移测试，更新版本断言，提交。
 
 ## Task 2: Markdown词库与组合查询
-- [ ] 写失败测试：无版本拒绝、空模板、往返/手改、未知词成熟度、公司独立性、同输入版本幂等、三条方向拒绝后移、预算/冷却/基线回退、设计域样本。
-- [ ] 实现jobs/lexicon.py纯解析/序列化，扩展query_derivation.SearchQueryDeriver与search_learning的绝对重算。
-- [ ] 接CLI的snapshot/factorize/lexicon-update/lexicon-show/combinations，新增能力目录入口。
-- [ ] 保留MD版本和来源摘要，不自动覆盖本人文件；完成模板和格式规范，提交。
+- [x] 写失败测试：无版本拒绝、空模板、往返/手改、未知词成熟度、公司独立性、同输入版本幂等、三条方向拒绝后移、预算/冷却/基线回退、设计域样本。
+- [x] 实现jobs/lexicon.py纯解析/序列化，扩展query_derivation.SearchQueryDeriver与search_learning的绝对重算。
+- [x] 接CLI的snapshot/factorize/lexicon-update/lexicon-show/combinations，新增能力目录入口。
+- [x] 保留MD版本和来源摘要，不自动覆盖本人文件；完成模板和格式规范，提交。
 
 ## Task 3: 已发送状态机与私有历史
 - [ ] 写失败测试：无批准/审计或回读不一致拒绝；sent→awaiting→replied→screening/interview；14天与4检查AND；非法跳转/重复证据/并发版本拒绝；放弃/岗位关闭归档；异常暂停、明确恢复；关闭不再到期。
-- [ ] schemas/sent_tracking.py与jobs/sent_tracking.py实现纯状态机和日程；storage/sent_tracking_repository.py追加迁移16，CAS历史不可改写。
+- [ ] schemas/sent_tracking.py与jobs/sent_tracking.py实现纯状态机和日程；storage/sent_tracking_repository.py追加迁移17，CAS历史不可改写。
 - [ ] CLI读取已有outreach批准和审计校验回读；新一轮等待读取既有conversation批准/发送事件；预执行状态仅为门禁投影，不创造发送权。
 - [ ] 提供状态/到期/历史/结果模式报告，报告不改变词库；完成真实SQLite/CLI组合测试后提交。
 

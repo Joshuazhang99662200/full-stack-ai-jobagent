@@ -99,3 +99,98 @@ def test_snapshot_cli_keeps_listings_separate_and_does_not_echo_bad_input(tmp_pa
         app, ["jobs", "snapshot", str(path), "--database", str(tmp_path / "private.sqlite3")]
     )
     assert result.exit_code == 1 and "PRIVATE_SENTINEL" not in result.stdout
+
+
+def test_factorize_update_plan_and_rollback_use_private_persisted_sources(tmp_path):
+    from jobagent.jobs.lexicon import serialize_lexicon
+    from tests.jobs.test_jd_knowledge import capture, lexicon
+
+    database = tmp_path / "private.sqlite3"
+    db = ["--database", str(database)]
+    input_path = tmp_path / "capture.json"
+    input_path.write_text(capture().model_dump_json(), encoding="utf-8")
+    result = runner.invoke(app, ["jobs", "snapshot", str(input_path), *db])
+    assert result.exit_code == 0, result.output
+    snap_id = json.loads(result.stdout)["snapshot"]["snapshot_id"]
+    lex_path = tmp_path / "lexicon.md"
+    lex_path.write_text(serialize_lexicon(lexicon()), encoding="utf-8")
+    result = runner.invoke(app, ["jobs", "factorize", snap_id, str(lex_path), *db])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["feature_set"]["features"]
+    signals = tmp_path / "signals.json"
+    signals.write_text(
+        json.dumps(
+            {
+                "candidate_id": "CAND_DEMO",
+                "baseline_queries": ["产品经理"],
+                "signals": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app, ["jobs", "lexicon-update", str(lex_path), str(signals), "--snapshot-id", snap_id, *db]
+    )
+    assert result.exit_code == 0, result.output
+    update = json.loads(result.stdout)
+    assert update["lexicon"]["lexicon_version"] == "v2"
+    assert lex_path.read_text(encoding="utf-8") == serialize_lexicon(lexicon())
+    result = runner.invoke(
+        app, ["jobs", "lexicon-show", "CAND_DEMO", update["version_digest"], *db]
+    )
+    assert result.exit_code == 0, result.output
+    restored = json.loads(result.stdout)
+    assert restored["lexicon"] == update["lexicon"] and restored["markdown"]
+    result = runner.invoke(
+        app, ["jobs", "lexicon-show", "CAND_OTHER", update["version_digest"], *db]
+    )
+    assert result.exit_code == 1
+    config = tmp_path / "plan.json"
+    config.write_text(
+        json.dumps(
+            {
+                "candidate_id": "CAND_DEMO",
+                "source": "boss",
+                "baseline_queries": ["产品经理"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app, ["jobs", "combinations", str(lex_path), str(config), "--snapshot-id", snap_id, *db]
+    )
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert len(plan["ordered_queries"]) <= 3
+    report = runner.invoke(app, ["jobs", "combinations-report", plan["version"], *db])
+    assert report.exit_code == 0 and json.loads(report.stdout)["input"]["lexicon"]
+
+
+def test_model_failures_fall_back_and_new_cli_errors_never_echo_input(tmp_path):
+    from jobagent.jobs.lexicon import serialize_lexicon
+    from tests.jobs.test_jd_knowledge import capture, lexicon
+
+    db = ["--database", str(tmp_path / "private.sqlite3")]
+    input_path = tmp_path / "capture.json"
+    input_path.write_text(capture().model_dump_json(), encoding="utf-8")
+    result = runner.invoke(app, ["jobs", "snapshot", str(input_path), *db])
+    snap_id = json.loads(result.stdout)["snapshot"]["snapshot_id"]
+    lex_path = tmp_path / "lexicon.md"
+    lex_path.write_text(serialize_lexicon(lexicon()), encoding="utf-8")
+    model = tmp_path / "model.json"
+    model.write_text('{"invalid":"PRIVATE_SENTINEL"}', encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "jobs",
+            "factorize",
+            snap_id,
+            str(lex_path),
+            "--model-output",
+            str(model),
+            *db,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["feature_set"]["factorization"] == "fallback"
+    assert "PRIVATE_SENTINEL" not in result.stdout

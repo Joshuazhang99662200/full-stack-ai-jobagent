@@ -53,6 +53,12 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | JD原文快照 | 已落地 | `jobagent jobs snapshot`（私有原文版本与独立发现） |
 | 快照历史 | 已落地 | `jobagent jobs snapshots`（按岗位读取原文历史和多查询归因） |
 
+| JD因子化 | 已落地 | `jobagent jobs factorize`（私有输入、类型校验、无模型/浏览器调用） |
+| 词库绝对重算 | 已落地 | `jobagent jobs lexicon-update`（私有输入、类型校验、无模型/浏览器调用） |
+| 历史词库读取与回滚 | 已落地 | `jobagent jobs lexicon-show`（私有输入、类型校验、无模型/浏览器调用） |
+| 组合查询计划 | 已落地 | `jobagent jobs combinations`（私有输入、类型校验、无模型/浏览器调用） |
+| 查询计划反查 | 已落地 | `jobagent jobs combinations-report`（私有输入、类型校验、无模型/浏览器调用） |
+
 ## 简历优化器(Resume)
 
 | 能力 | 状态 | 入口 |

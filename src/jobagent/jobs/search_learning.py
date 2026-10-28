@@ -4,7 +4,6 @@ import hashlib
 import json
 
 from jobagent.schemas.search_learning import (
-    OWNER_CHOICES,
     LearnedSearchPlan,
     SearchHypothesis,
     SearchLearningRequest,
@@ -19,13 +18,13 @@ def learn_search(request: SearchLearningRequest) -> LearnedSearchPlan:
     ordered = sorted(events.values(), key=lambda event: (event.occurred_at, event.event_id))
     latest: dict[tuple[str, str], SearchSignal] = {}
     for event in ordered:
-        if event.kind in OWNER_CHOICES:
+        if event.owner_preference is not None:
             latest[(event.job.source, event.job.source_job_id)] = event
     features = sorted({term for event in latest.values() for term in event.features})
     hypotheses = []
     for feature in features:
         support = [event for event in latest.values()
-                   if event.kind in {"user_added", "like"} and feature in event.features]
+                   if event.owner_preference == "like" and feature in event.features]
         counters = [event for event in latest.values() if feature in event.rejected_features]
         companies = {event.job.company.strip().casefold() for event in support}
         hypotheses.append(SearchHypothesis(
@@ -42,7 +41,7 @@ def learn_search(request: SearchLearningRequest) -> LearnedSearchPlan:
     additions = [feature for feature in active if feature not in baseline][:2]
     preferred = [feature for feature in active if feature in baseline or feature in additions]
     payload = {
-        "policy": "personal-ai-search-v1", "candidate_id": request.candidate_id,
+        "policy": "personal-ai-search-v2", "candidate_id": request.candidate_id,
         "baseline_queries": baseline,
         "signals": [events[key].model_dump(mode="json") for key in sorted(events)],
     }

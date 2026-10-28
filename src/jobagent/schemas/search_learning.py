@@ -17,21 +17,40 @@ OWNER_CHOICES = frozenset({"user_added", "like", "dislike"})
 class SearchSignal(ContractModel):
     event_id: NonEmptyString
     candidate_id: CandidateId
-    kind: Literal["user_added", "like", "dislike", "greeting_edit", "recruiter_reply", "no_reply"]
+    kind: Literal[
+        "user_added", "like", "dislike", "greeting_edit", "recruiter_reply", "no_reply", "feedback",
+    ]
     occurred_at: AwareDatetime
+    job_preference: Literal["like", "dislike", "neutral"] | None = None
+    message_feedback: Literal["accept", "revise", "reject"] | None = None
     owner_text: str = ""
     job: SourceJobRecord
     features: dict[SearchFeature, NonEmptyString] = Field(default_factory=dict, max_length=12)
     rejected_features: list[SearchFeature] = Field(default_factory=list, max_length=12)
 
+    @property
+    def owner_preference(self) -> Literal["like", "dislike", "neutral"] | None:
+        if self.kind in {"user_added", "like"}:
+            return "like"
+        if self.kind == "dislike":
+            return "dislike"
+        return self.job_preference if self.kind == "feedback" else None
+
     @model_validator(mode="after")
     def check_sources(self) -> "SearchSignal":
-        if self.kind in OWNER_CHOICES and not self.owner_text.strip():
+        if self.kind == "feedback":
+            if self.job_preference is None and self.message_feedback is None:
+                raise ValueError("Feedback must name a job preference or message decision.")
+        elif self.job_preference is not None or self.message_feedback is not None:
+            raise ValueError("Split decisions require kind=feedback.")
+        if (self.owner_preference is not None or self.kind == "feedback") and (
+            not self.owner_text.strip()
+        ):
             raise ValueError("Owner choices require the actual owner's words.")
         if any(term not in quote or quote not in self.job.jd_raw
                for term, quote in self.features.items()):
             raise ValueError("Features must be grounded in exact JD quotes.")
-        if self.rejected_features and (self.kind != "dislike" or any(
+        if self.rejected_features and (self.owner_preference != "dislike" or any(
             term not in self.features or term not in self.owner_text
             for term in self.rejected_features
         )):
@@ -55,7 +74,7 @@ class SearchLearningRequest(ContractModel):
                 raise ValueError("The same event ID has different content.")
             events[signal.event_id] = signal
             key = (signal.job.source, signal.job.source_job_id, signal.occurred_at)
-            if signal.kind in OWNER_CHOICES:
+            if signal.owner_preference is not None:
                 if key in choices and signal.model_dump(exclude={"event_id"}) != (
                     choices[key].model_dump(exclude={"event_id"})
                 ):

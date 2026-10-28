@@ -176,6 +176,8 @@ class CandidateFilterContext(ContractModel):
     languages: dict[str, str] = Field(default_factory=dict)
     education_levels: list[str] = Field(default_factory=list)
     minimum_compensation: MoneyRange | None = None
+    # Any range reaching the candidate floor qualifies; strict floor mode is opt-in.
+    compensation_comparison: Literal["lower_bound", "upper_bound"] = "upper_bound"
     # A posting that states no salary ("面议") meets the floor instead of waiting
     # for review. A stated salary is still compared with the floor.
     unstated_compensation_passes: bool = False

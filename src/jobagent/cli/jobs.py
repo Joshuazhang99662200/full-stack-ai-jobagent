@@ -11,6 +11,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.cli.sourcing import register_sourcing_commands
 from jobagent.connectors.extraction import MIN_JD_LENGTH
 from jobagent.connectors.factory import build_detail_fetcher, build_listing_source
 from jobagent.errors import (
@@ -29,7 +30,7 @@ from jobagent.jobs.ranking import JobRanker
 from jobagent.jobs.search_learning import learn_search
 from jobagent.jobs.search_plan import plan_searches
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
-from jobagent.outreach.service import PLATFORM_DAY, contacted_job_ids
+from jobagent.outreach.service import contacted_job_ids
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher, is_admissible
 from jobagent.reasoning.job_requirements import ReasoningJobRequirementExtractor
 from jobagent.schemas.common import ContractModel
@@ -516,36 +517,6 @@ def _check_observation(
     if any(marker in record.jd_raw for marker in spec.stop_markers):
         return "gate_page", None
     return "", record
-
-
-@jobs_app.command("sourcing-budget")
-def sourcing_budget(database: DatabaseOption = DEFAULT_DATABASE) -> None:
-    """Report, per board with a host route, how many detail reads remain today.
-
-    Counted from postings stored today with that board as their source, on the
-    boards' own calendar day. The cap comes from the board's manifest.
-    """
-    try:
-        _, jobs = _repositories(database)
-        today = datetime.now(UTC).astimezone(PLATFORM_DAY).date()
-        stored_today: dict[str, int] = {}
-        for job in jobs.list_jobs():
-            if job.collected_at.astimezone(PLATFORM_DAY).date() == today:
-                stored_today[job.source] = stored_today.get(job.source, 0) + 1
-        budget: dict[str, dict[str, int]] = {}
-        for manifest in _registry().all():
-            spec = manifest.host_browser
-            if spec is None:
-                continue
-            read = stored_today.get(manifest.id, 0)
-            budget[manifest.id] = {
-                "daily_cap": spec.max_detail_reads_per_day,
-                "read_today": read,
-                "remaining": max(spec.max_detail_reads_per_day - read, 0),
-            }
-        typer.echo(json.dumps(budget, ensure_ascii=False, indent=2))
-    except JobAgentError as error:
-        _fail(error)
 
 
 @jobs_app.command("search-log")
@@ -1060,3 +1031,6 @@ def pipeline(
         )
     except JobAgentError as error:
         _fail(error)
+
+
+register_sourcing_commands(jobs_app)

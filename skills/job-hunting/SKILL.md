@@ -28,10 +28,14 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 
 ## 上下文路由
 
+- 需要JD快照、原文特征、私有词库或组合查询时，只加载 [references/jd-knowledge.md](references/jd-knowledge.md) 与当前域文件，不预读所有JD和行业。
+- 需要已发消息到期检查、真实回复确认、暂停/放弃或结果模式报告时，加载 [references/sent-tracking.md](references/sent-tracking.md)；回复另走原有审批流程。
+
 - 需要完整产品契约时,阅读 [references/product-spec.md](references/product-spec.md)。
 - 需要跨域边界时,阅读 [references/architecture-invariants.md](references/architecture-invariants.md) 与 [references/capability-catalog.md](references/capability-catalog.md)。
 - 任何步骤返回 `AGENT_HANDOFF_REQUIRED`,或需要模型判断而你不想配置厂商凭证时,阅读 [references/agent-reasoning.md](references/agent-reasoning.md)。**你自己就是推理引擎**,这是默认路径。
 - 处理入库或面试工作时,阅读 [references/candidate-kb.md](references/candidate-kb.md) 与 [references/evidence-policy.md](references/evidence-policy.md)。
+- 在 Muse 执行寻源、反馈学习、薪资比较或预算计量时，先读 [references/sourcing-budget.md](references/sourcing-budget.md)，按程序预占后才读取；文案反馈不等于岗位偏好。
 - 处理归一化、过滤、匹配或排序时,阅读 [references/job-intelligence.md](references/job-intelligence.md)。
 - 从猎聘寻源,或遇到只有列表字段、没有 JD 正文的来源时,阅读 [references/liepin-listings.md](references/liepin-listings.md)。
 - **接入一个新平台**时,先读 [references/source-onboarding.md](references/source-onboarding.md) 的五档阶梯逐档评估,再按 [references/adding-a-source.md](references/adding-a-source.md) 写一份来源清单。来源是数据不是代码,内置来源只是参考实现。

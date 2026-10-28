@@ -15,6 +15,7 @@ from jobagent.cli.optimizer import optimizer_app
 from jobagent.cli.outreach import outreach_app
 from jobagent.cli.patrol import patrol_app
 from jobagent.cli.profile import profile_app
+from jobagent.cli.tracking import tracking_app
 
 app = typer.Typer(
     name="jobagent",
@@ -45,6 +46,7 @@ app.add_typer(outreach_app, name="outreach")
 app.add_typer(conversations_app, name="conversations")
 app.add_typer(patrol_app, name="patrol")
 app.add_typer(profile_app, name="profile")
+app.add_typer(tracking_app, name="tracking")
 app.add_typer(mailbox_app, name="mailbox")
 app.add_typer(notify_app, name="notify")
 

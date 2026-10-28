@@ -11,6 +11,8 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.cli.jd_knowledge import register_knowledge_commands
+from jobagent.cli.sourcing import register_sourcing_commands
 from jobagent.connectors.extraction import MIN_JD_LENGTH
 from jobagent.connectors.factory import build_detail_fetcher, build_listing_source
 from jobagent.errors import (
@@ -21,6 +23,7 @@ from jobagent.errors import (
 )
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
+from jobagent.jobs.jd_snapshot import capture_from_record
 from jobagent.jobs.matching import MatchAggregator
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
@@ -29,7 +32,7 @@ from jobagent.jobs.ranking import JobRanker
 from jobagent.jobs.search_learning import learn_search
 from jobagent.jobs.search_plan import plan_searches
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
-from jobagent.outreach.service import PLATFORM_DAY, contacted_job_ids
+from jobagent.outreach.service import contacted_job_ids
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher, is_admissible
 from jobagent.reasoning.job_requirements import ReasoningJobRequirementExtractor
 from jobagent.schemas.common import ContractModel
@@ -60,6 +63,7 @@ from jobagent.schemas.sources import SourceManifest
 from jobagent.sources import SourceRegistry
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
+from jobagent.storage.jd_snapshot_repository import SqliteJDSnapshotRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 
@@ -342,7 +346,8 @@ def ingest_jd(
     try:
         listing = _load_model(listing_path, JobListing)
         try:
-            jd_raw = jd_path.read_text(encoding="utf-8").strip()
+            jd_original = jd_path.read_text(encoding="utf-8")
+            jd_raw = jd_original.strip()
         except OSError:
             raise ContractValidationError(
                 "The JD text file could not be read.",
@@ -392,7 +397,8 @@ def add_jd(
     """
     try:
         try:
-            jd_raw = jd_path.read_text(encoding="utf-8").strip()
+            jd_original = jd_path.read_text(encoding="utf-8")
+            jd_raw = jd_original.strip()
         except OSError:
             raise ContractValidationError(
                 "The JD text file could not be read.",
@@ -419,6 +425,13 @@ def add_jd(
         )
         job = _normalizer_for(record.source).normalize(record)
         _, jobs = _repositories(database)
+        raw_capture = record.model_copy(update={"jd_raw": jd_original})
+        captured = capture_from_record(raw_capture, job.id)
+        captured = captured.model_copy(update={
+            "observation_id": "MANUAL_"+captured.observation_id,
+            "discovery_kind": "manual",
+        })
+        SqliteJDSnapshotRepository(jobs.database).capture(captured)
         jobs.save_job(job)
         _emit_model(job)
     except ValidationError:
@@ -472,6 +485,21 @@ def import_observations(
                 continue
             job = _normalizer_for(record.source).normalize(record)
             known_before = jobs.get_job(job.id) is not None
+            snapshot_id = None
+            snapshot_status = "timestamp_missing_timezone"
+            if record.collected_at.tzinfo is not None:
+                try:
+                    captured = SqliteJDSnapshotRepository(jobs.database).capture(
+                        capture_from_record(record, job.id),
+                    )
+                except ContractValidationError:
+                    report.rejected.append(RejectedObservation(
+                        index=index, source_job_id=record.source_job_id,
+                        reason="snapshot_conflict",
+                    ))
+                    continue
+                snapshot_id = captured.snapshot.snapshot_id
+                snapshot_status = "captured"
             jobs.save_job(job)
             if record.search_term and record.search_term.strip():
                 jobs.record_search_hit(
@@ -491,6 +519,7 @@ def import_observations(
                     company=job.company,
                     known_before=known_before,
                     contacted=job.id in contacted,
+                    snapshot_id=snapshot_id, snapshot_status=snapshot_status,
                 )
             )
         _emit_model(report)
@@ -516,36 +545,6 @@ def _check_observation(
     if any(marker in record.jd_raw for marker in spec.stop_markers):
         return "gate_page", None
     return "", record
-
-
-@jobs_app.command("sourcing-budget")
-def sourcing_budget(database: DatabaseOption = DEFAULT_DATABASE) -> None:
-    """Report, per board with a host route, how many detail reads remain today.
-
-    Counted from postings stored today with that board as their source, on the
-    boards' own calendar day. The cap comes from the board's manifest.
-    """
-    try:
-        _, jobs = _repositories(database)
-        today = datetime.now(UTC).astimezone(PLATFORM_DAY).date()
-        stored_today: dict[str, int] = {}
-        for job in jobs.list_jobs():
-            if job.collected_at.astimezone(PLATFORM_DAY).date() == today:
-                stored_today[job.source] = stored_today.get(job.source, 0) + 1
-        budget: dict[str, dict[str, int]] = {}
-        for manifest in _registry().all():
-            spec = manifest.host_browser
-            if spec is None:
-                continue
-            read = stored_today.get(manifest.id, 0)
-            budget[manifest.id] = {
-                "daily_cap": spec.max_detail_reads_per_day,
-                "read_today": read,
-                "remaining": max(spec.max_detail_reads_per_day - read, 0),
-            }
-        typer.echo(json.dumps(budget, ensure_ascii=False, indent=2))
-    except JobAgentError as error:
-        _fail(error)
 
 
 @jobs_app.command("search-log")
@@ -1060,3 +1059,8 @@ def pipeline(
         )
     except JobAgentError as error:
         _fail(error)
+
+
+register_sourcing_commands(jobs_app)
+
+register_knowledge_commands(jobs_app)

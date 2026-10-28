@@ -32,3 +32,7 @@ supported 与 partial 映射只能引用满足以下全部条件的 Evidence:
 ## 本地命令路由
 
 确定性的源数据处理使用 `jobagent jobs search|fetch|normalize|dedupe`。在未配置运行时提供方的情况下,把经评审的 `JobRequirementProfile` 与 `RequirementMatchSet` JSON 传给 `requirements`、`filter` 与 `match`。`pipeline` 命令按 `JOB_ID.requirements.json` 与 `JOB_ID.matches.json` 解析已评审文件,并把结果持久化到本地 SQLite。
+
+## 寻源反馈与薪资策略
+
+Muse 先按 [sourcing-budget.md](sourcing-budget.md) 预占查询/详情读取并追加结果，再调用既有导入与评估。CandidateFilterContext.compensation_comparison 默认 upper_bound，区间能达到本人底线即通过；lower_bound 仅用于本人显式选择的更严格规则。金额来自本人配置；缺失/不可比保持 REVIEW，不推算薪资。岗位偏好与文案反馈分别记录，均不授予发送权。

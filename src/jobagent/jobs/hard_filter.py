@@ -284,7 +284,7 @@ class HardFilterEngine:
         if minimum is None:
             return None
         if job.salary is None:
-            if context.unstated_compensation_passes or not policy.review_on_unknown:
+            if context.unstated_compensation_passes:
                 return None
             return (
                 FilterDecision.REVIEW,
@@ -294,7 +294,10 @@ class HardFilterEngine:
                     required_value=minimum.model_dump_json(),
                 ),
             )
-        if job.salary.currency != minimum.currency or job.salary.period != minimum.period:
+        if (
+            job.salary.currency != minimum.currency or job.salary.period != minimum.period
+            or not job.salary.period or not minimum.period
+        ):
             return (
                 FilterDecision.REVIEW,
                 FilterReason(
@@ -304,17 +307,38 @@ class HardFilterEngine:
                     required_value=minimum.model_dump_json(),
                 ),
             )
+        # A known floor already meeting the target suffices without a stated ceiling.
         if (
-            minimum.minimum is not None
-            and job.salary.maximum is not None
-            and job.salary.maximum < minimum.minimum
+            context.compensation_comparison == "upper_bound"
+            and minimum.minimum is not None
+            and job.salary.minimum is not None
+            and job.salary.minimum >= minimum.minimum
         ):
+            return None
+        bound = (
+            job.salary.minimum
+            if context.compensation_comparison == "lower_bound"
+            else job.salary.maximum
+        )
+        if minimum.minimum is not None and bound is None:
+            return (
+                FilterDecision.REVIEW,
+                FilterReason(
+                    rule_id="COMPENSATION_MINIMUM",
+                    message="The advertised salary has no comparable selected bound.",
+                    observed_value=job.salary.model_dump_json(),
+                    required_value=minimum.model_dump_json(),
+                ),
+            )
+        if minimum.minimum is not None and bound is not None and bound < minimum.minimum:
             return (
                 FilterDecision.REJECT,
                 FilterReason(
                     rule_id="COMPENSATION_MINIMUM",
-                    message="Job maximum compensation is below the candidate minimum.",
-                    observed_value=str(job.salary.maximum),
+                    message=(
+                        f"Job compensation {context.compensation_comparison} is below the floor."
+                    ),
+                    observed_value=str(bound),
                     required_value=str(minimum.minimum),
                 ),
             )

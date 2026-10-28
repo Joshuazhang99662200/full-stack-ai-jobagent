@@ -27,13 +27,16 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | `suggest_queries` | 已落地 | `jobagent jobs suggest-queries`(从已确认证据确定性推导检索词;`--target-role` 围绕目标岗位生成) |
-| 双层搜索学习 | 已落地 | `jobagent jobs learn-search`：原始 signal → 引文核验、独立正例与反例 → 有版本的软优先级；用户主动加岗可作为正例，最多增加两个查询，不改硬条件、事实或审批；私有存储与调度委托宿主 |
+| 双层搜索学习 | 已落地 | `jobagent jobs learn-search`：原始 signal（岗位偏好与文案反馈分开）→ 引文核验、独立正例与反例 → 有版本的软优先级；用户主动加岗可作为正例，最多增加两个查询，不改硬条件、事实或审批；私有存储与调度委托宿主 |
 | `search` | 已落地 | `jobagent jobs search`(`--source mock` 合成 fixture,产出含 JD 的 `SourceJobRecord`) |
 | `search_listings` | 已落地 | `jobagent jobs listings`(`--source liepin`,产出**不含 JD** 的 `JobListing`) |
 | `ingest_jd` | 已落地 | `jobagent jobs ingest-jd`(人工补 JD 正文,门控平台的唯一路径) |
 | `add_jd` | 已落地 | `jobagent jobs add-jd`(用户自带的 JD 直接落库为 `JOB_*`,不需要 listing;来源默认 `manual`) |
 | `import_observations` | 已落地 | `jobagent jobs import-observations`(宿主在用户自己的浏览器里抓回的职位,按来源清单的 `host_browser` 校验后入库;浏览器操作本身是宿主能力) |
-| `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`(每站今天还能读几条详情,上限取清单 `max_detail_reads_per_day`,不超过 50) |
+| `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`（查询尝试、列表观察、详情尝试与旧观测估算分别报告；来源每日详情上限不超过50） |
+| 寻源轮次 | 已落地 | `jobagent jobs sourcing-start`（每站默认3查询/20详情尝试，固定轮次额度） |
+| 读取预占 | 已落地 | `jobagent jobs sourcing-reserve`（原子预占；仅新 allowed=true 可执行；失败/重复读取不退额） |
+| 读取结果 | 已落地 | `jobagent jobs sourcing-result`（追加结果；gate 停该站当天预占；不授予发送权） |
 | `search_log` | 已落地 | `jobagent jobs search-log`(每次搜索都记一笔:站、检索词、列出几条、其中新职位几条;零结果也记) |
 | `search_plan` | 已落地 | `jobagent jobs search-plan`(按站给出这一轮该用的检索词:多数名额轮换最久没搜过的词,一个名额给历史上带出强匹配/可能匹配最多的词;附每个词的搜索次数、新增、命中与匹配产出) |
 | `fetch_jd` | 已落地 | `jobagent jobs fetch-jd`(读公开详情页,把 `JobListing` 补齐为 `SourceJobRecord`) |
@@ -46,6 +49,15 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | `rank` | 已落地 | `jobagent jobs rank` |
 | 离线全流程编排 | 已落地 | `jobagent jobs pipeline` |
 | 已入库职位批量分诊 | 已落地 | `jobagent jobs triage`(先用职位自带字段做硬过滤,被拒的不花推理;审阅文件齐的评估并排序;缺的写进 `worklist.json` 一次补齐) |
+
+| JD原文快照 | 已落地 | `jobagent jobs snapshot`（私有原文版本与独立发现） |
+| 快照历史 | 已落地 | `jobagent jobs snapshots`（按岗位读取原文历史和多查询归因） |
+
+| JD因子化 | 已落地 | `jobagent jobs factorize`（私有输入、类型校验、无模型/浏览器调用） |
+| 词库绝对重算 | 已落地 | `jobagent jobs lexicon-update`（私有输入、类型校验、无模型/浏览器调用） |
+| 历史词库读取与回滚 | 已落地 | `jobagent jobs lexicon-show`（私有输入、类型校验、无模型/浏览器调用） |
+| 组合查询计划 | 已落地 | `jobagent jobs combinations`（私有输入、类型校验、无模型/浏览器调用） |
+| 查询计划反查 | 已落地 | `jobagent jobs combinations-report`（私有输入、类型校验、无模型/浏览器调用） |
 
 ## 简历优化器(Resume)
 
@@ -190,3 +202,16 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 简历渲染 | 已落地 | `jobagent harness render`(只排版不改字:已校验变体 + 页首 → PDF / Word,PDF 当场跑 check-pdf;需要 `render` 可选依赖) |
 | 实际结果汇总 | 已落地 | `jobagent harness report`(当前运行绑定的投递包；无审计 unknown，mock 为 simulated) |
 | 浏览器/安全凭证/调度 | 委托外部技能 | 使用实际宿主能力，先探测；缺能力交人，不提供云 VM 或 OS 服务 |
+
+
+## JD 与已发送观察补充
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 审计回读绑定建档 | 已落地 | `jobagent tracking start`；仅消费已有批准与 sent 审计，不发送 |
+| 预执行门禁投影 | 已落地 | `jobagent tracking pending`；读取各站现有租约，不授予执行权 |
+| 追加观察与状态转移 | 已落地 | `jobagent tracking event`；CAS版本、证据校验、暂停/归档 |
+| 当前状态 | 已落地 | `jobagent tracking status`；候选人作用域 |
+| 到期只读检查清单 | 已落地 | `jobagent tracking due`；默认1/3/7/14天 |
+| 追加历史 | 已落地 | `jobagent tracking history`；关闭后保留 |
+| 结果模式报告 | 已落地 | `jobagent tracking report`；不自动调整词库 |

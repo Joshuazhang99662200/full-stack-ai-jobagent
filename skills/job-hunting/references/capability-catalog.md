@@ -50,6 +50,9 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 离线全流程编排 | 已落地 | `jobagent jobs pipeline` |
 | 已入库职位批量分诊 | 已落地 | `jobagent jobs triage`(先用职位自带字段做硬过滤,被拒的不花推理;审阅文件齐的评估并排序;缺的写进 `worklist.json` 一次补齐) |
 
+| JD原文快照 | 已落地 | `jobagent jobs snapshot`（私有原文版本与独立发现） |
+| 快照历史 | 已落地 | `jobagent jobs snapshots`（按岗位读取原文历史和多查询归因） |
+
 ## 简历优化器(Resume)
 
 | 能力 | 状态 | 入口 |

@@ -300,6 +300,8 @@ class ImportedObservation(ContractModel):
     known_before: bool = False
     # A first greeting already reached this job; do not list it for outreach again.
     contacted: bool = False
+    snapshot_id: str | None = None
+    snapshot_status: str | None = None
 
 
 class RejectedObservation(ContractModel):

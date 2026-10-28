@@ -34,6 +34,6 @@
 ## Task 4: 文档、全套门禁与PR
 - [x] 更新主技能、能力目录、Personal AI任务/记忆协议、README、换域和迁移说明，明确所有附件修订与实际能力限度。
 - [x] 全套pytest、ruff、mypy、git diff --check；检查无真实JD/已发正文/候选人数据，确认旧桥无新增依赖。
-- [ ] 推送codex功能分支，通过GitHub工具创建一个PR并附到当前聊天；PR回答六项映射、接线点、非法转移、版本/回滚、私有数据位置和设计域演练结果。
+- [x] 推送codex功能分支，通过GitHub工具创建一个PR并附到当前聊天；PR回答六项映射、接线点、非法转移、版本/回滚、私有数据位置和设计域演练结果。
 
-验证记录：最终909 passed；Ruff通过；Mypy 142个源码文件通过；git diff --check通过。跟踪专项26通过。PR步骤保持待办，实际创建后登记链接。
+验证记录：最终909 passed；Ruff通过；Mypy 142个源码文件通过；git diff --check通过。跟踪专项26通过。已创建并附到聊天：[PR #4](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/4)，未合并。

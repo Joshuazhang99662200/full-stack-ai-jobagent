@@ -260,6 +260,7 @@ class SearchQueryDeriver:
         chosen = ready[: request.query_limit]
         chosen_names = {query.query for query in chosen}
         return CombinationPlan(
+            budget_profile=request.budget_profile,
             candidate_id=request.candidate_id,
             source=request.source,
             version=canonical_digest(

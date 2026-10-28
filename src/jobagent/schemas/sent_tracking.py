@@ -54,6 +54,7 @@ class TrackingStartInput(ContractModel):
     conversation_id: str | None = None
     reply_result_event_id: str | None = None
     readback_text: str = Field(min_length=1, repr=False)
+    next_poll_at: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def source_is_exclusive(self) -> "TrackingStartInput":
@@ -80,6 +81,9 @@ class SentTrackingRecord(ContractModel):
     send_readback: Literal["exact"] = "exact"
     tracking_state: TrackingState
     last_checked_at: AwareDatetime | None = None
+    registered_at: AwareDatetime | None = None
+    bootstrap_next_check_at: AwareDatetime | None = None
+    missed_check_days: list[int] = Field(default_factory=list)
     check_count: int = Field(default=0, ge=0, le=4)
     next_check_at: AwareDatetime | None = None
     reply_detected_at: AwareDatetime | None = None

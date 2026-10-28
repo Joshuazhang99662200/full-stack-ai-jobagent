@@ -33,7 +33,7 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | `ingest_jd` | 已落地 | `jobagent jobs ingest-jd`(人工补 JD 正文,门控平台的唯一路径) |
 | `add_jd` | 已落地 | `jobagent jobs add-jd`(用户自带的 JD 直接落库为 `JOB_*`,不需要 listing;来源默认 `manual`) |
 | `import_observations` | 已落地 | `jobagent jobs import-observations`(宿主在用户自己的浏览器里抓回的职位,按来源清单的 `host_browser` 校验后入库;浏览器操作本身是宿主能力) |
-| `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`（查询尝试、列表观察、详情尝试与旧观测估算分别报告；来源每日详情上限不超过50） |
+| `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`（查询尝试、列表观察、详情尝试与旧观测估算分别报告；来源默认每日50详情，显式muse-expanded-v1政策允许每日240） |
 | 寻源轮次 | 已落地 | `jobagent jobs sourcing-start`（每站默认3查询/20详情尝试，固定轮次额度） |
 | 读取预占 | 已落地 | `jobagent jobs sourcing-reserve`（原子预占；仅新 allowed=true 可执行；失败/重复读取不退额） |
 | 读取结果 | 已落地 | `jobagent jobs sourcing-result`（追加结果；gate 停该站当天预占；不授予发送权） |
@@ -215,3 +215,54 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 到期只读检查清单 | 已落地 | `jobagent tracking due`；默认1/3/7/14天 |
 | 追加历史 | 已落地 | `jobagent tracking history`；关闭后保留 |
 | 结果模式报告 | 已落地 | `jobagent tracking report`；不自动调整词库 |
+
+
+## 人工加岗闭环
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 人工入口持久入队与幂等 | 已落地 | `jobagent intake enqueue` |
+| 不可变列表编号或卡片身份映射 | 已落地 | `jobagent intake selection` |
+| 实际listing或缓存岗位身份绑定 | 已落地 | `jobagent intake resolve` |
+| 完整原文与预算行动绑定 | 已落地 | `jobagent intake snapshot` |
+| 特征与明确兴趣自动接线 | 已落地 | `jobagent intake factorize` |
+| 宿主草稿与原文/硬条件校验 | 已落地 | `jobagent intake draft` |
+| 独立复核产物与摘要绑定 | 已落地 | `jobagent intake review` |
+| 现有外联批次绑定，不授予批准 | 已落地 | `jobagent intake batch` |
+| 本人兴趣追加或撤回 | 已落地 | `jobagent intake interest` |
+| 暂停、明确恢复与关闭 | 已落地 | `jobagent intake control` |
+| 恢复动作契约与按需私有上下文 | 已落地 | `jobagent intake next` |
+| 当前双分支状态 | 已落地 | `jobagent intake status` |
+| 完整追加历史的脱敏视图 | 已落地 | `jobagent intake history` |
+| 候选人/域作用域队列恢复 | 已落地 | `jobagent intake list` |
+| 汇总全域样本并事务激活词库/计划 | 已落地 | `jobagent intake strategy` |
+| 读取活跃MD/计划并检查新鲜度 | 已落地 | `jobagent intake active` |
+| 下一实际寻源轮次领取固定计划 | 已落地 | `jobagent intake claim` |
+| 真实预算查询结果与计划归因 | 已落地 | `jobagent intake record-search` |
+
+
+## 宿主迁移与验收
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 只读检查JSONL字段结构，不显示源值 | 已落地 | `jobagent host inspect-queue` |
+| 备份和临时副本迁移，精确校验行与身份；可关联原始已发声明文件 | 已落地 | `jobagent host migrate-queue` |
+| 校验行哈希、行ID与队列绑定 | 已落地 | `jobagent host verify-migration` |
+| 从数据库生成JSONL视图，不改变状态权威 | 已落地 | `jobagent host project-queue` |
+| 仅迁移后无新活动且备份匹配时回滚 | 已落地 | `jobagent host rollback-migration` |
+| 原始发送引用与已有正式跟踪证明一致后绑定 | 已落地 | `jobagent host bind-tracking` |
+| 记录消息/搜索各自三态，登录失效暂停对应消息跟踪并要求通知 | 已落地 | `jobagent host page-observe` |
+| 按来源和页面读取沉降状态 | 已落地 | `jobagent host page-status` |
+| 从真实账本与有出处宿主计数生成不可变轮次报告 | 已落地 | `jobagent host round-report` |
+| 读取候选人作用域报告 | 已落地 | `jobagent host round-show` |
+| 校验两轮核心证据，保留真实宿主待验收状态 | 已落地 | `jobagent host verify-rounds` |
+| 输出未知值为空的私有报告模板 | 已落地 | `jobagent host round-template` |
+
+| 旧队列全文回填清单 | 已落地 | `jobagent host backfill-plan` | 原ID与私有优先级，partial不入策略 |
+| 旧摘要到全文谱系 | 已落地 | `jobagent host backfill-attach` | 原门禁校验真实读取后追加，不覆盖旧摘要 |
+
+| 初稿与最终稿差异 | 已落地 | `jobagent host message-diff` | 全文哈希与变化位置，语义类别为宿主提案 |
+| 差异成熟度 | 已落地 | `jobagent host diff-report` | 三个不同岗位才进入评估，无自动权重 |
+| 具体文案规则提案 | 已落地 | `jobagent host rule-propose` | 绑定当前评估摘要，待本人确认 |
+| 逐条规则确认 | 已落地 | `jobagent host rule-confirm` | 准确规则摘要与本人原话；独立于文案Accept |
+| 读取本人已确认规则 | 已落地 | `jobagent host confirmed-rules` | 私有候选人隔离，默认空列表 |

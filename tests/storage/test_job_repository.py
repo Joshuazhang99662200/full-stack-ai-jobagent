@@ -85,7 +85,7 @@ def test_v1_database_upgrades_to_latest_without_losing_candidate(tmp_path: Path)
 
     assert SqliteCandidateRepository(database).get_profile("CAND_001") == profile
     with database.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 17
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 21
         assert (
             connection.execute(
                 "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='normalized_jobs'"

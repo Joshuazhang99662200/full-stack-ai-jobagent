@@ -61,3 +61,18 @@ BOSS/智联网页发送属于宿主动作，仓库没有新增平台投递连接
 ## 寻源策略修订（38afd89 后的独立改动）
 
 岗位偏好与文案反馈已拆分；默认按薪资区间能达到本人底线的规则筛选。每站新轮次先通过 sourcing-start 固定预算，每次搜索/详情先 sourcing-reserve，结果以 sourcing-result 追加。默认3查询/20详情尝试，来源每日详情上限仍不超过50，失败和重复读取占额。具体 JSON、恢复规则与宿主适应性调整见 [寻源政策](../../skills/job-hunting/references/sourcing-budget.md)。快照、因子化、MD词库和组合引擎已落地，按 [知识路由](../../skills/job-hunting/references/jd-knowledge.md) 分步调用；已发消息按 [跟踪协议](../../skills/job-hunting/references/sent-tracking.md) 只读观察，不能据此自动回复。真实 Muse 联调仍未执行。
+
+
+## 人工塞岗与持续处理
+
+URL/列表编号/消息卡片统一先入intake队列，按 [人工加岗协议](../../skills/job-hunting/references/manual-job-intake.md) 用next取得可恢复步骤。全新岗位可先绑定真实listing，再取完整JD；不会为解析身份造占位JD。草稿和学习两个分支独立，明确兴趣直接接既有user_added，文案Accept仍只代表文案决定。
+
+下一轮搜索须从同私有库领取活跃CombinationPlan，实际成功查询才写执行归因。完整实现与迁移见 [交付记录](../../docs/muse-manual-intake-2026-10-28.md)。须更新真实Muse聊天/轮询入口后验收；仓库未提供运行中的Muse事件插件。
+
+
+## 既有 Muse 状态接入
+
+旧队列、已发补证、显式扩展读取预算、页面登录状态及两轮报告按 [宿主接线协议](../../skills/job-hunting/references/muse-host-adoption.md) 执行。仅升级代码不会更新运行中的宿主任务；Muse需固定新版本并实际接入这些调用，未知保持未知。数据库为事实源，原始JSONL保留并作为可回查投影；不要双写两套互相覆盖的状态。
+
+
+旧岗位全文优先回填、初稿/最终稿差异与本人确认后规则落盘按 [P1接线协议](../../skills/job-hunting/references/muse-backfill-and-diff.md)。先取完整JD再恢复原intake链；差异采集与岗位兴趣分别处理。生成前读取当前候选人的confirmed-rules；中间编辑恢复原稿须追加无变化事件。

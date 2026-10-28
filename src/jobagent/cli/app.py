@@ -8,6 +8,8 @@ from jobagent.cli.applications import applications_app
 from jobagent.cli.candidate import candidate_app
 from jobagent.cli.conversations import conversations_app
 from jobagent.cli.harness import harness_app
+from jobagent.cli.host import host_app
+from jobagent.cli.job_intake import intake_app
 from jobagent.cli.jobs import jobs_app
 from jobagent.cli.mailbox import mailbox_app
 from jobagent.cli.notify import notify_app
@@ -39,9 +41,11 @@ def main() -> None:
 
 app.add_typer(candidate_app, name="candidate")
 app.add_typer(jobs_app, name="jobs")
+app.add_typer(intake_app, name="intake")
 app.add_typer(optimizer_app, name="optimizer")
 app.add_typer(applications_app, name="applications")
 app.add_typer(harness_app, name="harness")
+app.add_typer(host_app, name="host")
 app.add_typer(outreach_app, name="outreach")
 app.add_typer(conversations_app, name="conversations")
 app.add_typer(patrol_app, name="patrol")

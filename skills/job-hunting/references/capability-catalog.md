@@ -215,3 +215,27 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 到期只读检查清单 | 已落地 | `jobagent tracking due`；默认1/3/7/14天 |
 | 追加历史 | 已落地 | `jobagent tracking history`；关闭后保留 |
 | 结果模式报告 | 已落地 | `jobagent tracking report`；不自动调整词库 |
+
+
+## 人工加岗闭环
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 人工入口持久入队与幂等 | 已落地 | `jobagent intake enqueue` |
+| 不可变列表编号或卡片身份映射 | 已落地 | `jobagent intake selection` |
+| 实际listing或缓存岗位身份绑定 | 已落地 | `jobagent intake resolve` |
+| 完整原文与预算行动绑定 | 已落地 | `jobagent intake snapshot` |
+| 特征与明确兴趣自动接线 | 已落地 | `jobagent intake factorize` |
+| 宿主草稿与原文/硬条件校验 | 已落地 | `jobagent intake draft` |
+| 独立复核产物与摘要绑定 | 已落地 | `jobagent intake review` |
+| 现有外联批次绑定，不授予批准 | 已落地 | `jobagent intake batch` |
+| 本人兴趣追加或撤回 | 已落地 | `jobagent intake interest` |
+| 暂停、明确恢复与关闭 | 已落地 | `jobagent intake control` |
+| 恢复动作契约与按需私有上下文 | 已落地 | `jobagent intake next` |
+| 当前双分支状态 | 已落地 | `jobagent intake status` |
+| 完整追加历史的脱敏视图 | 已落地 | `jobagent intake history` |
+| 候选人/域作用域队列恢复 | 已落地 | `jobagent intake list` |
+| 汇总全域样本并事务激活词库/计划 | 已落地 | `jobagent intake strategy` |
+| 读取活跃MD/计划并检查新鲜度 | 已落地 | `jobagent intake active` |
+| 下一实际寻源轮次领取固定计划 | 已落地 | `jobagent intake claim` |
+| 真实预算查询结果与计划归因 | 已落地 | `jobagent intake record-search` |

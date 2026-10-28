@@ -56,7 +56,7 @@ Files: cli/job_intake.py、cli/app.py、能力目录、hosts/personal-ai三文�
 - [x] CLI失败测试后接入intake enqueue/resolve/snapshot/factorize/draft/review/batch/interest/next/status/list/history/control/strategy/active/claim/record-search。
 - [x] 结构化错误不泄露私有输入；help和能力目录双向一致。
 - [x] 明确指令模板：聊天插入立即入队，每次交互/轮询恢复未完成动作，下一轮必须claim新计划；报告真实版本/候选状态。
-- [ ] 全套门禁通过后分关注点提交，推送codex分支并创建和附加PR，不合并。
+- [x] 全套门禁通过后分关注点提交，推送codex分支并创建和附加PR，不合并。
 Run:
 ~~~text
 python -m pytest -q
@@ -65,4 +65,4 @@ python -m mypy src/jobagent
 git diff --check
 ~~~
 
-最终验证：956 passed；Ruff通过；Mypy 149个源码文件通过；git diff --check通过。PR实际创建后登记链接。
+最终验证：956 passed；Ruff通过；Mypy 149个源码文件通过；git diff --check通过。已创建并附加 [PR #5](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/5)，未合并。

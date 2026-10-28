@@ -41,3 +41,11 @@
 报告分开记录查询、详情、去重/过滤、完整快照、新入库/草稿、词库版本、旧partial、跟踪待查/漏查/待补证、登录与unfinished。零新增也保存并按通知设置给轮末摘要。再次读取 round-show 验证持久化；两轮按实际先后提交 verify-rounds。重复报告不能算两轮。
 
 报告的 real_browser_verified 始终为 false：合成演练和程序一致性不能证明真实 Muse 网页已接通。Muse须附两轮真实宿主回执与未完成项，由本人核验；不得把 mock 输出写成真实零新增、真实40迁移或真实8跟踪通过。仓库不会设置或改写运行中的 Muse 任务。
+
+## 实际宿主调用检查点
+
+入口明细见 [人工加岗协议](manual-job-intake.md)。聊天URL用entry_kind=url；消息列表编号用list_item + 不可变list_version；消息卡片用conversation_card及原message_reference，未解析身份先selection固定映射。三种入口都先intake enqueue，成功后才能打开详情/起草；重复request_id同文重放不增样本，异文报错。同岗多来源经resolve合并且保留出处；只有真实JobListing可先绑定，不能造占位JD。
+
+每次交互/轮询开始 intake list CANDIDATE DOMAIN --database PRIVATE_DB；对未完成项 intake next INTAKE_ID --candidate CANDIDATE --database PRIVATE_DB。按next给出的expected_version推进一步，再next重读；snapshot_pending不能起草或学习。完成全文/特征后 intake strategy PRIVATE_STRATEGY PRIVATE_LEXICON --database PRIVATE_DB，下一轮每站sourcing-start后用intake claim领取同域活跃计划。组合不等于搜索成功；实际sourcing query的complete之后才能intake record-search PRIVATE_EXECUTION，必须显式new_count，0也明确写0，失败或登录跳转不写成功。所有调用均同一私有库；queue/MD只从程序状态导出。
+
+轮询先处理page-observe，再tracking due CANDIDATE --database PRIVATE_DB，只检查返回的未暂停awaiting_reply。实际观察后tracking event保存no_reply/suspected_reply/reply_confirmed等；仅徽标变化只能疑似，明确对方新消息后才确认。登录跳转暂停并要求立即通知，恢复须本人原话；closed不再到期，不能恢复终态或单轮凑四次。轮末tracking report与host round-report回读，附各状态数量、下查时间、漏查与新增放弃原因。若核心或私有持久化不可用，就停止在草稿/待核实，不创建替代本机服务。

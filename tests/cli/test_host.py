@@ -85,3 +85,51 @@ def test_migrate_cli_actually_passes_separate_sent_file(tmp_path):
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["sent_source_backup_path"]
+
+
+def test_backfill_plan_cli_uses_explicit_private_priority(tmp_path):
+    from tests.storage.test_host_migration import NOW, adapter, fixture
+
+    source, _, config = fixture(tmp_path)
+    db = tmp_path / "private.sqlite3"
+    adapter().migrate(source, db, config, now=NOW)
+    result = runner.invoke(
+        app,
+        [
+            "host",
+            "backfill-plan",
+            config.migration_id,
+            "--candidate",
+            config.candidate_id,
+            "--priority",
+            "12,13,14,18,10,34,36,37",
+            "--database",
+            str(db),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["rows"][0]["row_id"] == "12"
+
+
+def test_private_message_diff_cli_reports_without_auto_rules(tmp_path):
+    from jobagent.schemas.message_diff import MessageDiffInput
+    from tests.jobs.test_message_diff import sample
+    from tests.storage.test_job_intake_service import setup
+
+    service, _, _ = setup(tmp_path)
+    path = tmp_path / "private-comparison.json"
+    path.write_text(MessageDiffInput.model_validate(sample()).model_dump_json(), encoding="utf-8")
+    db = ["--database", str(service.database.path)]
+    result = runner.invoke(app, ["host", "message-diff", str(path), *db])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["categories"] == ["fact_correction"]
+    report = runner.invoke(app, ["host", "diff-report", "CAND_DEMO", *db])
+    assert report.exit_code == 0, report.output
+    assert json.loads(report.stdout)["evaluation_candidates"] == []
+    rules = runner.invoke(app, ["host", "confirmed-rules", "CAND_DEMO", *db])
+    assert rules.exit_code == 0 and json.loads(rules.stdout) == []
+    invalid = json.loads(path.read_text(encoding="utf-8"))
+    invalid["initial_hash"] = "PRIVATE_SENTINEL"
+    path.write_text(json.dumps(invalid), encoding="utf-8")
+    failure = runner.invoke(app, ["host", "message-diff", str(path), *db])
+    assert failure.exit_code == 1 and "PRIVATE_SENTINEL" not in failure.output

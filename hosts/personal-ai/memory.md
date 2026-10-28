@@ -90,3 +90,6 @@ tracking history保存状态/时间/正文摘要与证据引用，不复制已�
 ## 既有 Muse 状态接入
 
 旧队列、已发补证、显式扩展读取预算、页面登录状态及两轮报告按 [宿主接线协议](../../skills/job-hunting/references/muse-host-adoption.md) 执行。仅升级代码不会更新运行中的宿主任务；Muse需固定新版本并实际接入这些调用，未知保持未知。数据库为事实源，原始JSONL保留并作为可回查投影；不要双写两套互相覆盖的状态。
+
+
+旧岗位全文优先回填、初稿/最终稿差异与本人确认后规则落盘按 [P1接线协议](../../skills/job-hunting/references/muse-backfill-and-diff.md)。先取完整JD再恢复原intake链；差异采集与岗位兴趣分别处理。生成前读取当前候选人的confirmed-rules；中间编辑恢复原稿须追加无变化事件。

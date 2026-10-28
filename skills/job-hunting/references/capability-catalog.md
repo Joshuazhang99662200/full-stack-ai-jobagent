@@ -257,3 +257,12 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 读取候选人作用域报告 | 已落地 | `jobagent host round-show` |
 | 校验两轮核心证据，保留真实宿主待验收状态 | 已落地 | `jobagent host verify-rounds` |
 | 输出未知值为空的私有报告模板 | 已落地 | `jobagent host round-template` |
+
+| 旧队列全文回填清单 | 已落地 | `jobagent host backfill-plan` | 原ID与私有优先级，partial不入策略 |
+| 旧摘要到全文谱系 | 已落地 | `jobagent host backfill-attach` | 原门禁校验真实读取后追加，不覆盖旧摘要 |
+
+| 初稿与最终稿差异 | 已落地 | `jobagent host message-diff` | 全文哈希与变化位置，语义类别为宿主提案 |
+| 差异成熟度 | 已落地 | `jobagent host diff-report` | 三个不同岗位才进入评估，无自动权重 |
+| 具体文案规则提案 | 已落地 | `jobagent host rule-propose` | 绑定当前评估摘要，待本人确认 |
+| 逐条规则确认 | 已落地 | `jobagent host rule-confirm` | 准确规则摘要与本人原话；独立于文案Accept |
+| 读取本人已确认规则 | 已落地 | `jobagent host confirmed-rules` | 私有候选人隔离，默认空列表 |

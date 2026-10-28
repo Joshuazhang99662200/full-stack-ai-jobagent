@@ -71,6 +71,7 @@ class IntakeResolve(IntakeCommand):
 
 class IntakeSnapshot(IntakeCommand):
     snapshot_id: IntakeKey
+    observation_id: IntakeKey | None = None
     attempt_id: IntakeKey | None = None
 
 

@@ -1,4 +1,5 @@
 """Pure decisions for a host's read-only search attempts."""
+
 from datetime import datetime, timedelta, timezone
 
 from jobagent.schemas.sourcing import (
@@ -25,6 +26,10 @@ def refusal_reason(
         return "expired_run"
     if budget.halted:
         return "site_halted"
+    if request.kind == "query" and budget.remaining == 0:
+        return "daily_detail_limit"
+    if request.kind == "query" and detail_count >= run.detail_limit:
+        return "round_detail_limit"
     if request.kind == "query" and query_count >= run.query_limit:
         return "round_query_limit"
     if request.kind == "detail":

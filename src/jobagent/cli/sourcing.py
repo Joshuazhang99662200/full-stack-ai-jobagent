@@ -1,4 +1,5 @@
 """Thin host-facing entry points for atomic read-only sourcing budgets."""
+
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,9 +25,18 @@ ModelT = TypeVar("ModelT", bound=ContractModel)
 
 
 def _fail(error: JobAgentError) -> Never:
-    typer.echo(json.dumps({"error": {
-        "code": error.code, "message": error.message, "details": error.details,
-    }}, ensure_ascii=False))
+    typer.echo(
+        json.dumps(
+            {
+                "error": {
+                    "code": error.code,
+                    "message": error.message,
+                    "details": error.details,
+                }
+            },
+            ensure_ascii=False,
+        )
+    )
     raise typer.Exit(1)
 
 
@@ -58,7 +68,13 @@ def start(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite
     """Freeze one board's round limits; this does not search."""
     try:
         request = _load(path, SourcingRunRequest)
-        cap = _spec(request.source).max_detail_reads_per_day
+        default_cap = _spec(request.source).max_detail_reads_per_day
+        cap = (
+            request.daily_detail_cap
+            if request.budget_profile == "muse-expanded-v1"
+            else min(default_cap, request.daily_detail_cap or default_cap)
+        )
+        assert cap is not None
         result = _repository(database).start_run(request, now=datetime.now(UTC), daily_cap=cap)
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
@@ -86,23 +102,48 @@ def complete(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sql
     """Append the result; failed/cancelled reads never refund the reservation."""
     try:
         result = _repository(database).complete(
-            _load(path, SourcingResultRequest), now=datetime.now(UTC),
+            _load(path, SourcingResultRequest),
+            now=datetime.now(UTC),
         )
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
         _fail(error)
 
 
-def budget(database: DatabaseOption = Path(".jobagent/jobagent.sqlite3")) -> None:
+def budget(
+    database: DatabaseOption = Path(".jobagent/jobagent.sqlite3"),
+    budget_profile: Annotated[str, typer.Option("--budget-profile")] = "conservative",
+    daily_detail_cap: Annotated[int | None, typer.Option("--daily-detail-cap")] = None,
+) -> None:
     """Meter attempts plus disclosed legacy observations, per source calendar day."""
     try:
+        if (
+            budget_profile not in {"conservative", "muse-expanded-v1"}
+            or (daily_detail_cap is not None and not 1 <= daily_detail_cap <= 240)
+            or (budget_profile == "muse-expanded-v1" and daily_detail_cap is None)
+            or (budget_profile == "conservative" and (daily_detail_cap or 0) > 50)
+        ):
+            raise ContractValidationError(
+                "Budget report needs a valid explicit policy and daily cap."
+            )
         repo = _repository(database)
         now = datetime.now(UTC)
         report = {
             item.id: repo.budget(
-                item.id, daily_cap=item.host_browser.max_detail_reads_per_day, now=now,
+                item.id,
+                daily_cap=(
+                    daily_detail_cap
+                    if budget_profile == "muse-expanded-v1"
+                    else min(
+                        item.host_browser.max_detail_reads_per_day,
+                        daily_detail_cap or item.host_browser.max_detail_reads_per_day,
+                    )
+                )
+                or 50,
+                now=now,
             ).model_dump(mode="json")
-            for item in SourceRegistry.default().all() if item.host_browser is not None
+            for item in SourceRegistry.default().all()
+            if item.host_browser is not None
         }
         typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
     except JobAgentError as error:

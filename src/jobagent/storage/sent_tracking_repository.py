@@ -48,9 +48,18 @@ class SqliteSentTrackingRepository:
             return self._current(connection, tracking_id, candidate_id)
 
     def start(
-        self, proof: SentProof, *, candidate_id: str, tracking_id: str, now: datetime
+        self,
+        proof: SentProof,
+        *,
+        candidate_id: str,
+        tracking_id: str,
+        now: datetime,
+        next_poll_at: datetime | None = None,
     ) -> SentTrackingRecord:
-        digest = canonical_digest([candidate_id, tracking_id, proof.model_dump(mode="json")])
+        digest = canonical_digest(
+            [candidate_id, tracking_id, proof.model_dump(mode="json")]
+            + ([next_poll_at.isoformat()] if next_poll_at else [])
+        )
         try:
             with self.database.connect() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -71,7 +80,11 @@ class SqliteSentTrackingRepository:
                 ):
                     raise ContractValidationError("This send already has a tracking record.")
                 events = start_tracking(
-                    proof, candidate_id=candidate_id, tracking_id=tracking_id, now=now
+                    proof,
+                    candidate_id=candidate_id,
+                    tracking_id=tracking_id,
+                    now=now,
+                    next_poll_at=next_poll_at,
                 )
                 connection.execute(
                     "INSERT INTO sent_tracking_roots VALUES (?, ?, ?)",

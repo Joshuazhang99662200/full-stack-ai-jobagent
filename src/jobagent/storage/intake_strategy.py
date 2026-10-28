@@ -206,6 +206,7 @@ class IntakeStrategyService:
             source=request.source,
             baseline_queries=request.baseline_queries,
             query_limit=request.query_limit,
+            budget_profile=request.budget_profile,
             now=now,
             learning=learning,
             feature_sets=features,
@@ -360,6 +361,8 @@ class IntakeStrategyService:
             if self.history_digest(connection) != active["history_digest"]:
                 reject("Search history changed; refresh strategy before the next round.")
             plan = CombinationPlan.model_validate(active["plan"])
+            if plan.budget_profile != run.budget_profile:
+                reject("Plan and actual round must use the same explicit budget profile.")
             if len(plan.ordered_queries or plan.fallback_queries) > run.query_limit:
                 reject("Plan exceeds this round's frozen query budget; rebuild with its limit.")
             result: dict[str, object] = {

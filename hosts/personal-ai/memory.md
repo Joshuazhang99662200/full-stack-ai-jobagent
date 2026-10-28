@@ -85,3 +85,8 @@ tracking history保存状态/时间/正文摘要与证据引用，不复制已�
 新intake策略自动汇总域内有效队列；首次升级从真实旧MD的snapshot_ids/显式snapshot_ids迁入既有完整快照，从historical_learning迁入原SearchLearningRequest。每个ID可反查，同ID异文拒绝，后续不需要每轮重传。旧权重不是L1，缺原始选择时只保留客观特征，不能补造喜欢。
 
 迁移18的私有队列、MD/计划和领取/执行记录以同一SQLite为权威。文件导出仅为视图。下一轮claim的plan_id、词库摘要与实际query预算行动必须可回查；未执行计划不写成功记录，报告标候选/延后/入选。关闭任务保留全部历史；不是新的行业负例。
+
+
+## 既有 Muse 状态接入
+
+旧队列、已发补证、显式扩展读取预算、页面登录状态及两轮报告按 [宿主接线协议](../../skills/job-hunting/references/muse-host-adoption.md) 执行。仅升级代码不会更新运行中的宿主任务；Muse需固定新版本并实际接入这些调用，未知保持未知。数据库为事实源，原始JSONL保留并作为可回查投影；不要双写两套互相覆盖的状态。

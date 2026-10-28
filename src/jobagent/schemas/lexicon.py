@@ -11,6 +11,7 @@ from jobagent.schemas.common import ContractModel, Digest
 from jobagent.schemas.job_intelligence import SearchRun
 from jobagent.schemas.jobs import JobId
 from jobagent.schemas.search_learning import SearchFeature, SearchLearningRequest
+from jobagent.schemas.sourcing import BudgetProfile, QueryBudget
 
 FeatureDimension = Literal["domain", "scenario", "tech", "role", "hard", "negative"]
 TermText = Annotated[
@@ -131,10 +132,9 @@ class LexiconUpdateResult(ContractModel):
     ignored_event_ids: list[str]
 
 
-class CombinationInput(ContractModel):
+class CombinationInput(QueryBudget):
     candidate_id: CandidateId
     source: TermText
-    query_limit: int = Field(default=3, ge=1, le=6)
     cooldown_hours: int = Field(default=24, ge=1, le=720)
     baseline_queries: list[SearchFeature] = Field(min_length=1, max_length=10)
     learning: SearchLearningRequest | None = None
@@ -164,6 +164,7 @@ class CombinationQuery(ContractModel):
 
 
 class CombinationPlan(ContractModel):
+    budget_profile: BudgetProfile = "conservative"
     candidate_id: CandidateId
     source: str
     version: Digest

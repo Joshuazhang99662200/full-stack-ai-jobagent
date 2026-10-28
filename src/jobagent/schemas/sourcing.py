@@ -1,4 +1,5 @@
 """Read-only sourcing budgets: a permit never grants contact or delivery."""
+
 from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, Field, HttpUrl, StringConstraints, model_validator
@@ -9,17 +10,47 @@ from jobagent.schemas.common import ContractModel
 SourcingId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
-class SourcingRunRequest(ContractModel):
+BudgetProfile = Literal["conservative", "muse-expanded-v1"]
+
+
+class QueryBudget(ContractModel):
+    budget_profile: BudgetProfile = "conservative"
+    query_limit: int = Field(default=3, ge=1, le=12)
+
+    @model_validator(mode="after")
+    def check_query_policy(self) -> "QueryBudget":
+        if self.budget_profile == "conservative" and self.query_limit > 6:
+            raise ValueError("Conservative query limit cannot exceed six.")
+        if self.budget_profile == "muse-expanded-v1" and "query_limit" not in self.model_fields_set:
+            raise ValueError("Expanded policy requires an explicit query limit.")
+        return self
+
+
+class SourcingRunRequest(QueryBudget):
     run_id: SourcingId
     candidate_id: CandidateId
     source: SourcingId
-    query_limit: Annotated[int, Field(ge=1, le=6)] = 3
-    detail_limit: Annotated[int, Field(ge=1, le=50)] = 20
+    detail_limit: Annotated[int, Field(ge=1, le=60)] = 20
+
+    budget_profile: BudgetProfile = "conservative"
+    daily_detail_cap: int | None = Field(default=None, ge=1, le=240)
+
+    @model_validator(mode="after")
+    def check_detail_policy(self) -> "SourcingRunRequest":
+        if self.budget_profile == "conservative":
+            if self.detail_limit > 50 or (self.daily_detail_cap or 0) > 50:
+                raise ValueError("Expanded detail limits require the explicit expanded policy.")
+        elif (
+            self.daily_detail_cap is None
+            or not {"detail_limit", "daily_detail_cap"} <= self.model_fields_set
+        ):
+            raise ValueError("Expanded rounds require explicit query, detail and daily limits.")
+        return self
 
 
 class SourcingRun(SourcingRunRequest):
     opened_at: AwareDatetime
-    daily_detail_limit: Annotated[int, Field(ge=1, le=50)]
+    daily_detail_limit: Annotated[int, Field(ge=1, le=240)]
 
 
 class SourcingAttemptRequest(ContractModel):
@@ -58,7 +89,7 @@ class SourcingResult(SourcingResultRequest):
 
 class SourcingBudget(ContractModel):
     source: SourcingId
-    daily_cap: Annotated[int, Field(ge=1, le=50)]
+    daily_cap: Annotated[int, Field(ge=1, le=240)]
     read_today: Annotated[int, Field(ge=0)]
     remaining: Annotated[int, Field(ge=0)]
     legacy_unmetered: Annotated[int, Field(ge=0)] = 0
@@ -68,8 +99,12 @@ class SourcingBudget(ContractModel):
 
 
 SourcingRefusal = Literal[
-    "already_reserved", "expired_run", "site_halted",
-    "round_query_limit", "round_detail_limit", "daily_detail_limit",
+    "already_reserved",
+    "expired_run",
+    "site_halted",
+    "round_query_limit",
+    "round_detail_limit",
+    "daily_detail_limit",
 ]
 
 

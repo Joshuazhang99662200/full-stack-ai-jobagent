@@ -166,11 +166,25 @@ def pending_execution(
 
 
 def start_tracking(
-    proof: SentProof, *, candidate_id: str, tracking_id: str, now: datetime
+    proof: SentProof,
+    *,
+    candidate_id: str,
+    tracking_id: str,
+    now: datetime,
+    next_poll_at: datetime | None = None,
 ) -> list[TrackingHistoryEvent]:
     if now.tzinfo is None or proof.sent_at > now:
         _reject("A recorded send cannot be in the future.")
+    if next_poll_at is not None and (next_poll_at.tzinfo is None or next_poll_at <= now):
+        _reject("Bootstrap must name the actual next future poll.")
+    if now > proof.sent_at + timedelta(days=1) and next_poll_at is None:
+        _reject("Late registration needs next_poll_at; missed checks cannot be backfilled.")
+    # Scheduled opportunities missed before registration are missing observations, not checks.
+    missed = [day for day in CHECK_DAYS if proof.sent_at + timedelta(days=day) < now]
     state = SentTrackingRecord(
+        registered_at=now,
+        bootstrap_next_check_at=next_poll_at,
+        missed_check_days=missed,
         tracking_id=tracking_id,
         candidate_id=candidate_id,
         job_id=proof.job_id,
@@ -183,7 +197,10 @@ def start_tracking(
         send_references=[proof.send_reference],
         last_event_at=now,
     )
-    digest = canonical_digest([candidate_id, tracking_id, proof.model_dump(mode="json")])
+    digest = canonical_digest(
+        [candidate_id, tracking_id, proof.model_dump(mode="json")]
+        + ([next_poll_at.isoformat()] if next_poll_at else [])
+    )
     first = TrackingHistoryEvent(
         event_id=tracking_id + ":sent",
         tracking_id=tracking_id,
@@ -198,7 +215,7 @@ def start_tracking(
         update={
             "tracking_state": S.AWAITING_REPLY,
             "tracking_version": 2,
-            "next_check_at": proof.sent_at + timedelta(days=1),
+            "next_check_at": next_poll_at or proof.sent_at + timedelta(days=1),
         }
     )
     second = TrackingHistoryEvent(
@@ -339,7 +356,13 @@ def advance(
         next_at = None
         if state.tracking_state == S.AWAITING_REPLY:
             day = CHECK_DAYS[min(state.check_count, 3)]
-            next_at = max(now, state.sent_at + timedelta(days=day))
+            next_at = max(
+                now,
+                state.sent_at + timedelta(days=day),
+                state.bootstrap_next_check_at
+                if state.check_count == 0 and state.bootstrap_next_check_at is not None
+                else now,
+            )
         return [_step(state, event, paused=False, next_check_at=next_at)]
     if state.paused and event.kind not in {"user_abandon", "queue_closed"}:
         _reject("Tracking is paused until the owner explicitly resumes it.")
@@ -410,6 +433,9 @@ def advance(
                 sent_at=reply_proof.sent_at,
                 sent_text_hash=reply_proof.sent_text_hash,
                 round_number=state.round_number + 1,
+                missed_check_days=[],
+                bootstrap_next_check_at=None,
+                registered_at=now,
                 check_count=0,
                 last_checked_at=None,
                 reply_detected_at=None,

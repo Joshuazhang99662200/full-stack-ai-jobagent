@@ -56,6 +56,16 @@ def next_actions(record: IntakeRecord) -> list[str]:
 def public_state(record: IntakeRecord) -> dict[str, object]:
     return {
         **record.model_dump(mode="json", exclude={"requests", "draft", "filter_context", "review"}),
+        "snapshot_state": "snapshot_complete"
+        if record.snapshot_id
+        else (
+            "snapshot_pending"
+            if record.legacy_snapshot_id or record.listing
+            else "identity_pending"
+        ),
+        "completeness": "full"
+        if record.snapshot_id
+        else ("partial" if record.legacy_snapshot_id else "unknown"),
         "source_references": [request.message_reference for request in record.requests],
         "next_actions": next_actions(record),
         "review_accepted": record.review.accepted if record.review else None,

@@ -68,3 +68,8 @@ BOSS/智联网页发送属于宿主动作，仓库没有新增平台投递连接
 URL/列表编号/消息卡片统一先入intake队列，按 [人工加岗协议](../../skills/job-hunting/references/manual-job-intake.md) 用next取得可恢复步骤。全新岗位可先绑定真实listing，再取完整JD；不会为解析身份造占位JD。草稿和学习两个分支独立，明确兴趣直接接既有user_added，文案Accept仍只代表文案决定。
 
 下一轮搜索须从同私有库领取活跃CombinationPlan，实际成功查询才写执行归因。完整实现与迁移见 [交付记录](../../docs/muse-manual-intake-2026-10-28.md)。须更新真实Muse聊天/轮询入口后验收；仓库未提供运行中的Muse事件插件。
+
+
+## 既有 Muse 状态接入
+
+旧队列、已发补证、显式扩展读取预算、页面登录状态及两轮报告按 [宿主接线协议](../../skills/job-hunting/references/muse-host-adoption.md) 执行。仅升级代码不会更新运行中的宿主任务；Muse需固定新版本并实际接入这些调用，未知保持未知。数据库为事实源，原始JSONL保留并作为可回查投影；不要双写两套互相覆盖的状态。

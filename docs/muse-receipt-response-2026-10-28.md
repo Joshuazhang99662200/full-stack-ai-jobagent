@@ -1,6 +1,6 @@
 # Muse回执处理结果与真实验收边界
 
-基线为PR #5（cb5e301）；P0为codex/muse-host-p0 / PR #6，P1为codex/muse-host-p1。仓库侧提供可执行工具及宿主调用协议，运行中的Muse任务、网页、私有40行/8条数据没有被本次代码操作接触。
+基线为PR #5（cb5e301）；P0为codex/muse-host-p0 / PR #6，P1为codex/muse-host-p1 / PR #7。仓库侧提供可执行工具及宿主调用协议，运行中的Muse任务、网页、私有40行/8条数据没有被本次代码操作接触。
 
 | 回执项 | 仓库交付 | 仍需Muse实际执行 |
 |---|---|---|
@@ -18,3 +18,6 @@ A/B/C假设没有进入规则、词库权重或查询计划。正文对比不证
 换域只替换该人的candidate/domain、已确认证据、硬条件、基础词、当前域词库、迁移字段映射和适用本人规则。设计域合成用例验证同一快照/特征/词库/组合流程；不改schema、预算、审批或跟踪算法。
 
 接线顺序见 [P0宿主协议](../skills/job-hunting/references/muse-host-adoption.md) 和 [P1回填与差异](../skills/job-hunting/references/muse-backfill-and-diff.md)。旧桥接只准备 [独立删除计划](muse-bridge-removal-plan.md)，未执行删除。不要把代码测试通过标成真实40迁移、真实8条正式跟踪或真实两轮已完成。
+
+
+代码验证：P0为998 passed，P1为1021 passed；Ruff、strict mypy（P1为160个source files）与git diff --check通过。审阅/合并顺序为 [PR #5](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/5) → [PR #6](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/6) → [PR #7](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/7)，本任务未执行合并。

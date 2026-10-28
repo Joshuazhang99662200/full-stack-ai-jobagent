@@ -40,3 +40,16 @@
 明确放弃、用户回绝后续跟进或从队列移除时追加 user_abandon/queue_closed；拒绝/岗位关闭使用真实来源证据归档。closed 保留历史且不再出现在 due 中。分别保存搜索报告与 tracking report，结果模式仅供本人评估，不自动调权重。宿主未接入上述新命令时，不能把协议声明当成已执行。
 
 连续两轮实际搜索的查询归因完整率100%、无查询的搜索来源入库为0，是待执行的宿主验收项；人工/推荐来源允许 query_hit=null，不为凑验收伪造查询。
+
+
+## 人工加岗与下一轮计划（必须接入实际任务）
+
+> 每次本人在当前聊天、消息列表或卡片提出检查/起草/加入岗位，先按 manual-job-intake.md 调用intake enqueue保存原消息ID、真实目标和意图。明确兴趣才记录like，编号需不可变selection映射。不要当一次性查岗；也不要等文案Accept才记明确兴趣。先intake next逐步完成身份、完整JD、草稿复核和学习，只有缺身份/全文/独立复核或遇门控才停。新读详情仍先预占预算，失败不退额；已有可核验全文和读取证据优先复用，不重复开页面。
+>
+> 每轮开始及新会话恢复时，先intake list候选人/域，再逐项next恢复未完成动作。成功一步重新next，禁止用同一旧版本并行回填两个分支。JD变化重新处理，已联系岗位转conversations，不发第二条首招。生成和复核分开实际执行，既有outreach批准/租约/next/readback全部保留。
+>
+> 当前域用intake strategy汇总所有有效新旧样本，核对返回MD与计划摘要；首次升级从真实MD snapshot_ids及原L1 historical_learning迁入既有域上下文，不把旧权重当事件。开始实际搜索轮次sourcing-start后必须intake claim，使用领取的ordered_queries或needs_seed的fallback；每次检索前reserve，完成后result和intake record-search，new_count填真实新增，不能另重复记search-log。计划过期先刷新，不继续first-launch旧词表。冷却不绕行，不增加3/20/50额度。
+>
+> 回给本人时列真实入队/全文/特征/草稿/版本/候选或入选/任务领取状态；没有plan_id不说已进下一轮，没有完成query证据不说已执行。结束保存检查点与真实任务版本，只对本人设置要求的事项通知。
+
+这个模板须部署到Muse真实聊天入口与轮询任务后才生效。公开代码不能主动安装Muse私有任务，也不能声称当前queue.jsonl或任务文本已经被修改。接线完成后记录两个真实轮次的plan_id、claim、budget attempt与query_hit。

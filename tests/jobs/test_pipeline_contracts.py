@@ -175,3 +175,17 @@ def test_unread_count_cannot_confirm_transitions_and_interviewed_has_limited_clo
                 "reason_code": "employer_rejected",
             }
         )
+
+
+def test_pipeline_timestamps_are_normalized_to_utc_before_persistence():
+    from datetime import timedelta, timezone
+
+    from jobagent.schemas.pipeline import PipelineMeta
+
+    local = NOW.astimezone(timezone(timedelta(hours=8)))
+    record = row(entered_at=local, state_changed_at=local, updated_at=local)
+    assert record.entered_at.utcoffset() == timedelta(0)
+    meta = PipelineMeta(
+        pipeline_id=record.pipeline_id, entered_evidence_reference="ENTRY", read_at=local
+    )
+    assert meta.read_at.utcoffset() == timedelta(0)

@@ -1,13 +1,26 @@
 """Authoritative pipeline fields; evidence and contact lineage do not duplicate state."""
 
 import json
+from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, Field, HttpUrl, model_validator
+from pydantic import AwareDatetime, Field, HttpUrl, field_validator, model_validator
 
 from jobagent.jobs.jd_snapshot import text_digest
 from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
+
+
+class PipelineContract(ContractModel):
+    @field_validator("*")
+    @classmethod
+    def utc_evidence_times(cls, value: object) -> object:
+        if isinstance(value, datetime):
+            if value.tzinfo is None:
+                raise ValueError("Pipeline evidence timestamps must include timezone information.")
+            return value.astimezone(UTC)
+        return value
+
 
 PipelineState = Literal[
     "draft_pending",
@@ -54,7 +67,7 @@ ALLOWED_PIPELINE_TRANSITIONS: frozenset[tuple[PipelineState, PipelineState]] = f
 )
 
 
-class PipelineJob(ContractModel):
+class PipelineJob(PipelineContract):
     pipeline_id: str = Field(pattern=r"^PIPE_[A-F0-9]{16}(?:_R[1-9][0-9]*)?$")
     candidate_id: CandidateId
     job_id: NonEmptyString
@@ -135,7 +148,7 @@ class PipelineJob(ContractModel):
         return self
 
 
-class PipelineHistory(ContractModel):
+class PipelineHistory(PipelineContract):
     history_id: NonEmptyString
     pipeline_id: str
     from_state: PipelineState | None
@@ -183,13 +196,17 @@ class PipelineTransition(PipelineHistory):
     owner_text: str | None = Field(default=None, repr=False)
 
 
-class PipelineMeta(ContractModel):
+class PipelineMeta(PipelineContract):
     pipeline_id: str
     version: int = Field(default=1, ge=1)
     contact_round: int = Field(default=1, ge=1)
     normalized_job_id: str | None = None
+    source_job_id: str | None = None
     intake_id: str | None = None
+    source_intake_version: int | None = Field(default=None, ge=1)
     domain: str | None = None
+    salary_minimum_k: int | None = Field(default=None, ge=0)
+    salary_currency: str | None = None
     scenario: list[str] = Field(default_factory=list)
     tech: list[str] = Field(default_factory=list)
     snapshot_id: str | None = None
@@ -203,11 +220,17 @@ class PipelineMeta(ContractModel):
     abandoned_at: AwareDatetime | None = None
     last_evidence_reference: str | None = None
     sent_greeting_version: str | None = None
+    recontact_conversation_id: str | None = None
+    recontact_approval_event_id: str | None = None
+    recontact_reply_digest: Digest | None = None
+    recontact_ask_id: str | None = None
+    recontact_snapshot_id: str | None = None
+    recontact_jd_text_hash: Digest | None = None
     paused: bool = False
     pause_reason: str | None = None
 
 
-class PipelineObservation(ContractModel):
+class PipelineObservation(PipelineContract):
     event_id: NonEmptyString
     pipeline_id: str
     candidate_id: CandidateId
@@ -221,7 +244,7 @@ class PipelineObservation(ContractModel):
     owner_text: str | None = Field(default=None, repr=False)
 
 
-class PipelineVerifiedEvidence(ContractModel):
+class PipelineVerifiedEvidence(PipelineContract):
     reference: str
     kind: PipelineEvidenceKind
     observed_at: AwareDatetime
@@ -234,6 +257,7 @@ class PipelineVerifiedEvidence(ContractModel):
     employer_rejected: bool = False
     job_closed: bool = False
     owner_decision: bool = False
+    greeting_version: str | None = None
     sent_text: str | None = Field(default=None, repr=False)
     sent_at: AwareDatetime | None = None
     send_reference: str | None = None
@@ -241,7 +265,7 @@ class PipelineVerifiedEvidence(ContractModel):
     resume_file_id: str | None = None
 
 
-class PipelineCreate(ContractModel):
+class PipelineCreate(PipelineContract):
     event_id: NonEmptyString
     candidate_id: CandidateId
     normalized_job_id: str | None = None
@@ -253,3 +277,25 @@ class PipelineCreate(ContractModel):
     salary_currency: str = Field(default="CNY", min_length=3, max_length=3)
     recontact_owner_reference: str | None = None
     recontact_owner_text: str | None = Field(default=None, repr=False)
+
+
+class PipelineArtifactBinding(PipelineContract):
+    event_id: NonEmptyString
+    pipeline_id: str
+    candidate_id: CandidateId
+    expected_version: int = Field(ge=1)
+    observed_at: AwareDatetime
+    kind: Literal["artifact_sync", "send_proof_bound"]
+    evidence_reference: NonEmptyString
+    source_digest: Digest
+    send_reference: str | None = None
+
+
+class PipelineBindSend(PipelineContract):
+    event_id: NonEmptyString
+    pipeline_id: str
+    candidate_id: CandidateId
+    expected_version: int = Field(ge=1)
+    normalized_job_id: str
+    audit_id: NonEmptyString
+    readback_text: NonEmptyString = Field(repr=False)

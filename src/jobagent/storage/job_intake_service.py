@@ -78,7 +78,9 @@ class JobIntakeService:
         digest: str,
         signal: SearchSignal | None = None,
     ) -> IntakeRecord:
-        return self.repository.update(
+        from jobagent.storage.pipeline_hooks import sync_bound_pipelines
+
+        saved = self.repository.update(
             command.intake_id,
             command.candidate_id,
             event_id=command.event_id,
@@ -89,6 +91,7 @@ class JobIntakeService:
             signal=signal,
             command_digest=digest,
         )
+        return sync_bound_pipelines(self.database, saved, now=now)
 
     def job(self, record: IntakeRecord) -> NormalizedJob:
         job = self.jobs.get_job(record.job_id or "")
@@ -174,7 +177,8 @@ class JobIntakeService:
                 "UPDATE intake_requests SET intake_id = ? WHERE intake_id = ?",
                 (merged.intake_id, alias.intake_id),
             )
-        return self.refresh_interest(merged, now=now)
+        self.refresh_interest(merged, now=now)
+        return self.synchronize(merged.intake_id, merged.candidate_id, now=now)
 
     def refresh_interest(self, row: IntakeRecord, *, now: datetime) -> IntakeRecord:
         if row.feature_set_id is None or row.signal_id is not None:
@@ -548,9 +552,11 @@ class JobIntakeService:
         return IntakeDraftingService(self).attach_batch(data, now=now)
 
     def synchronize(self, intake_id: str, candidate_id: str, *, now: datetime) -> IntakeRecord:
+        from jobagent.storage.pipeline_hooks import sync_bound_pipelines
+
         row = self.repository.get(intake_id, candidate_id)
         if row.job_id is None or row.closed or row.merged_into:
-            return row
+            return sync_bound_pipelines(self.database, row, now=now)
         changes: dict[str, object] = {}
         contacted = row.job_id in contacted_job_ids(self.outreach.list_audits())
         if contacted != row.contacted:
@@ -576,8 +582,9 @@ class JobIntakeService:
                 blocked_reason="jd_changed",
             )
         if not changes:
-            return row if row.paused else self.refresh_interest(row, now=now)
-        return self.repository.update(
+            current = row if row.paused else self.refresh_interest(row, now=now)
+            return sync_bound_pipelines(self.database, current, now=now)
+        saved = self.repository.update(
             row.intake_id,
             row.candidate_id,
             event_id="SYNC_" + canonical_digest([row.intake_id, row.version, changes])[7:],
@@ -586,6 +593,7 @@ class JobIntakeService:
             changes=changes,
             now=now,
         )
+        return sync_bound_pipelines(self.database, saved, now=now)
 
     def control(self, data: dict[str, object], *, now: datetime) -> IntakeRecord:
         cmd = IntakeControl.model_validate(data)

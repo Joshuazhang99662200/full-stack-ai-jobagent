@@ -237,3 +237,12 @@ def test_projection_cannot_replace_database_or_any_original_backup(tmp_path):
     for target in (source, db, Path(report["backup_path"]), Path(report["source_backup_path"])):
         with pytest.raises(ContractValidationError):
             adapter().project(db, config.migration_id, target)
+
+
+def test_expected_queue_size_is_an_explicit_private_parameter():
+    from pydantic import ValidationError
+
+    from jobagent.schemas.host_migration import QueueMigrationConfig
+
+    with pytest.raises(ValidationError):
+        QueueMigrationConfig(migration_id="MIG_GENERIC", candidate_id="CAND_DEMO", domain="design")

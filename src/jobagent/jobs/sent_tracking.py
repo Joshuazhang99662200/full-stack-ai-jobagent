@@ -8,6 +8,7 @@ from pydantic import HttpUrl
 
 from jobagent.errors import ContractValidationError
 from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
+from jobagent.jobs.pipeline import SILENCE_LIMIT
 from jobagent.outreach.service import OutreachService, policy_digest
 from jobagent.schemas.conversation import Conversation, ConversationEvent, EventKind, ReplyResult
 from jobagent.schemas.lexicon import JDFeatureSet
@@ -22,7 +23,29 @@ from jobagent.schemas.sent_tracking import (
 
 S = TrackingState
 ACTIVE = frozenset({S.SENT, S.AWAITING_REPLY, S.REPLIED, S.SCREENING, S.INTERVIEW})
-CHECK_DAYS = (1, 3, 7, 14)
+CHECK_INTERVAL = timedelta(hours=4)
+
+
+def tracking_deadline(state: SentTrackingRecord) -> datetime:
+    return (
+        max(t for t in (state.sent_at, state.read_at, state.last_substantive_at) if t is not None)
+        + SILENCE_LIMIT
+    )
+
+
+def next_observation(state: SentTrackingRecord, now: datetime) -> datetime:
+    return max(now, min(now + CHECK_INTERVAL, tracking_deadline(state)))
+
+
+
+def check_due_at(state: SentTrackingRecord) -> datetime | None:
+    """Cap legacy cached schedules while respecting the actual bootstrap poll."""
+    if state.next_check_at is None:
+        return None
+    due_at = min(state.next_check_at, tracking_deadline(state))
+    if state.check_count == 0 and state.bootstrap_next_check_at is not None:
+        due_at = max(due_at, state.bootstrap_next_check_at)
+    return due_at
 
 
 def _reject(message: str) -> Never:
@@ -177,14 +200,12 @@ def start_tracking(
         _reject("A recorded send cannot be in the future.")
     if next_poll_at is not None and (next_poll_at.tzinfo is None or next_poll_at <= now):
         _reject("Bootstrap must name the actual next future poll.")
-    if now > proof.sent_at + timedelta(days=1) and next_poll_at is None:
+    if now > proof.sent_at + CHECK_INTERVAL and next_poll_at is None:
         _reject("Late registration needs next_poll_at; missed checks cannot be backfilled.")
-    # Scheduled opportunities missed before registration are missing observations, not checks.
-    missed = [day for day in CHECK_DAYS if proof.sent_at + timedelta(days=day) < now]
+    # Old missed_check_days values remain readable in history; no old cadence is inferred.
     state = SentTrackingRecord(
         registered_at=now,
         bootstrap_next_check_at=next_poll_at,
-        missed_check_days=missed,
         tracking_id=tracking_id,
         candidate_id=candidate_id,
         job_id=proof.job_id,
@@ -215,7 +236,7 @@ def start_tracking(
         update={
             "tracking_state": S.AWAITING_REPLY,
             "tracking_version": 2,
-            "next_check_at": next_poll_at or proof.sent_at + timedelta(days=1),
+            "next_check_at": next_poll_at or proof.sent_at + CHECK_INTERVAL,
         }
     )
     second = TrackingHistoryEvent(
@@ -353,16 +374,9 @@ def advance(
         _owner(event)
         if not state.paused:
             _reject("Tracking is not paused.")
-        next_at = None
-        if state.tracking_state == S.AWAITING_REPLY:
-            day = CHECK_DAYS[min(state.check_count, 3)]
-            next_at = max(
-                now,
-                state.sent_at + timedelta(days=day),
-                state.bootstrap_next_check_at
-                if state.check_count == 0 and state.bootstrap_next_check_at is not None
-                else now,
-            )
+        next_at = next_observation(state, now)
+        if state.check_count == 0 and state.bootstrap_next_check_at is not None:
+            next_at = max(next_at, state.bootstrap_next_check_at)
         return [_step(state, event, paused=False, next_check_at=next_at)]
     if state.paused and event.kind not in {"user_abandon", "queue_closed"}:
         _reject("Tracking is paused until the owner explicitly resumes it.")
@@ -379,27 +393,43 @@ def advance(
         if state.tracking_state != S.AWAITING_REPLY:
             _reject("Only an awaiting record can receive a suspected reply.")
         return [_step(state, event)]
+    if event.kind == "read_confirmed":
+        if (
+            event.evidence_kind not in {"conversation_message", "list_message"}
+            or event.job_url != state.job_url
+            or state.read_at is not None
+        ):
+            _reject("A read needs actual target-bound evidence and can only start its clock once.")
+        updated = state.model_copy(update={"read_at": event.observed_at})
+        return [
+            _step(
+                state,
+                event,
+                read_at=event.observed_at,
+                next_check_at=next_observation(updated, event.observed_at),
+            )
+        ]
     if event.kind == "no_reply":
-        if state.tracking_state != S.AWAITING_REPLY or event.evidence_kind not in {
+        if state.tracking_state not in ACTIVE or event.evidence_kind not in {
             "conversation_message",
             "list_message",
         }:
             _reject("No-reply checks need an awaiting record and actual message observation.")
-        if state.next_check_at is None or event.observed_at < state.next_check_at:
+        due_at = check_due_at(state)
+        if due_at is None or event.observed_at < due_at:
             _reject("This check is not due; catch-up checks cannot be compressed.")
-        count = min(4, state.check_count + 1)
-        if count >= 4 and event.observed_at >= state.sent_at + timedelta(days=14):
+        count = state.check_count + 1
+        if event.observed_at >= tracking_deadline(state):
             return _close(
                 state,
                 event,
                 S.NO_RESPONSE_EXPIRED,
-                "no_response_expired",
+                "read_no_reply_2d" if state.read_at is not None else "no_reply_2d",
                 "no_response",
                 check_count=count,
                 last_checked_at=event.observed_at,
             )
-        nominal = state.sent_at + timedelta(days=CHECK_DAYS[min(count, 3)])
-        next_at = nominal if count >= 4 else max(nominal, event.observed_at + timedelta(days=1))
+        next_at = next_observation(state, event.observed_at)
         return [
             _step(
                 state,
@@ -438,15 +468,27 @@ def advance(
                 registered_at=now,
                 check_count=0,
                 last_checked_at=None,
+                read_at=None,
+                last_substantive_at=None,
                 reply_detected_at=None,
-                next_check_at=reply_proof.sent_at + timedelta(days=1)
-                if next_state == S.AWAITING_REPLY
-                else None,
+                next_check_at=reply_proof.sent_at + CHECK_INTERVAL,
                 send_references=[*state.send_references, reply_proof.send_reference],
             )
         ]
     _inbound(state, event, conversation, inbound)
     assert inbound is not None and inbound.inbound is not None
+    actual_activity = inbound.inbound.received_at
+    substantive_at = max(t for t in (state.last_substantive_at, actual_activity) if t is not None)
+    activity_state = state.model_copy(update={"last_substantive_at": substantive_at})
+    if event.kind == "substantive_reply":
+        return [
+            _step(
+                state,
+                event,
+                last_substantive_at=substantive_at,
+                next_check_at=next_observation(activity_state, event.observed_at),
+            )
+        ]
     if event.kind == "reply_confirmed":
         if state.tracking_state != S.AWAITING_REPLY:
             _reject("Only awaiting tracking can confirm its first reply.")
@@ -456,8 +498,9 @@ def advance(
                 event,
                 tracking_state=S.REPLIED,
                 reply_kind="message",
-                reply_detected_at=event.observed_at,
-                next_check_at=None,
+                reply_detected_at=actual_activity,
+                last_substantive_at=substantive_at,
+                next_check_at=next_observation(activity_state, event.observed_at),
             )
         ]
     if event.kind == "screening_confirmed":
@@ -473,7 +516,8 @@ def advance(
                 tracking_state=S.SCREENING,
                 reply_kind="screening",
                 outcome="screening",
-                next_check_at=None,
+                last_substantive_at=substantive_at,
+                next_check_at=next_observation(activity_state, event.observed_at),
             )
         ]
     if event.kind == "interview_confirmed":
@@ -488,7 +532,8 @@ def advance(
                 tracking_state=S.INTERVIEW,
                 reply_kind="interview",
                 outcome="interview",
-                next_check_at=None,
+                last_substantive_at=substantive_at,
+                next_check_at=next_observation(activity_state, event.observed_at),
             )
         ]
     if event.kind == "employer_rejected":

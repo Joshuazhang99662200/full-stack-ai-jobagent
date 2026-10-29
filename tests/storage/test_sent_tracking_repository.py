@@ -77,3 +77,48 @@ def test_an_audit_can_start_only_one_tracking_record(tmp_path):
     start(store)
     with pytest.raises(ContractValidationError):
         store.start(proof(), candidate_id="CAND_DEMO", tracking_id="TRACK_ANOTHER", now=NOW)
+
+
+def activate_pipeline(store, candidate="CAND_DEMO"):
+    with store.database.connect() as connection, connection:
+        connection.execute(
+            "INSERT INTO pipeline_authorities VALUES (?, ?, ?)",
+            (candidate, NOW.isoformat(), "PRIVATE_SWITCH_RECEIPT"),
+        )
+
+
+def test_pipeline_authority_blocks_old_mutations_but_preserves_history_reading(tmp_path):
+    store = repo(tmp_path)
+    value = start(store)
+    before = store.history(value.tracking_id, value.candidate_id)
+    activate_pipeline(store)
+    with pytest.raises(ContractValidationError, match="pipeline"):
+        start(store)
+    with pytest.raises(ContractValidationError, match="pipeline"):
+        store.apply(event(value, "no_reply"), now=NOW + timedelta(days=1))
+    assert store.due(value.candidate_id, now=NOW + timedelta(days=1)) == []
+    assert store.get(value.tracking_id, value.candidate_id) == value
+    assert store.list_records(value.candidate_id) == [value]
+    assert store.history(value.tracking_id, value.candidate_id) == before
+
+
+def test_authority_switch_is_candidate_scoped(tmp_path):
+    store = repo(tmp_path)
+    activate_pipeline(store, candidate="CAND_OTHER")
+    assert start(store).candidate_id == "CAND_DEMO"
+
+
+def test_due_caps_persisted_legacy_schedule_at_real_deadline(tmp_path):
+    store = repo(tmp_path)
+    value = start(store)
+    previous = store.history(value.tracking_id, value.candidate_id)[-1]
+    legacy_state = value.model_copy(
+        update={"next_check_at": NOW + timedelta(days=7), "tracking_version": 3}
+    )
+    legacy_event = previous.model_copy(
+        update={"event_id": "LEGACY_SCHEDULE", "version": 3, "state": legacy_state}
+    )
+    with store.database.connect() as connection, connection:
+        store._append(connection, [legacy_event])
+    assert store.due(value.candidate_id, now=NOW + timedelta(hours=47)) == []
+    assert store.due(value.candidate_id, now=NOW + timedelta(hours=48)) == [legacy_state]

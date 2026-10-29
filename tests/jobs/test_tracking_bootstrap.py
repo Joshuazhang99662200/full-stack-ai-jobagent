@@ -23,12 +23,12 @@ def test_late_registration_requires_actual_next_poll_and_does_not_backfill_check
     )
     value = history[-1].state
     assert value.check_count == 0 and value.last_checked_at is None
-    assert value.missed_check_days == [1] and value.registered_at == registered
+    assert value.missed_check_days == [] and value.registered_at == registered
     assert value.next_check_at == next_poll
     assert all(e.occurred_at == registered for e in history)
 
 
-def test_bootstrap_first_check_is_real_and_catch_up_cannot_be_compressed():
+def test_late_bootstrap_first_real_check_expires_without_backfilled_counts():
     from jobagent.jobs.sent_tracking import advance, start_tracking
 
     registered = NOW + timedelta(days=2)
@@ -45,7 +45,8 @@ def test_bootstrap_first_check_is_real_and_catch_up_cannot_be_compressed():
         advance(state, early, now=registered)
     observed = event(state, "no_reply", observed_at=next_poll)
     state = advance(state, observed, now=next_poll)[-1].state
-    assert state.check_count == 1 and state.next_check_at >= next_poll + timedelta(days=1)
+    assert state.check_count == 1 and state.next_check_at is None
+    assert state.tracking_state.value == "closed" and state.abandon_reason == "no_reply_2d"
     with pytest.raises(ContractValidationError):
         advance(
             state,

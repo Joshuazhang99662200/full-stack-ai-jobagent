@@ -177,7 +177,11 @@ def test_round_tracking_summary_uses_state_at_completion_not_later_events(tmp_pa
 
     tracking = SqliteSentTrackingRepository(service.database)
     state = tracking.start(
-        proof(), candidate_id="CAND_DEMO", tracking_id="TRACK_HISTORY", now=payload["started_at"]
+        proof(),
+        candidate_id="CAND_DEMO",
+        tracking_id="TRACK_HISTORY",
+        now=payload["started_at"],
+        next_poll_at=payload["started_at"] + timedelta(hours=4),
     )
     later = payload["completed_at"] + timedelta(hours=1)
     tracking.apply(
@@ -223,3 +227,218 @@ def test_detail_attempt_report_uses_completed_results_not_planned_capacity(tmp_p
         "failed": 0,
         "pending": 0,
     }
+
+
+def pipeline_report_record(service, payload, number=1, *, at=None):
+    from jobagent.jobs.jd_snapshot import text_digest
+    from jobagent.schemas.pipeline import PipelineMeta
+    from jobagent.storage.pipeline_repository import PipelineRepository
+    from tests.jobs.test_pipeline_contracts import row
+
+    created = at or payload["started_at"] + timedelta(seconds=2)
+    job = row(
+        pipeline_id=f"PIPE_{number:016X}",
+        job_id=f"boss-pipeline-{number}",
+        entered_at=created,
+        state_changed_at=created,
+        updated_at=created,
+        draft_greeting="Synthetic draft",
+        draft_version="SYNTHETIC_V1",
+        draft_digest=text_digest("Synthetic draft"),
+    )
+    meta = PipelineMeta(
+        pipeline_id=job.pipeline_id,
+        entered_evidence_reference="SYNTHETIC_ENTRY",
+        normalized_job_id=f"JOB_DEMO_{number}",
+        domain="design",
+    )
+    store = PipelineRepository(service.database)
+    pair = store.create(
+        job, meta, event_id=f"REPORT_CREATE_{number}", evidence_reference="SYNTHETIC_ENTRY"
+    )
+    return store, pair
+
+
+def send_pipeline(store, pair, at):
+    from jobagent.schemas.pipeline import PipelineTransition, PipelineVerifiedEvidence
+
+    job, meta = pair
+    event = PipelineTransition(
+        event_id="REPORT_SEND",
+        pipeline_id=job.pipeline_id,
+        candidate_id=job.candidate_id,
+        expected_version=meta.version,
+        from_state="draft_pending",
+        to_state="greeting_sent",
+        changed_at=at,
+        evidence_kind="send_audit",
+        evidence_reference="SYNTHETIC_SENT_AUDIT",
+        send_reference="SYNTHETIC_SENT_AUDIT",
+        reason_code="normal",
+    )
+    proof = PipelineVerifiedEvidence(
+        reference=event.evidence_reference,
+        kind="send_audit",
+        observed_at=at,
+        source_at=at,
+        sent_text=job.draft_greeting,
+        sent_at=at,
+        send_reference=event.send_reference,
+    )
+    return store.transition(event, proof, now=at)
+
+
+def test_authority_report_uses_pipeline_snapshots_at_completion_not_legacy_or_later_state(tmp_path):
+    from jobagent.schemas.pipeline import PipelineTransition, PipelineVerifiedEvidence
+    from jobagent.storage.sent_tracking_repository import SqliteSentTrackingRepository
+    from tests.jobs.test_sent_tracking import proof
+
+    reporter, service, payload = round_evidence(tmp_path)
+    legacy = SqliteSentTrackingRepository(service.database)
+    legacy.start(
+        proof(),
+        candidate_id="CAND_DEMO",
+        tracking_id="ARCHIVED_TRACKING",
+        now=payload["started_at"],
+        next_poll_at=payload["started_at"] + timedelta(hours=4),
+    )
+    store, pair = pipeline_report_record(service, payload)
+    job, meta = send_pipeline(store, pair, payload["started_at"] + timedelta(seconds=3))
+    later = payload["completed_at"] + timedelta(hours=1)
+    event = PipelineTransition(
+        event_id="AFTER_REPORT_CLOSURE",
+        pipeline_id=job.pipeline_id,
+        candidate_id=job.candidate_id,
+        expected_version=meta.version,
+        from_state="greeting_sent",
+        to_state="abandoned",
+        changed_at=later,
+        evidence_kind="owner_message",
+        evidence_reference="LATER_OWNER_REPLY",
+        reason_code="user_abandoned",
+    )
+    proof = PipelineVerifiedEvidence(
+        reference=event.evidence_reference,
+        kind=event.evidence_kind,
+        observed_at=later,
+        source_at=later,
+        owner_decision=True,
+    )
+    store.transition(event, proof, now=later)
+    result = reporter.record(payload, now=later)
+    assert result["tracking"]["state_authority"] == "pipeline_jobs"
+    assert result["tracking"]["counts"]["greeting_sent"] == 1
+    assert result["tracking"]["counts"]["abandoned"] == 0
+    assert "awaiting_reply" not in result["tracking"]["counts"]
+    assert result["tracking"]["newly_closed"] == 0
+    assert result["pipeline"] == result["tracking"]
+    assert result["tracking"]["next_checks"][0]["next_check_at"] is None
+    assert result["tracking"]["next_checks"][0]["deadline_at"]
+    assert result["partial_not_in_strategy"] == [job.pipeline_id]
+
+
+def test_pipeline_report_counts_unproven_legacy_snapshot_without_fabricating_check_times(tmp_path):
+    from jobagent.jobs.jd_snapshot import canonical_digest
+    from jobagent.schemas.pipeline import PipelineHistory
+
+    reporter, service, payload = round_evidence(tmp_path)
+    store, (job, meta) = pipeline_report_record(service, payload)
+    at = payload["started_at"] + timedelta(seconds=3)
+    declared = job.model_copy(
+        update={"pipeline_state": "greeting_sent", "state_changed_at": at, "updated_at": at}
+    )
+    metadata = meta.model_copy(update={"version": 2, "proof_status": "proof_pending"})
+    with service.database.connect() as connection, connection:
+        store.write_job(connection, declared, metadata)
+        store.append_history(
+            connection,
+            PipelineHistory(
+                history_id="PH_DECLARED",
+                pipeline_id=job.pipeline_id,
+                from_state="draft_pending",
+                to_state="greeting_sent",
+                changed_at=at,
+                evidence_kind="platform_state",
+                evidence_reference="PRIVATE_LEGACY",
+                reason_code="normal",
+            ),
+        )
+        store.remember(connection, "DECLARED", canonical_digest("DECLARED"), (declared, metadata))
+    result = reporter.record(payload, now=payload["completed_at"])
+    assert result["tracking"]["proof_pending"] == 1
+    assert result["tracking"]["counts"]["greeting_sent"] == 1
+    detail = result["tracking"]["next_checks"][0]
+    assert detail["deadline_at"] is None and detail["next_check_at"] is None
+    assert detail["proof_status"] == "proof_pending"
+
+
+def test_missing_immutable_pipeline_snapshot_is_reported_unverified_not_guessed(tmp_path):
+    from jobagent.schemas.pipeline import PipelineHistory
+
+    reporter, service, payload = round_evidence(tmp_path)
+    store, (job, meta) = pipeline_report_record(service, payload)
+    at = payload["started_at"] + timedelta(seconds=3)
+    declared = job.model_copy(
+        update={"pipeline_state": "greeting_sent", "state_changed_at": at, "updated_at": at}
+    )
+    metadata = meta.model_copy(update={"version": 2, "proof_status": "proof_pending"})
+    with service.database.connect() as connection, connection:
+        store.write_job(connection, declared, metadata)
+        store.append_history(
+            connection,
+            PipelineHistory(
+                history_id="PH_MISSING_SNAPSHOT",
+                pipeline_id=job.pipeline_id,
+                from_state="draft_pending",
+                to_state="greeting_sent",
+                changed_at=at,
+                evidence_kind="platform_state",
+                evidence_reference="PRIVATE_LEGACY",
+                reason_code="normal",
+            ),
+        )
+    result = reporter.record(payload, now=payload["completed_at"])
+    assert result["tracking"]["unverified_pipeline_ids"] == [job.pipeline_id]
+    assert sum(result["tracking"]["counts"].values()) == 0
+    assert result["tracking"]["as_of_verification"] == "incomplete_snapshot_history"
+
+
+def test_later_authority_activation_does_not_replace_an_older_legacy_report(tmp_path):
+    from jobagent.storage.sent_tracking_repository import SqliteSentTrackingRepository
+    from tests.jobs.test_sent_tracking import proof
+
+    reporter, service, payload = round_evidence(tmp_path)
+    tracking = SqliteSentTrackingRepository(service.database)
+    tracking.start(
+        proof(),
+        candidate_id="CAND_DEMO",
+        tracking_id="EARLY_TRACKING",
+        now=payload["started_at"],
+        next_poll_at=payload["started_at"] + timedelta(hours=4),
+    )
+    later = payload["completed_at"] + timedelta(hours=1)
+    pipeline_report_record(service, payload, at=later)
+    result = reporter.record(payload, now=later)
+    assert result["tracking"]["counts"] == {"awaiting_reply": 1}
+    assert result.get("pipeline") is None
+
+
+def test_same_timestamp_transitions_use_append_order_in_as_of_snapshot_validation(tmp_path):
+    reporter, service, payload = round_evidence(tmp_path)
+    store, pair = pipeline_report_record(service, payload)
+    send_pipeline(store, pair, pair[0].entered_at)
+    result = reporter.record(payload, now=payload["completed_at"])
+    assert result["tracking"]["unverified_pipeline_ids"] == []
+    assert result["tracking"]["counts"]["greeting_sent"] == 1
+
+
+def test_actual_host_next_poll_is_distinct_from_silence_deadline(tmp_path):
+    reporter, service, payload = round_evidence(tmp_path)
+    store, pair = pipeline_report_record(service, payload)
+    send_pipeline(store, pair, pair[0].entered_at + timedelta(seconds=1))
+    payload["next_poll_at"] = payload["completed_at"] + timedelta(hours=4)
+    result = reporter.record(payload, now=payload["completed_at"])
+    check = result["tracking"]["next_checks"][0]
+    assert check["next_check_at"] == payload["next_poll_at"].isoformat()
+    assert check["deadline_at"] != check["next_check_at"]
+    assert check["schedule_verification"] == "host_observed_only"

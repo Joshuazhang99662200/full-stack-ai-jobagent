@@ -28,6 +28,8 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 
 ## 上下文路由
 
+- 需要后段九态表单、48小时静默核对、累计指标/诊断、规则优化复核或候选人状态权威切换时，优先加载 [references/pipeline.md](references/pipeline.md)。只加载当前阶段；旧tracking在authority切换后只读，pipeline不授予发送权。
+
 - Muse旧JD回填或初稿/最终稿差异、本人规则推广时，加载 [references/muse-backfill-and-diff.md](references/muse-backfill-and-diff.md)；仅已确认规则可作为生成偏好。
 
 - Muse旧队列迁移、扩展预算、登录判定或轮末验收时，按需加载 [references/muse-host-adoption.md](references/muse-host-adoption.md)。
@@ -35,7 +37,7 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 - 用户从聊天、消息列表或卡片加岗，以及恢复人工加岗任务时，优先加载 [references/manual-job-intake.md](references/manual-job-intake.md)。先持久入队，再取全文/起草；next逐步恢复，明确兴趣才参与偏好，下一轮必须领取实际计划。
 
 - 需要JD快照、原文特征、私有词库或组合查询时，只加载 [references/jd-knowledge.md](references/jd-knowledge.md) 与当前域文件，不预读所有JD和行业。
-- 需要已发消息到期检查、真实回复确认、暂停/放弃或结果模式报告时，加载 [references/sent-tracking.md](references/sent-tracking.md)；回复另走原有审批流程。
+- 已切换pipeline的候选人，用 [references/pipeline.md](references/pipeline.md) 做后段核对与恢复；仅查旧跟踪审计时再加载 [references/sent-tracking.md](references/sent-tracking.md)。回复仍走原有逐项审批。
 
 - 需要完整产品契约时,阅读 [references/product-spec.md](references/product-spec.md)。
 - 需要跨域边界时,阅读 [references/architecture-invariants.md](references/architecture-invariants.md) 与 [references/capability-catalog.md](references/capability-catalog.md)。

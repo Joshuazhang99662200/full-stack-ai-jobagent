@@ -220,6 +220,7 @@ class PipelineDiagnosisRequest(ContractModel):
     previous: list[PipelineStageMetric] = Field(default_factory=list)
     evidence: list[PipelineMetricEvidence] = Field(min_length=1)
     exclusions_reviewed: bool = False
+    review_reference: NonEmptyString | None = None
     rule: ConfirmedPipelineMetricRule | None = None
 
 
@@ -227,3 +228,30 @@ class PipelineDiagnosisDecision(ContractModel):
     diagnoses: list[PipelineDiagnosis]
     observation_reasons: list[str]
     source_digest: Digest
+
+
+class PipelineMetricsComputeInput(ClosedPipelineWindow):
+    candidate_id: CandidateId
+    scope: PipelineSlice
+    rule_id: NonEmptyString | None = None
+
+
+class PipelineStoredDiagnosisInput(ContractModel):
+    candidate_id: CandidateId
+    current_metric_ids: list[NonEmptyString] = Field(min_length=1)
+    previous_metric_ids: list[NonEmptyString] = Field(default_factory=list)
+    exclusions_reviewed: bool = False
+    review_reference: NonEmptyString | None = None
+    rule_id: NonEmptyString | None = None
+
+    @model_validator(mode="after")
+    def original_review_reference(self) -> "PipelineStoredDiagnosisInput":
+        if self.exclusions_reviewed and not (
+            self.review_reference and self.review_reference.strip()
+        ):
+            raise ValueError("Reviewed confounders need the original review evidence reference.")
+        if len(set(self.current_metric_ids)) != len(self.current_metric_ids):
+            raise ValueError("Current metric references cannot repeat to inflate evidence.")
+        if set(self.current_metric_ids) & set(self.previous_metric_ids):
+            raise ValueError("Current and prior cumulative windows need independent references.")
+        return self

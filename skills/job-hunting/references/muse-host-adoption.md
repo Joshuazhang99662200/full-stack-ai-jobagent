@@ -1,51 +1,56 @@
-# Muse 宿主接线与验收
+# Muse 私有状态接入与轮末验收
 
-此协议用于 PR #5 之后的既有私有队列接入。只加载当前步骤；数据库是事实源，JSONL/Markdown 是投影。CLI 不打开浏览器、不发消息、不设置定时任务。所有路径均指宿主自己的私有目录。
+只加载本页当前需要的步骤。候选人、真实行数/原ID、优先级、来源时间、字段映射、岗位正文与个人条件均由宿主私有配置提供。数据库是事实源，JSONL/MD是投影；公开仓库不预置任何人的批次或账号。
 
-## 显式读取预算
+后段状态切换使用 [pipeline协议](pipeline.md) 及 [完整工程说明](../../../docs/pipeline-flywheel.md)。原 host inspect-queue / migrate-queue / verify-migration / project-queue / rollback-migration 仍用于旧intake数据接入，不能当成新pipeline authority切换已经完成；不要混用两种迁移的manifest或回滚备份。
 
-默认 conservative 仍为每站每轮 3 查询、20 详情尝试、每日 50。扩展档必须在 SourcingRunRequest 同时写入 budget_profile=muse-expanded-v1、query_limit=12、detail_limit=60、daily_detail_cap=240，不能只增加提示词。组合与 intake strategy 输入也必须显式传相同 budget_profile、query_limit；plan/run 档位不一致拒绝领取。扩展档允许 8–12 查询，宿主按需要明确填写；显式 detail_limit=20 就只允许 20，程序不会补到 60。
+## 显式读取预算与薪资
+
+conservative默认每站每轮3查询、20详情尝试、每日50。扩展档SourcingRunRequest必须同时显式传budget_profile=muse-expanded-v1、query_limit、detail_limit、daily_detail_cap；例如受支持的12/60/240档。组合和intake strategy同步传相同profile/query_limit，档位不一致拒绝。显式20详情仍只允许20，不自动升额。
 
 ~~~json
 {"budget_profile":"muse-expanded-v1","query_limit":12,"detail_limit":60,"daily_detail_cap":240}
 ~~~
 
-以上只是需要合入原有请求的预算字段，candidate_id/source/run_id 等仍按同版本契约填写。先执行 jobs sourcing-budget --budget-profile muse-expanded-v1 --daily-detail-cap 240，再 sourcing-start；每次实际操作前 reserve，allowed=true 才读取，随后 result。每查询最多处理前 10 条列表，先跨查询去重再分配详情。失败、取消、重复详情仍占额，60/轮与240/站/日都到顶即停。计量仅覆盖同一私有数据库，不能跨数据库另开额度。
+这是预算字段示例，仍须合入真实run/candidate/source输入。先jobs sourcing-budget核对，再sourcing-start冻结；每次实际操作前reserve，allowed=true才读取，随后result。每查询最多前10条列表，先跨查询去重再分详情；失败、取消、重复读取都占额。轮/日额度耗尽停止后续操作，不换ID、数据库或账号另开额度。来源URL、会话总页数、翻页间隔、风控停止与本人更严格的限额继续有效。发送预算独立。
 
-扩展只改变读取计数，来源 URL、每会话总页数、翻页间隔、风控停止与本人限额仍有效。需要更多查询时按来源会话约束分轮恢复，不能以扩展预算绕开会话限制。来源清单的 max_detail_reads_per_day 是 conservative 默认；只有显式扩展档允许上述覆盖。发送预算完全独立。
+薪资比较显式compensation_comparison=upper_bound，底线和币种来自本人私有条件。区间上限能达到底线才通过，未知或币种/周期不可比保持REVIEW。统计薪资分箱不替代个人筛选条件。
 
-薪资输入显式使用 compensation_comparison=upper_bound：底线18k时15–25k、14–18k通过，13–17k拒绝；币种、计薪周期或区间未知保持 REVIEW。
+## 离线接入检查点
 
-## 旧队列离线迁移
+固定SHA并停写/停旧轮询，先inspect字段形状，再填写私有配置。expected_count和expected_row_ids必须由实际原文件核对，缺行、多行、重编号、错身份均停止。旧队列源文件保留字节和SHA；实际入库时间未知时只接受有私有依据的derived时间，不能用迁移时刻冒充。
 
-1. 固定相同代码版本，停止全部数据库写者并 checkpoint WAL。保留原 queue.jsonl、已发原文件与数据库；不要在线迁移。
-2. host inspect-queue PRIVATE_QUEUE 只查看字段形状。按实际字段编写 QueueMigrationConfig；不猜字段含义。设置 migration_id、candidate_id、domain、expected_count=40、fields 映射；平台别名用 platform_values 显式映射。40是本批次验收值，其他批次须明确修改。
-3. 已发信息可以在队列中，也可传 --sent-file PRIVATE_SENT_JSONL。独立文件用 sent_row_id_field 对应队列原ID、sent_send_reference_field 对应原发送引用，expected_sent_count=8 校验本批数量；缺时间保持空值或原窗口文本。没有独立文件时用 sent_row_ids 明确标出原记录。
-4. host migrate-queue PRIVATE_QUEUE PRIVATE_CONFIG --sent-file PRIVATE_SENT_JSONL --database PRIVATE_DB。临时库验证通过后才原子替换，原文件字节副本与旧库保存在私有库旁 migration-backups。数量不符、重复ID、候选人不符、错误链接或输入变化均拒绝。默认要求40个不同岗位根；确认原数据重复岗位时才能显式 require_distinct_jobs=false，仍保存40行原ID映射。
-5. host verify-migration MIGRATION_ID --database PRIVATE_DB，核对原ID、原行摘要、目标链接、40行/岗位根、partial及待补证发送。重放同一输入幂等，换输入须新迁移ID。
-6. host project-queue MIGRATION_ID PRIVATE_PROJECTION --database PRIVATE_DB，回读私有投影。未知时间仍为 null，不能拿迁移时间当采集时间。旧摘要固定 legacy v0/full_jd_text_stored=false；snapshot_pending，未进策略。完整JD之后通过正常快照链追加，原摘要保留。正文不全不起草、不因子化、不学词库。
-7. host rollback-migration 仅允许迁移后尚无其他活动且备份摘要一致时恢复；之后已有新事实必须保留，不能强行回滚覆盖。
+新后段入口按顺序运行：
 
-迁移不会把旧状态字符串转换为审批或实际发送。每条旧已发默认 proof_pending。只有已有正式审批、准确获批正文、实际发送审计及回读证据，才执行原 tracking start；历史迟登记必须给未来 next_poll_at，保存 registered_at、missed_check_days，检查次数仍从0开始。不能把失去的1/3/7/14天机会计为已查。再用 host bind-tracking 的 LegacyTrackingBinding 绑定原发送引用与实际tracking。缺确切时间/原文/审计则继续待补证；8条声明不等于8条正式跟踪。原批次时间窗口端点不能充当逐条精确发送时间。
+~~~text
+jobagent pipeline inspect PRIVATE_QUEUE
+jobagent pipeline migrate PRIVATE_QUEUE PRIVATE_CONFIG --database PRIVATE_DB
+jobagent pipeline verify-migration MIGRATION_ID --candidate CAND_PRIVATE --database PRIVATE_DB
+jobagent pipeline project MIGRATION_ID PRIVATE_PROJECTION --candidate CAND_PRIVATE --database PRIVATE_DB
+~~~
 
-## 登录、未加载与通知
+程序备份原库与源文件，在临时库验证后原子激活。缺URL或身份的条目仍保留原行出处与待处理intake，不造JD/岗位行。旧摘要为partial，完整JD/hash为NULL；卡片拒绝不映射岗位废止。历史发送声明为greeting_sent/proof_pending，准确发送字段为NULL，不能当已验证发送或拿批次窗口补时间。
 
-每站分别记录 messages/search，调用 host page-observe：state为logged_in、login_redirect、not_loaded之一，含真实 observed_at/evidence_reference。not_loaded只允许一次 reload_once；再次未加载保持 unconfirmed，不能记无回复。登录跳转立即 request_user_login/notification_required，即使静默时段也必须由宿主实际告知本人。CLI只输出要求，不负责送达通知。
+已有原审批、sent审计、准确回读和真实目标后用pipeline bind-send补证。切换后以pipeline_jobs为后段权威，旧tracking只读且不再到期写入；不要再用tracking start/event写第二套当前态。
 
-消息页跳转暂停同站活跃tracking；搜索页跳转不推断消息页状态，须追加实际 sourcing gate。另一站保持独立。本人完成登录后重新读消息页，明确恢复跟踪；不能自行换账号、重试风控或把 logged_in 当回复证据。
+回滚用pipeline rollback MIGRATION_ID --candidate CAND_PRIVATE，仅在无后续事实、库与备份摘要一致时可恢复。之后有新事实就保留并交人处理，不能强行覆盖队列或修改authority开关。实际宿主切换、恢复旧任务需要本人另行决定。
 
-## 轮末与两轮验收
+## 聊天、轮询与登录接线
 
-每轮调用 host round-template CANDIDATE DOMAIN 取得空模板，填实际开始/结束、run_ids及证据后删除 template_only，再 round-report。未知计数保持 null；去重数、过滤原因必须附原始宿主证据。程序按本轮实际执行查询核对 query_hit，并扫描本轮该来源所有发现，漏传ID不能提高归因比例。手工/推荐单列，不伪造查询。
+三入口按 [人工加岗](manual-job-intake.md)：URL用url，编号用list_item+不可变list_version，卡片用conversation_card及原message_reference。先intake enqueue，未知目标先selection/resolve，不等文案Accept才入队；inspect/draft不隐式变like。
 
-报告分开记录查询、详情、去重/过滤、完整快照、新入库/草稿、词库版本、旧partial、跟踪待查/漏查/待补证、登录与unfinished。零新增也保存并按通知设置给轮末摘要。再次读取 round-show 验证持久化；两轮按实际先后提交 verify-rounds。重复报告不能算两轮。
+每次交互/轮询先intake list，再逐项next，成功一步重读当前版本；缺全文不能起草/学习。完整JD/因子化后intake strategy，实际轮次sourcing-start后claim。成功query的complete结果才record-search，new_count必须明确为真实值；失败、登录跳转和计划不能记成功。已绑定pipeline的产物变化后核对pipeline sync与form，不能把intake成功推断成表单已同步。
 
-报告的 real_browser_verified 始终为 false：合成演练和程序一致性不能证明真实 Muse 网页已接通。Muse须附两轮真实宿主回执与未完成项，由本人核验；不得把 mock 输出写成真实零新增、真实40迁移或真实8跟踪通过。仓库不会设置或改写运行中的 Muse 任务。
+每站分别对messages/search调用host page-observe，state仅logged_in/login_redirect/not_loaded，含真实observed_at与evidence_reference。未加载最多建议一次重载，仍未加载保留未确认，不能报无回复。登录跳转立即要求本人操作并通知，静默偏好不覆盖阻塞通知。消息页失效暂停同站后段记录；搜索失效不推断消息页，须记录实际sourcing gate。通知送达由宿主执行，CLI只给要求。
 
-## 实际宿主调用检查点
+pipeline due后先真实读对话，再observe；未读数只能疑似，新消息先conversations inbound再引用确认。唯一48小时静默时钟见pipeline页。恢复须本人原话，终态不复活；规则、学习与定时都不代表发送批准。
 
-入口明细见 [人工加岗协议](manual-job-intake.md)。聊天URL用entry_kind=url；消息列表编号用list_item + 不可变list_version；消息卡片用conversation_card及原message_reference，未解析身份先selection固定映射。三种入口都先intake enqueue，成功后才能打开详情/起草；重复request_id同文重放不增样本，异文报错。同岗多来源经resolve合并且保留出处；只有真实JobListing可先绑定，不能造占位JD。
+## 每轮报告与两轮真实验收
 
-每次交互/轮询开始 intake list CANDIDATE DOMAIN --database PRIVATE_DB；对未完成项 intake next INTAKE_ID --candidate CANDIDATE --database PRIVATE_DB。按next给出的expected_version推进一步，再next重读；snapshot_pending不能起草或学习。完成全文/特征后 intake strategy PRIVATE_STRATEGY PRIVATE_LEXICON --database PRIVATE_DB，下一轮每站sourcing-start后用intake claim领取同域活跃计划。组合不等于搜索成功；实际sourcing query的complete之后才能intake record-search PRIVATE_EXECUTION，必须显式new_count，0也明确写0，失败或登录跳转不写成功。所有调用均同一私有库；queue/MD只从程序状态导出。
+host round-template生成待填结构，填实际started/completed、run_ids、原查询/人工发现ID、去重数、过滤原因及证据、实际下轮时间与unfinished，删除template_only后才提交round-report。未知值保留NULL，0必须有真实观察。
 
-轮询先处理page-observe，再tracking due CANDIDATE --database PRIVATE_DB，只检查返回的未暂停awaiting_reply。实际观察后tracking event保存no_reply/suspected_reply/reply_confirmed等；仅徽标变化只能疑似，明确对方新消息后才确认。登录跳转暂停并要求立即通知，恢复须本人原话；closed不再到期，不能恢复终态或单轮凑四次。轮末tracking report与host round-report回读，附各状态数量、下查时间、漏查与新增放弃原因。若核心或私有持久化不可用，就停止在草稿/待核实，不创建替代本机服务。
+报告保存组合清单、实际查询/详情、query_hit归因、去重/过滤、新入库/新稿、词库版本、partial、pipeline各态/待补证/截止点/新增废止原因、分站分页面登录状态和未完成项。手工/推荐单列，不能伪造query_hit凑完整率；漏传搜索发现ID也不能提高归因。旧tracking只作为未切换候选人的历史口径，不能与新authority的当前态相加。
+
+用round-show回读持久结果，两轮独立、顺序真实、同候选人/域后用verify-rounds。real_browser_verified=false保持不变；Muse需附真实网页、私有状态恢复、单实例、通知送达和原文件对账证据，由本人复核。代码或合成演练通过不等于真实迁移或两轮验收通过。
+
+本工程未改写运行中的Muse任务、未访问招聘网站、未发送消息、未创建任务、未送达通知；相关真实结果均为unverified。

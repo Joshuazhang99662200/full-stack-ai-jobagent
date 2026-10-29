@@ -1,61 +1,55 @@
-# Muse 寻源知识与已发观察交付记录（2026-10-28）
+# Muse 知识核心与后段观察交付说明
 
-基于38afd89，分支 codex/muse-snapshots-sent-tracking。先落地预算/薪资与反馈分离，再补原文快照、词库和已发观察。旧本地 bridge 裁剪实验保持独立；本PR没有修改 bridge 或原有 outreach / applications / candidate 的生产实现。
+本页保留知识核心的职责映射，并按现行pipeline协议更新活动口径。历史提交和私有审计不重写；旧跟踪记录在候选人authority切换后供只读追溯，当前宿主执行见 [pipeline飞轮](pipeline-flywheel.md)。代码提供接口和校验，实际网页、任务、通知及私有数据切换仍由宿主执行。
 
-## 六项契约与实现
+## 可复用能力
 
-| 能力 | 类型权威 | 纯逻辑与装配 |
-|---|---|---|
-| 原文快照/发现 | schemas/jd_snapshot.py：JDSnapshotInput、JDSnapshot、SnapshotDiscovery | jobs/jd_snapshot.py：make_snapshot、capture_from_record；storage/jd_snapshot_repository.py：capture |
-| 原文特征 | schemas/lexicon.py：JDFeature、JDFeatureSet | jobs/jd_features.py：extract_features；jobs/jd_factorization.py：factorize |
-| 可编辑词库 | schemas/lexicon.py：Lexicon、LexiconTerm、LexiconUpdateResult | jobs/lexicon.py：parse_lexicon、serialize_lexicon；jobs/search_learning.py：rebuild_lexicon |
-| 组合查询 | schemas/lexicon.py：CombinationInput、CombinationRequest、CombinationPlan | jobs/query_derivation.py：SearchQueryDeriver.derive_combinations；cli/jd_knowledge.py：combinations |
-| 本人反馈 | schemas/search_learning.py：SearchSignal、SearchLearningRequest | jobs/search_learning.py：latest_owner_signals、learn_search、rebuild_lexicon；L1原始文件由宿主私有追加 |
-| 已发送观察 | schemas/sent_tracking.py：TrackingStartInput、TrackingEventInput、SentTrackingRecord | jobs/sent_tracking.py：outreach_proof、reply_proof、start_tracking、advance、tracking_report；cli/tracking.py与storage/sent_tracking_repository.py |
+| 能力 | 类型与实现 |
+|---|---|
+| JD原文和发现归因 | schemas/jd_snapshot.py、jobs/jd_snapshot.py、storage/jd_snapshot_repository.py |
+| 原文特征/因子化 | schemas/lexicon.py、jobs/jd_features.py、jobs/jd_factorization.py |
+| 私有词库与组合 | jobs/lexicon.py、jobs/search_learning.py、jobs/query_derivation.py、storage/intake_strategy.py |
+| 本人信号 | schemas/search_learning.py；L1原话私有追加，L2从来源重算 |
+| 人工加岗与恢复 | schemas/job_intake.py、storage/job_intake_service.py、cli/job_intake.py |
+| 后段权威与表单 | schemas/pipeline.py、jobs/pipeline.py、storage/pipeline_repository.py；统一pipeline_job_form |
+| 通用迁移/产物同步 | schemas/pipeline_migration.py、schemas/pipeline_sync.py及对应storage服务 |
+| 累计飞轮 | schemas/pipeline_metrics.py、jobs/pipeline_metrics.py、jobs/pipeline_diagnosis.py、storage/pipeline_metrics.py |
+| 本人规则与复核 | schemas/pipeline_rules.py、storage/pipeline_rules.py；复用私有message_rule_*账本 |
 
-## 现有调用点接线
+## 前段知识边界
 
-jobs import-observations / add-jd 在归一化前保留原文；有实际时区的完整采集进入私有快照。手工输入明确manual；仅列表标listing；旧无时区记录仍可入原表，但不伪造快照时间。实际查询必填、手工/推荐可为空；同内容不同查询保存发现，同岗正文或元数据改变追加版本。
+原始采集在归一化前保留；完整快照须有真实抓取时间和身份，实际搜索填真实query_hit，手工/推荐可以NULL，不能伪造查询。相同内容可保留不同发现，正文或元数据变化追加版本，原文不覆盖。列表要点保持listing/partial，不能拼为全文。
 
-jobs 的原 search-plan、learn-search 和新 combinations 共存。新计划必须由宿主显式选域与持久快照，保存计划ID；不替宿主执行网页动作。来源预算在动作前预占，失败与重复读取占额；计划不会增加额度。jobs hard-filter 默认比较薪资上限与本人底线，15–25k 对18k接受；未知币种/周期/薪资保持 REVIEW，除非本人显式允许未知。
+模型特征须有准确原文位置、别名依据和否定/必需性，失败退回有据结果；引文定位不代表语义判断已获本人确认。私人种子、域、基础查询、硬条件和候选人材料由宿主分别配置，不把维护者行业或文风当默认。
 
-根CLI新增 tracking 分组，读取已有批准/发送/会话账本。outreach record、next、lease、conversations reply-gate、applications与候选人证据确认实现保持原样。新观察不自动发送、不批量编排，不动态执行技能入口。能力目录和 hosts/personal-ai 三个契约文件同步。
+文案Accept不推断喜欢岗位；明确岗位兴趣、文案反馈和人工选择元数据分开。重复消息、同岗多入口和重复回执不增加独立样本；原始事件与派生摘要可回查。不把薪资/地点/文案拒绝降格为整个行业负偏好。
 
-## 相对附件的明确修订
+寻源默认conservative预算保持3查询/20详情尝试/每日50；支持显式扩展档，必须传profile和完整参数。计划本身不增额，实际读取先reserve再result，失败和重复占额；来源会话、间隔和风控继续有效。薪资比较显式upper_bound，底线与币种来自本人私有配置，未知或不可比REVIEW。
 
-- 继续使用默认每站每轮3查询/20详情尝试、每日最多50详情尝试；不执行8–12查询乘10详情的扩量建议。combinations只排计划，实际预算仍由 sourcing-start/reserve/result 执行。
-- “接受文案”不等于“喜欢岗位”。job_preference 与 message_feedback 分离；客观词频来自独立完整JD，不来自批准次数。反馈ID/来源ID与派生摘要代替覆写L1 consumed。没有有据岗位偏好不自动奖励行业。
-- 方向拒绝需真实命中查询、本人原话、不同岗位与公司至少3条，仅后移，不删除。工资/地点/文案原因不会降整个查询。
-- JD六维保留必需/优先/否定信息，negative是个人政策；模型提案无准确原文偏移或别名依据时整体回退确定性结果。引文只能证明位置，不能证明所有语义判断正确；宿主仍须复核。
-- 查询组合保存实际联合来源；人工组合与共现证据分开。无种子保持 needs_seed，不能把维护者金融词表当默认行业。
-- 搜索来源要求真实 query_hit；人工/推荐输入允许缺查询并如实标记。连续两轮100%归因是宿主待验收项，当前合成测试不能代替真实平台结果。
-- 跟踪 sent_at 来自已有审计的 recorded_at，标明审计时间基准。逐字一致只验证提交回读与批准缓存，不能认证网页账号或倒推旧审计已执行浏览器回读。
-- 1/3/7/14天只读节律以第1天到期为默认；漏查至少间隔一天补齐，防止单轮四次读取凑数。既有巡检任务承载检查，没有新增定时守护。
-- queue_closed由宿主引用本人原话追加；仓库没有Muse队列事件总线，不能声称自动订阅队列关闭。报告不直接改变词库或候选人证据。
-- 沿用可复用 Python 核心与CLI适配层，Muse可使用同一核心；旧bridge未成为依赖，也未在本PR整包删除。无需引入ReAct框架依赖：宿主观察→调用纯能力→校验→追加记录→按需加载下一份上下文。
+## 后段当前态与48小时政策
 
-## 状态、非法转移与并发
+pipeline_jobs使用固定九态，只有带目标证据的允许转移可以更新状态、原因和时间，并原子追加历史。统一pipeline_job_form展示职位、薪资、JD、拟稿、实际发送、定制简历、入库和当前态，不再拼多套当前状态。
 
-完整状态/事件表见 skills/job-hunting/references/sent-tracking.md。建档保留sent与awaiting两条版本；confirmed回复只消费已有INBOUND，旧轮次或未来消息拒绝。awaiting不能直接interview，未读计数不能确认回复，关闭后不能恢复等待，无批准/sent审计或回读不一致不能建档。
+新状态权威启用后旧tracking不接受修改、不再生成到期检查。静默截止点只由真实sent_at、read_at、最后实质回复或定制简历发送中较晚时间加48小时产生；观察次数不决定废止。宿主必须先读真实已加载对话再提交no_reply。无精确时间/无验证证明保持proof_pending，不能靠导入时间建立时钟。已面试不自动无回复废止；终态不复活，新联系需独立轮次、本人请求和新批准。
 
-有效no_reply最多累计4次且至少14天才归档，漏查不能压缩；明确拒绝、岗位关闭和本人放弃保存终态后追加closed。due只选未暂停的awaiting，closed不再到期。新批准回复回读一致才重置轮次；回读不一致暂停原状态，不重发。数据库BEGIN IMMEDIATE与expected_version保护并发；相同事件重放幂等，冲突ID和旧版本拒绝。历史与发送引用不删除。
+已读、回复、索要简历、邀约与完成面试要有来源证据；角标只能疑似。回读不一致拒绝并暂停匹配目标；登录/风控停止该站并由本人处理，不重发、不换账号绕行。pipeline只引用既有outreach/conversations/applications批准、实际审计与准确回读，不改发送、租约或证据确认语义。
 
-## 私有位置、版本、迁移与回滚
+## 迁移与私有数据
 
-运行时默认 .jobagent/jobagent.sqlite3，Muse须传本人私有持久数据库；活跃词库MD、L1反馈、回读输入与来源日志留 .jobagent/ 或 candidate/private/。公开提交只有类型、引擎、策略与明确合成样本。新跟踪历史仅保存正文摘要和来源引用，已有获批全文仍留原私有批次/会话。
+原始行数、ID序列、声明、字段映射、优先级、入库时间依据和个人硬条件只在私有配置。离线migrate先备份原库与源字节，在临时库验证身份/完整性后原子激活。缺URL/身份保留intake，旧摘要保持NULL全文；卡片决定不冒充岗位终态。历史发送声明可保留greeting_sent/proof_pending，但准确sent_*仍NULL，不能假装已经通过原发送门禁。
 
-迁移14存预算，15存JD/发现/特征/词库版本，16存计划输入输出，17存跟踪roots/events/requests/sends。升级前备份并停旧任务；不能用旧代码读取新版库。运行指纹会变，新运行或显式迁移，不绕过验证。
+verify/project逐行对账并回读；回滚仅在没有后续事实、当前与备份摘要一致时允许。已有新观察、批准或规则后不能用旧队列覆盖数据库。代码与数据版本要固定，运行指纹变更后新运行或显式迁移，不绕验证；不启动本地bridge、监听或浏览器控制链。
 
-词库同来源、同政策重算幂等；来源变化才vN递增，保存parent_digest。私有库保留原MD和派生MD，lexicon-show以候选人+内容摘要回读。宿主选择旧版为活跃文件即政策回滚；旧版本和原始记录保留。数据库回滚需恢复升级前私有备份。
+同一私有库保存快照、发现、因子化、词库版本、intake、pipeline、累计指标和本人规则。公开提交只含代码、协议、脱敏合成示例与代码测试证据，不包含真实JD、候选人资料、已发全文、招聘方消息或私人批次统计。
 
-## 换域与设计样本
+## 累计诊断与本人确认
 
-只替换当前域活跃MD中的人工种子、别名和模板，选择该域JD快照/反馈与本人基础查询；不改schema、抽取/因子化引擎、组合算法、预算门禁或审批发送核心。空模板可复制，带金融/设计样例的代码块不自动激活。
+先metrics得到原metric IDs，再diagnose。七维scope来自实际来源，NULL表示未知，不当通配符；CONTENT_仅内容版本，不当共享harness。historical_rate、sliced_cumulative_rate、optimized_rate分别核算闭合累计窗口，window_rate只参考；零分母NULL，废止仍留分母，不重复累计、不跨轮次借转化。
 
-合成设计域使用品牌/设计师/Figma，按factorize→rebuild→derive_combinations得到设计查询；无金融硬编码，通用引擎测试覆盖。十组合成JD覆盖否定、必需/优先、别名与准确原文位置。此结果说明同一流程可换域，不代表真实设计岗位搜索质量已获验证。
+诊断只比累计比率、相邻累计窗口持续性、伴随漏斗与排除证据，不设绝对样本数触发门槛。缺证据和边界抖动保留持续观察，不把未核实原因算成正文或简历问题。诊断提案、准确scope/前后效果、本人rule_confirm、下一窗口复核分别追加；优化无效只给回滚提案，未经本人确认不生效。普通文案diff的成熟度另行校验，不能用它的样本门槛限制后段累计诊断。
 
-## 验证与剩余验收
+## 宿主验收
 
-最终全套门禁：909 passed，Ruff通过，Mypy检查142个源码文件无问题，git diff --check通过。跟踪阶段领域/存储/CLI组合26项通过；最终测试还覆盖原有审批、租约、回读、审计及技能打包，不能以局部通过代替全套结果。
+按 [工程协议](pipeline-flywheel.md) 的通用切换检查与两轮模板，由Muse在本人授权后私有执行真实对账、完整JD、单实例恢复、页面登录、通知送达及规则复核。查询归因只统计真实搜索发现，人工/推荐单列，不为凑完整率补query_hit。
 
-本轮没有访问真实Muse或招聘网站、发送招聘消息、读取真实JD/简历、创建宿主定时任务。真实页面完整性、账号回读、单实例恢复和连续两轮归因仍需在Muse按个人设置验收。词库与状态机已可调用，真实宿主效果保持unverified。
+本工程没有改写运行中的Muse任务、访问招聘网站、发送招聘消息、创建任务或送达通知。真实迁移、切换和两轮结果保持unverified，real_browser_verified=false。代码pytest/Ruff/strict mypy/diff检查另留实际日志，合成通过不替代宿主真实验收。

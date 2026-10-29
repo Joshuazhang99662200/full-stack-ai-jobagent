@@ -1,25 +1,29 @@
-# 已发送消息的观察与归档
+# 已发送消息的观察与历史归档
 
-只在需要查看已发消息、检查到期、记录真实新回复或结束跟踪时加载本页。日常寻源不必加载所有对话与历史正文。已落地命令见 capability-catalog.md；回复与简历仍按 conversation.md、hitl-approval.md 独立审批。
+只在需要查看已发证据、只读观察或追溯旧记录时加载本页。当前pipeline状态的操作按pipeline协议；回复与附件仍按conversation.md、hitl-approval.md逐项审批。
+
+## 当前状态权威
+
+私有库中 pipeline_authorities 对候选人存在切换回执后，pipeline_jobs 是唯一当前流程状态。旧 tracking start / event 的写入会结构化拒绝并要求使用 pipeline；tracking due 返回空列表。tracking status / history / report 只读取保留的历史，不把旧 awaiting_reply 当作另一套当前状态。
+
+切换按候选人隔离。尚未切换的候选人可继续使用旧跟踪接口，但活动规则也统一使用同一个48小时时钟。不存在按检查次数或旧多日节律废止的第二套政策。新pipeline出现后不能通过换旧命令重开已终止流程。
 
 ## 建档与证据边界
 
-只有现有 outreach 的人工审批、绑定摘要和 sent 审计一致，且宿主提供的实际回读全文与获批缓存逐字相等，tracking start 才保存 sent → awaiting_reply 两条历史。也可引用既有 conversation 的 reply_approved + sent reply_result 建立新跟踪；需要同一岗位的缓存 URL。不能用客户端传来的 approved=true 或发送意图代替审计。
+只有现有outreach人工审批、准确正文摘要、sent审计和宿主逐字回读一致，tracking start 才保存sent → awaiting_reply历史。也可引用既有conversation的reply_approved和实际sent reply_result。approved=true、发送意图和批次时间窗口不能替代原审计。
 
-程序校验的是记录与提交回读的一致性，无法认证宿主浏览器或账号，也不能从旧 outreach record 推断真实网页已回读。sent_at 使用已有审计的 recorded_at，明确标 sent_time_basis=audit_recorded_at，可能晚于实际发送时间。未确认回读不建已发送跟踪；已有跟踪的新回复回读不一致则追加异常、暂停，不重发。
-
-建档 JSON 例（所有正文只在私有区）：
+程序校验的是私有记录和回读的一致性，无法认证宿主浏览器或账号。sent_at来自原审计recorded_at，并保留sent_time_basis=audit_recorded_at；不能用迟登记时间伪装实际发送时间。回读不一致不建正式跟踪；已有记录发生异常时暂停，不重发。
 
 ~~~json
 {
   "candidate_id": "CAND_DEMO",
   "tracking_id": "TRACK_DEMO",
   "audit_id": "OAUDIT_DEMO",
-  "readback_text": "宿主实际读到的完整文本"
+  "readback_text": "宿主实际读到的准确全文"
 }
 ~~~
 
-conversation 来源改用 conversation_id、reply_result_event_id，不能混用 audit_id。默认 tracking_id 从发送引用摘要生成，重复建档返回同一结果，同一发送不能绑定多个跟踪。
+conversation来源改用conversation_id、reply_result_event_id，不能与audit_id混用。超出通常首查时段的迟登记需显式next_poll_at（未来的实际下一轮时间）。registered_at保留实际登记时间，check_count从0开始；missed_check_days仅兼容读取旧审计，不再根据已退休的节律推导新值。登记不补填观察，也不因没有检查次数延后已经到达的废止期限。
 
 ## 命令与事件
 
@@ -33,53 +37,28 @@ jobagent tracking history <tracking_id> --candidate <candidate_id> --database <p
 jobagent tracking report <candidate_id> --database <private-db>
 ~~~
 
-pending 只投影既有未撤回批准与各站会话租约，仍检查原有平台节奏、当日叫停与上限；不取得租约、不创建跟踪、不执行发送。下一条执行仍调用 outreach next。其余跟踪命令只记观察和状态。
+pending只投影既有批准与站点租约，不取得租约、不发送、不创建当前pipeline状态。实际对外动作继续原outreach next等门禁。
 
-事件契约 TrackingEventInput 必填 event_id、tracking_id、candidate_id、expected_version、kind、observed_at（含时区）、observation_id、evidence_reference、evidence_kind。每次从 status 读取当前版本；同 ID 同内容重放幂等，不同内容冲突，旧版本不能覆盖新状态。观察必须按时间追加，不能来自未来。
+TrackingEventInput包含event_id、tracking_id、candidate_id、expected_version、kind、observed_at（含时区）、observation_id、evidence_reference、evidence_kind。同ID同文重放幂等，异文或过期版本拒绝。观察按时间追加，拒绝未来消息和旧发送轮次消息。
 
-~~~json
-{
-  "event_id": "TEVT_DEMO",
-  "tracking_id": "TRACK_DEMO",
-  "candidate_id": "CAND_DEMO",
-  "expected_version": 2,
-  "kind": "reply_confirmed",
-  "observed_at": "2026-10-28T10:00:00+08:00",
-  "observation_id": "OBS_DEMO",
-  "evidence_reference": "CEVT_INBOUND_DEMO",
-  "evidence_kind": "conversation_message",
-  "conversation_id": "CONV_DEMO",
-  "inbound_event_id": "CEVT_INBOUND_DEMO"
-}
-~~~
+先通过conversations inbound保存真实对方消息；reply_confirmed、substantive_reply、初筛、邀约和拒绝从库核对同岗位/平台/会话/事件及实际received_at。asks_resume、interview_invite、declined必须来自该既有入站事件；宿主仍负责忠实分类，不把系统消息或自动摘要当实质回复。
 
-先通过 conversations inbound 保存实际消息。确认回复/初筛/面试/拒绝时，CLI必须从库读取该 INBOUND，匹配岗位、平台、会话、事件与时间。列表未读计数只能记 suspected_reply，不算回复。旧轮次消息不能触发新轮次。初筛需 asks_resume 或实际原文中的明确推进片段；面试需 interview_invite，拒绝需 declined。宿主必须忠实归类，不把自动摘要当真实推进事实。
+read_confirmed只接受conversation_message/list_message和相同job_url的真实已读观察。它不增加检查次数，每次发送轮次只能首次确认一次，反复打开同一已读回执不能延长时钟。未读数、角标变化只能记suspected_reply，不确认已读或回复。
 
-| 当前状态 | 事件 | 结果 |
-|---|---|---|
-| 已批准未执行 | pending 投影 | approved_pending_execution；仅原门禁放行的下一条为 leased |
-| 完整发送证明 | start | sent → awaiting_reply，保存两条历史 |
-| awaiting_reply | reply_confirmed | replied，停止默认无回复检查 |
-| replied | screening_confirmed | screening |
-| replied / screening | interview_confirmed | interview |
-| replied / screening / interview | reply_sent | 既有新批准回复结果且回读一致；replied 开启新 awaiting_reply，初筛/面试保持后续人工节奏 |
-| awaiting_reply | no_reply | 有效检查 +1，满 14 天且满 4 次后 no_response_expired → closed |
-| 跟踪中 | employer_rejected / job_closed | 拒绝或同 URL 岗位关闭证据 → 对应状态 → closed |
-| 跟踪中 | user_abandon / queue_closed | 本人原话与来源 → abandoned_by_user → closed |
-| 当前状态 | anomaly | 状态保持，paused=true，清除到期 |
-| 暂停中 | resume | 本人明确恢复；不自动重发 |
-| closed | 普通跟踪事件 | 拒绝恢复；新批准与新发送另建记录 |
+## 唯一48小时时钟
 
-不能 awaiting_reply → interview；不能无回读建档；不能关闭后复活旧等待。归档保留 abandoned_at、abandon_reason、outcome 与完整版本链，停止到期检查，不删除发送事实。用户从队列移除需宿主追加 queue_closed，本项目没有新增 Muse 队列事件总线。
+截止时间 = max(sent_at, read_at, last_substantive_at) + 48小时，空值不参与比较。没有确认已读时以实际发送或最近实质活动为准；确认已读后使用较晚的真实证据时间。实质回复以原消息received_at重置，迟到登记或反复观察旧消息不能把时间改成当前时刻。
 
-## 日程与报告
+旧接口默认每4小时生成只读检查机会，并在48小时截止时到期；宿主按实际轮询执行，不为凑次数反复打开页面。no_reply必须有真实加载的消息页观察，失败、重复、未加载和角标不增加有效检查数。check_count只是无上限审计计数，不触发或阻止废止。到截止时间的第一条真实无回复检查直接写no_reply_2d或read_no_reply_2d，再追加closed；不能因漏查而补造次数，也不能为了补次数继续等待。
 
-默认从审计记录时刻起第 1、3、7、14 天只读检查，合并到用户已有搜索/巡检任务。程序不创建定时任务。漏查补查间隔至少一天，不能一次打开页面四遍凑数。满四次但未满14天等待第14天；满14天但不足四次继续有效补查。关闭、暂停、已回复、初筛、面试均不进入默认 due 列表。
+真实reply_confirmed/substantive_reply/初筛等推进保留last_substantive_at并重排只读检查。新的reply_sent必须有新的绑定审批、实际发送结果和准确回读，才开启新发送轮次并重置已读/活动元数据。不会借此自动生成或发送跟进。
 
-报告分开列现状、下次检查、关闭时间与原因。no_response/rejected 的特征至少覆盖3个不同岗位才列观察模式，screening/interview 单列正向观察；changes_search_weights 永远为 false。无回复不证明方向不合适，不自动调词库、不自动拉黑、不提升候选人证据。
+拒绝、同URL岗位关闭、本人明确放弃按现有证据门禁立即归档。closed不复活、不再到期检查。登录/风控/回读异常保持原状态并paused，清空到期；本人处理后明确resume，再读取实际对话，不能把登录页或未加载当无回复。
 
-## 私有数据与迁移
+## 私有数据与审计
 
-默认数据库 .jobagent/jobagent.sqlite3；Muse 可传自己的私有持久路径，同一用户使用同一账本。迁移17追加 roots/events/requests/sends 四表，事件只追加，事务与版本比较避免并发覆盖。跟踪表保存正文摘要与来源引用，不存已发全文；原获批全文仍在已有私有批次/会话事件中。回读输入、本人原话和消息证据也只放私有文件，引用须能在私有日志回查。
+使用候选人自己的私有数据库，路径由宿主提供。旧roots/events/requests/sends保留不可变历史，版本比较和事务防止并发覆盖。状态历史保存摘要、来源引用和实际观察时间；已发全文留在既有私有批准批次或会话中，不进入公共仓库。
 
-升级前备份私有数据库并停旧任务，执行新版本迁移；运行指纹改变时重新建立/显式迁移运行，不能绕过旧会话指纹验证。回滚政策用旧词库摘要；回滚数据库用升级前备份，不让旧代码读取新 schema。此版仅合成链路验证，真实 Muse 网页、账号认证、调度和两轮归因验收仍需宿主实测。
+历史report的观察模式只供回查，不会改变搜索权重、自动拉黑或提升候选人证据。新飞轮诊断单独使用pipeline累计比率与本人规则确认，不能用旧模式报告替代。
+
+升级前备份并停旧写者，验证私有迁移后才记录pipeline_authorities切换回执。公开代码测试不代表私有数据、实际网页、通知或调度已验收；这些由宿主逐项核验。

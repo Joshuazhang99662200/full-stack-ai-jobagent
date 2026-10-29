@@ -60,7 +60,7 @@ BOSS/智联网页发送属于宿主动作，仓库没有新增平台投递连接
 
 ## 寻源策略修订（38afd89 后的独立改动）
 
-岗位偏好与文案反馈已拆分；默认按薪资区间能达到本人底线的规则筛选。每站新轮次先通过 sourcing-start 固定预算，每次搜索/详情先 sourcing-reserve，结果以 sourcing-result 追加。默认3查询/20详情尝试，来源每日详情上限仍不超过50，失败和重复读取占额。具体 JSON、恢复规则与宿主适应性调整见 [寻源政策](../../skills/job-hunting/references/sourcing-budget.md)。快照、因子化、MD词库和组合引擎已落地，按 [知识路由](../../skills/job-hunting/references/jd-knowledge.md) 分步调用；已发消息按 [跟踪协议](../../skills/job-hunting/references/sent-tracking.md) 只读观察，不能据此自动回复。真实 Muse 联调仍未执行。
+岗位偏好与文案反馈已拆分；默认按薪资区间能达到本人底线的规则筛选。每站新轮次先通过 sourcing-start 固定预算，每次搜索/详情先 sourcing-reserve，结果以 sourcing-result 追加。默认3查询/20详情尝试，来源每日详情上限仍不超过50，失败和重复读取占额。具体 JSON、恢复规则与宿主适应性调整见 [寻源政策](../../skills/job-hunting/references/sourcing-budget.md)。快照、因子化、MD词库和组合引擎已落地，按 [知识路由](../../skills/job-hunting/references/jd-knowledge.md) 分步调用；已切换候选人的后段按 [pipeline协议](../../skills/job-hunting/references/pipeline.md) 核对，旧tracking只供历史读取，不能据此自动回复。真实 Muse 联调仍未执行。
 
 
 ## 人工塞岗与持续处理
@@ -76,3 +76,14 @@ URL/列表编号/消息卡片统一先入intake队列，按 [人工加岗协议]
 
 
 旧岗位全文优先回填、初稿/最终稿差异与本人确认后规则落盘按 [P1接线协议](../../skills/job-hunting/references/muse-backfill-and-diff.md)。先取完整JD再恢复原intake链；差异采集与岗位兴趣分别处理。生成前读取当前候选人的confirmed-rules；中间编辑恢复原稿须追加无变化事件。
+
+
+## 后段 Pipeline 与累计飞轮
+
+身份确认的岗位通过pipeline create或通用离线迁移进入统一表单；pipeline_jobs是当前态权威，pipeline_job_form读取职位、JD、拟稿/已发、定制简历和状态。缺URL/身份继续留intake。候选人authority切换后旧tracking只读，不运行两套当前态；切换必须停旧写者、备份、临时库验证、原子激活，再用实际私有原ID和SHA逐条对账。
+
+后段只用真实发送/已读/实质回复/附件结果时间核算48小时静默；proof_pending、未知时间与暂停不能凭空废止，已面试不能无回复自动关闭，终态不复活。同岗新联系需要独立轮次、新本人请求和新批准。具体门禁与命令见 [pipeline](../../skills/job-hunting/references/pipeline.md)，迁移和两轮模板见 [工程说明](../../docs/pipeline-flywheel.md)。
+
+指标从真实记录按闭合累计窗口和来源切片计算；先metrics再用原metric IDs诊断。诊断、文案diff、规则提案各保留出处；规则和回滚效果均需本人明确确认。默认不自动生效，未确认假设不进入生成规则、词库或查询。私人批次数量、队列编号、求职条件和原文只存本人工作区，不写公共技能。
+
+本工程没有改写运行中的Muse任务、访问招聘网站、发送消息、创建任务或送达通知。真实迁移与两轮宿主验收仍为unverified，real_browser_verified=false；升级代码不表示已完成这些操作。

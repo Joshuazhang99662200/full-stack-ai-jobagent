@@ -1,0 +1,19 @@
+{
+  "kind": "workflow explanation, no invented metrics",
+  "source_hash_policy": "UTF-8 text normalized to LF",
+  "sources": {
+    "workflow.html": "600a8fdd34251a360153f79e5cc5a9ef76b07ccf51f3c4cfd11653f27672442f",
+    "workflow.css": "da980c7a1d55d2b96e33d99e2edbb2167b4871f2bd24a348129a333417197844",
+    "render-workflow.mjs": "d992a9e84b6090ac34dd379e10b0c8f9e56a0928c67cba57df9f807a65f6f36c",
+    "../../workflow-outline.md": "0e162cfb41e92b9ad69c25ba65668d5c6b7c0f795ae685e13588f1d9d3263f3f",
+    "../../workflow-implementation.md": "364a7be9755299fc7a542e5265950fea9e18631917ba770a74b9b49e8ba08e7c"
+  },
+  "outputs": {
+    "workflow.png": "824e34bbf7cba41514414a91a1497d5e82b9a22fd1949205ca6832f9254e2bf4",
+    "resume-exchange.png": "df4278ce7dbb75833057d0d7cf04fae9b0f1c17fe4f3b8296d881afea5713bdd",
+    "feedback.png": "233492b2b416ea2364b170851fa2e049d3e9f89a93c00adfced06d6aee1f8e7a",
+    "workflow-mobile.png": "6e3227ef795a9ff75028fd6a6f608a63a6c61ea6f00ecc6c52abcd1d58f9787c",
+    "resume-exchange-mobile.png": "fbda25c3550acf4a3918333241b85aa5c9690fcbd35e0309961d8cb201416b92",
+    "feedback-mobile.png": "6b0836d298c66ca576d17e41053eaf0344e5efbfc5f12a0a7f5abee1aad8b228"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "hallmark": {
+    "revision": "8f6969f8922caabde9de1784959eae11ddf68073",
+    "reuse": "Console tokens adapted, design rules referenced",
+    "license": "MIT"
+  },
+  "fonts": {
+    "AtkinsonHyperlegibleMono-OFL.txt": "6d1bdbc9e8488e3911ff2d6714c68780cf4ef82ec6c9fc9e67c1e3f6303883ef",
+    "AtkinsonHyperlegibleMono.ttf": "5ce8b1698d1ded7dff2178c1a3ad159470085a58ea239e8b2cb88f4fb4a6f646",
+    "HostGrotesk-OFL.txt": "3a02be39d53a4133c1ce8fe2ecd1d0b3ad6f52fd31a52c306156f2e1d8489aa1",
+    "HostGrotesk.ttf": "74c77b8e850d58dd3d8b22e39111a73bef3450de9fb57018ef99119f2d484f5d"
+  },
+  "outputs": {
+    "approval-mobile.png": "5b587240e96ba133aad77a6b80e8b616e25d2e86777d514945eaf789fc3ff600",
+    "approval.png": "1c26c8cc5ced9c222d774e9fc7e403394196dd6a722101068b2647c78d70c507",
+    "evidence-mobile.png": "5d8705591c6df4f48ad18c3ab9d6da74c3d434e3d0cf85a386b2e4c0f8d648b7",
+    "evidence.png": "4044901dabc12dabb1a0d8f4cf8153218f3bf39e0a74641aa3e5d3bfd266c608",
+    "overview-mobile.png": "34029d203de5e196c3fb1eebd1659d992efc167bc09fbf993697aca93f8be332",
+    "overview.png": "d91dc56717895d14ea17288eb827614879ce50832146c4bdb7a8c5f1570f79e1"
+  }
+}

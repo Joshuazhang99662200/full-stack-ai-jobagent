@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CareerHarness 合成输出记录</title><meta name="description" content="从实际 Python CLI、复核与审批函数取得的合成测试输出。"><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<figure class="sheet" id="overview" aria-labelledby="overview-title">
+  <h1 id="overview-title">先取回完整 JD</h1>
+  <p class="intro">下面是内置合成岗位的 CLI 输出节选。</p>
+  <p class="command"><code>jobagent jobs fetch alpha-001 --source mock</code></p>
+  <pre class="output">{
+  &quot;source&quot;: &quot;mock-alpha&quot;,
+  &quot;source_job_id&quot;: &quot;alpha-001&quot;,
+  &quot;title&quot;: &quot;Python Platform Engineer&quot;,
+  &quot;company&quot;: &quot;Example Labs&quot;,
+  &quot;location&quot;: &quot;Copenhagen&quot;,
+  &quot;jd_raw&quot;: &quot;Build Python API services, maintain platform reliability, and collaborate with product teams.&quot;
+}</pre>
+  <figcaption>来源为 <code>src/jobagent/connectors/fixtures/jobs.json</code>。读取不需要平台账号，也不会触发投递。</figcaption>
+</figure>
+<figure class="sheet" id="evidence" aria-labelledby="evidence-title">
+  <h2 id="evidence-title">保留原文，也保留复核结果</h2>
+  <p class="intro">同一个合成案例里的改写、证据与校验记录。</p>
+  <div class="columns">
+    <div>
+      <h3 class="record-title">程序计算的文本差异</h3>
+      <div class="diff"><div class="diff-line minus"><span class="sign">−</span><span>Participated in a migration.</span></div><div class="diff-line plus"><span class="sign">+</span><span>Migrated the platform.</span></div></div>
+      <dl class="definition"><div><dt>改写操作</dt><dd><code>paraphrase</code></dd></div><div><dt>对应岗位要求</dt><dd><code>REQ_A</code></dd></div></dl>
+    </div>
+    <div>
+      <h3 class="record-title">被引用的证据</h3>
+      <dl class="definition"><div><dt>证据编号</dt><dd><code class="instrument">EVID_A</code></dd></div><div><dt>原始陈述</dt><dd>Led a platform migration.</dd></div><div><dt>出处</dt><dd><code>RESUME_1:page:1</code></dd></div><div><dt>本人确认字段（合成夹具）</dt><dd><code class="human">user_confirmed: true</code></dd></div></dl>
+    </div>
+  </div>
+  <div class="verification"><div><h3 class="record-title">没有独立复核</h3><pre class="status-fail">{
+  &quot;passed&quot;: false,
+  &quot;issues&quot;: [&quot;unsupported_claim&quot;, &quot;review_required&quot;]
+}</pre></div><div><h3 class="record-title">提供复核夹具后</h3><pre class="status-pass">{
+  &quot;passed&quot;: true,
+  &quot;issues&quot;: []
+}</pre></div></div>
+  <figcaption>由 <code>ResumeDiffBuilder</code> 和 <code>verify_draft</code> 实际计算。资料与复核结论均为测试夹具，不代表真实候选人或真实模型评审。</figcaption>
+</figure>
+<figure class="sheet" id="approval" aria-labelledby="approval-title">
+  <h2 id="approval-title">正文改过，旧审批就失效</h2>
+  <p class="intro">仅将合成消息中的 Hello 改为 Hi，再核对四份摘要。</p>
+  <table class="ledger"><thead><tr><th scope="col">审批绑定的内容</th><th scope="col">获批版本</th><th scope="col">当前版本</th><th scope="col">核对结果</th></tr></thead><tbody><tr><td data-label="绑定内容"><code>job_digest</code></td><td data-label="获批版本"><code>sha256:2bee2ae7e0591…</code></td><td data-label="当前版本"><code>sha256:2bee2ae7e0591…</code></td><td data-label="核对结果" class="same">一致</td></tr><tr><td data-label="绑定内容"><code>resume_digest</code></td><td data-label="获批版本"><code>sha256:0d658dbf013c8…</code></td><td data-label="当前版本"><code>sha256:0d658dbf013c8…</code></td><td data-label="核对结果" class="same">一致</td></tr><tr class="changed"><td data-label="绑定内容"><code>message_digest</code></td><td data-label="获批版本"><code>sha256:10ac6aae79c74…</code></td><td data-label="当前版本"><code>sha256:5ad08b2c1e5c5…</code></td><td data-label="核对结果" class="status-fail">已改变</td></tr><tr><td data-label="绑定内容"><code>policy_digest</code></td><td data-label="获批版本"><code>sha256:9c6c4a04b5726…</code></td><td data-label="当前版本"><code>sha256:9c6c4a04b5726…</code></td><td data-label="核对结果" class="same">一致</td></tr></tbody></table>
+  <div class="error-result"><pre>{
+  &quot;code&quot;: &quot;STALE_APPROVAL&quot;,
+  &quot;details&quot;: {
+    &quot;changed&quot;: [&quot;message_digest&quot;]
+  }
+}</pre></div>
+  <figcaption>显示实际摘要的前缀，完整值保留在 <code>samples.json</code>。只运行本地合成校验，没有平台请求或真实发送授权。</figcaption>
+</figure>
+</main></body></html>

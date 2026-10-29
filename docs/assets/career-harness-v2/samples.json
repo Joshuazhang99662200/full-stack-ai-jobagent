@@ -1,0 +1,201 @@
+{
+  "provenance": {
+    "kind": "synthetic fixture execution",
+    "real_model_review": false,
+    "platform_calls": 0,
+    "source_hashes": {
+      "src/jobagent/optimizer/review.py": "c24e3763bc34f776922d641e2d807c90740802eac56a36f8af3f77c013673653",
+      "src/jobagent/optimizer/diffing.py": "843a9452d701e2147339e8003192c09f7e0a6c115d468f0f7688fd9d55b0a470",
+      "src/jobagent/applications/approval.py": "aeb03ebc3696cf2fa0f0220a7f1d79cd4f583d9c6304dd61acbf70b87fdfb3a3",
+      "src/jobagent/connectors/fixtures/jobs.json": "a4603c21c2e944bba977c5612c1647a1c6a7ee1ab1fcc1c0d16407b9ed0148ad"
+    }
+  },
+  "job_command": "jobagent jobs fetch alpha-001 --source mock",
+  "job": {
+    "schema_version": "1.0",
+    "source": "mock-alpha",
+    "source_job_id": "alpha-001",
+    "title": "Python Platform Engineer",
+    "company": "Example Labs",
+    "location": "Copenhagen",
+    "salary_text": "DKK 600000-720000 year",
+    "jd_raw": "Build Python API services, maintain platform reliability, and collaborate with product teams.",
+    "recruiter": {
+      "schema_version": "1.0",
+      "name": "Mira Jensen",
+      "title": "Technical Recruiter",
+      "contact_channel": null,
+      "organization": null,
+      "type": "unknown",
+      "type_confidence": 0.0,
+      "type_signals": []
+    },
+    "url": "https://jobs.example.test/mock-alpha/alpha-001",
+    "job_kind": null,
+    "published_at": "2026-08-18T09:00:00Z",
+    "collected_at": "2026-08-21T08:00:00Z",
+    "search_term": null
+  },
+  "evidence": {
+    "schema_version": "1.0",
+    "id": "EVID_A",
+    "type": "experience",
+    "entity": "",
+    "statement": "Led a platform migration.",
+    "skills": [],
+    "domains": [],
+    "metrics": [],
+    "time_range": null,
+    "source": {
+      "schema_version": "1.0",
+      "type": "resume",
+      "reference": "RESUME_1:page:1"
+    },
+    "confidence": "explicit",
+    "user_confirmed": true
+  },
+  "draft": {
+    "schema_version": "1.0",
+    "items": [
+      {
+        "schema_version": "1.0",
+        "id": "ITEM_1",
+        "section": "experience",
+        "text": "Migrated the platform.",
+        "evidence_ids": [
+          "EVID_A"
+        ],
+        "requirement_ids": [
+          "REQ_A"
+        ],
+        "source_resume_item_ids": [
+          "ITEM_1"
+        ],
+        "rewrite_operations": [
+          "paraphrase"
+        ]
+      }
+    ],
+    "claim_ledger": {
+      "schema_version": "1.0",
+      "claims": [
+        {
+          "schema_version": "1.0",
+          "claim_id": "CLAIM_1",
+          "resume_item_id": "ITEM_1",
+          "text": "Migrated the platform.",
+          "claim_type": "experience",
+          "evidence_ids": [
+            "EVID_A"
+          ],
+          "requirement_ids": [],
+          "metric_facts": [],
+          "ownership_level": null,
+          "verification_status": "supported",
+          "verification_reasons": []
+        }
+      ]
+    },
+    "keyword_coverage": {
+      "schema_version": "1.0",
+      "supported_exact": [],
+      "supported_synonyms": [],
+      "supported_adjacent": [],
+      "unsupported_missing": [],
+      "stuffing_signals": []
+    }
+  },
+  "without_review": {
+    "schema_version": "1.0",
+    "passed": false,
+    "unsupported_claims": 1,
+    "contradicted_claims": 0,
+    "unsupported_metrics": 0,
+    "semantic_exaggerations": 0,
+    "evidence_coverage": 0.0,
+    "issues": [
+      {
+        "schema_version": "1.0",
+        "code": "unsupported_claim",
+        "message": "Claim is not supported by the evidence it cites.",
+        "claim_id": "CLAIM_1",
+        "resume_item_id": "ITEM_1"
+      },
+      {
+        "schema_version": "1.0",
+        "code": "review_required",
+        "message": "Independent semantic review is required.",
+        "claim_id": null,
+        "resume_item_id": null
+      }
+    ]
+  },
+  "with_fixture_review": {
+    "schema_version": "1.0",
+    "passed": true,
+    "unsupported_claims": 0,
+    "contradicted_claims": 0,
+    "unsupported_metrics": 0,
+    "semantic_exaggerations": 0,
+    "evidence_coverage": 1.0,
+    "issues": []
+  },
+  "mechanical_diff": {
+    "schema_version": "1.0",
+    "items": [
+      {
+        "schema_version": "1.0",
+        "original": "Participated in a migration.",
+        "optimized": "Migrated the platform.",
+        "reason": "Rewritten with: paraphrase.",
+        "requirement_ids": [
+          "REQ_A"
+        ],
+        "evidence_ids": [
+          "EVID_A"
+        ],
+        "rewrite_operations": [
+          "paraphrase"
+        ],
+        "risk_notes": []
+      }
+    ]
+  },
+  "approval_before": {
+    "job_digest": "sha256:2bee2ae7e059121545d512c7b7ca1acc9ac7e53ab0baa9575e068bc71e5d6700",
+    "resume_digest": "sha256:0d658dbf013c8653af9310a3711562c21824e1b8473790f3fed71b1695f25011",
+    "message_digest": "sha256:10ac6aae79c7401500124ac9549da586ca7190e6e170862ddaeaced8defb0779",
+    "policy_digest": "sha256:9c6c4a04b5726a1443c4abf84940c22002452dc931a84a567aed9ec4b28a5b2a"
+  },
+  "approval_after": {
+    "job_digest": "sha256:2bee2ae7e059121545d512c7b7ca1acc9ac7e53ab0baa9575e068bc71e5d6700",
+    "resume_digest": "sha256:0d658dbf013c8653af9310a3711562c21824e1b8473790f3fed71b1695f25011",
+    "message_digest": "sha256:5ad08b2c1e5c59af115b36a731b2e270a78e3dcd6bb454dabf2b1f6b1afe30fe",
+    "policy_digest": "sha256:9c6c4a04b5726a1443c4abf84940c22002452dc931a84a567aed9ec4b28a5b2a"
+  },
+  "message_before": "Hello, I would like to apply for the Python Engineer role.",
+  "message_after": "Hi, I would like to apply for the Python Engineer role.",
+  "rejection": {
+    "code": "STALE_APPROVAL",
+    "message": "Approval no longer matches the current job, resume, message and policy.",
+    "details": {
+      "application_id": "APP_ALPHA_001",
+      "approval_id": "APPROVAL_ALPHA_001",
+      "changed": [
+        "message_digest"
+      ],
+      "approved": {
+        "job_digest": "sha256:2bee2ae7e059121545d512c7b7ca1acc9ac7e53ab0baa9575e068bc71e5d6700",
+        "resume_digest": "sha256:0d658dbf013c8653af9310a3711562c21824e1b8473790f3fed71b1695f25011",
+        "message_digest": "sha256:10ac6aae79c7401500124ac9549da586ca7190e6e170862ddaeaced8defb0779",
+        "policy_digest": "sha256:9c6c4a04b5726a1443c4abf84940c22002452dc931a84a567aed9ec4b28a5b2a"
+      },
+      "current": {
+        "job_digest": "sha256:2bee2ae7e059121545d512c7b7ca1acc9ac7e53ab0baa9575e068bc71e5d6700",
+        "resume_digest": "sha256:0d658dbf013c8653af9310a3711562c21824e1b8473790f3fed71b1695f25011",
+        "message_digest": "sha256:5ad08b2c1e5c59af115b36a731b2e270a78e3dcd6bb454dabf2b1f6b1afe30fe",
+        "policy_digest": "sha256:9c6c4a04b5726a1443c4abf84940c22002452dc931a84a567aed9ec4b28a5b2a"
+      }
+    }
+  }
+}

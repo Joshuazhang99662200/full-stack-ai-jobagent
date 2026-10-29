@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CareerHarness 工作链路</title>
+  <meta name="description" content="求职工作链路、简历交换条件，以及投后运营和规则效果复核的说明图。">
+  <link rel="stylesheet" href="workflow.css">
+</head>
+<body><main>
+<figure class="flow-sheet" id="workflow" aria-labelledby="workflow-title">
+  <h1 id="workflow-title">从资料确认，到投后复盘</h1>
+  <p class="flow-intro">AI 协助准备，本人确认事实与发送内容，程序校验并记录。</p>
+  <div class="overview-graph">
+    <div class="overview-row prepare-row">
+      <div class="graph-node"><h2>人机协同准备</h2><p>简历、补充经历、求职硬条件</p></div>
+      <span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node"><h2>选择并验收渠道</h2><p>浏览器 / 官方 MCP，完整 JD 补齐</p></div>
+      <span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node"><h2 class="human-text">本人列表确认事实</h2><p>保留原文与页码，形成共用证据</p></div>
+    </div>
+    <div class="down-link" aria-hidden="true">↓</div>
+    <div class="overview-row discovery-row">
+      <div class="graph-node entry-node"><div><h2>先处理已有对话</h2><p>恢复状态，读取来信与待办</p></div><div><h2>再发现新岗位</h2><p>搜索 / 提供 JD，留来源并去重</p></div></div>
+      <span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node match-node"><h2>完整 JD + 已确认证据</h2><p>硬条件筛选、匹配理由、缺口与风险</p><span class="decision-note">待判断项交本人裁决</span></div>
+      <span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node material-node"><div><h2>招呼与回复</h2><p>一岗一条，独立复核</p></div><div><h2>定向简历</h2><p>满足交换条件后改写与检查</p></div></div>
+    </div>
+    <div class="down-link" aria-hidden="true">↓</div>
+    <div class="approval-gate"><strong>本人逐项批准准确全文与实际附件</strong><span>发送前再核验；内容改变，返回审批。</span></div>
+    <div class="down-link" aria-hidden="true">↓</div>
+    <div class="overview-row execute-row">
+      <div class="graph-node"><h2>执行 / 人工交接</h2><p>由具备相应能力的宿主完成</p></div><span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node"><h2>回读结果与记账</h2><p>真实回执、文件与内容版本</p></div><span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node"><h2>跟进回复与面试</h2><p>未知先核实，避免重复发送</p></div>
+    </div>
+    <div class="down-link" aria-hidden="true">↓</div>
+    <div class="overview-row improve-row">
+      <div class="graph-node"><h2>漏斗统计与诊断</h2><p>触达、已读不回、简历后约面</p></div><span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node"><h2 class="human-text">本人确认改进规则</h2><p>展示具体改动与适用范围</p></div><span class="connector" aria-hidden="true">→</span>
+      <div class="graph-node"><h2>复核后续效果</h2><p>有效保留，无效提出调整</p></div>
+    </div>
+    <p class="graph-return"><span aria-hidden="true">↻</span> 把确认后的规则带回下一轮对话、搜索与材料准备</p>
+  </div>
+  <figcaption>工作流说明图。渠道统一编排仍有接入缺口；运营模块已合入 main，版本范围见正文。</figcaption>
+</figure>
+
+<figure class="flow-sheet" id="resume-exchange" aria-labelledby="resume-title">
+  <h1 id="resume-title">简历何时准备，何时发送</h1>
+  <p class="flow-intro">简历交换先核对岗位、完整 JD、本人意向和当前对话。</p>
+  <section class="trigger-section">
+    <h2>任一条件成立，进入定向简历链路</h2>
+    <ul class="triggers">
+      <li><strong>招聘方索取简历</strong><span>包括平台发来的简历交换请求</span></li>
+      <li><strong>已有回复，本人决定推进</strong><span>确认继续了解，并决定准备简历</span></li>
+      <li><strong>本人明确要求直接申请</strong><span>指定岗位，准备并提交申请材料</span></li>
+    </ul>
+  </section>
+  <div class="down-link" aria-hidden="true">↓</div>
+  <section class="tailor-section">
+    <h2>用同一份已确认证据完成材料</h2>
+    <ol class="resume-steps">
+      <li><h3>定向改写</h3><p>基础简历、完整 JD、已确认证据</p></li>
+      <li><h3>独立复核与程序校验</h3><p>核对每条主张，组装变体并计算 diff</p></li>
+      <li><h3>检查实际成品</h3><p>核对 PDF / Word 正文、页数与版面</p></li>
+    </ol>
+  </section>
+  <div class="down-link" aria-hidden="true">↓</div>
+  <section class="send-section">
+    <h2>本人查阅准确全文与实际附件，逐项批准</h2>
+    <div class="sequence send-path"><div>再核验岗位、摘要与文件</div><span class="connector" aria-hidden="true">→</span><div>执行或人工交接</div><span class="connector" aria-hidden="true">→</span><div>回读结果并记账</div></div>
+  </section>
+  <dl class="boundaries">
+    <div><dt>只打过招呼</dt><dd>普通寒暄不会自动触发简历发送。</dd></div>
+    <div><dt>点击“同意交换”</dt><dd>同样会交付简历，需要本人批准。</dd></div>
+    <div><dt>岗位、正文、附件或语境改变</dt><dd>重新核验；内容摘要改变时旧审批失效。</dd></div>
+    <div><dt>结果不明、验证码或风控</dt><dd>暂停并核实，保留状态，不重复发送。</dd></div>
+  </dl>
+  <figcaption>收到招聘方请求只触发材料准备；发送权限来自本人对具体内容与附件的审批。</figcaption>
+</figure>
+
+<figure class="flow-sheet" id="feedback" aria-labelledby="feedback-title">
+  <h1 id="feedback-title">发出之后，继续看转化与改进效果</h1>
+  <p class="flow-intro">每个阶段保留真实观察、来源证据，以及招呼和简历版本。</p>
+  <ol class="funnel">
+    <li>招呼<br>已发</li><li>已读</li><li>初步<br>沟通</li><li>索取<br>简历</li><li>简历<br>已发</li><li>等待<br>面试</li><li>完成<br>面试</li>
+  </ol>
+  <dl class="metrics">
+    <div><dt>招呼发出后，有没有被读到？</dt><dd>观察“已发 → 已读”的触达转化。</dd></div>
+    <div><dt>已读之后，有没有继续沟通？</dt><dd>观察回复转化与到期未回复；已读不回率需明确观察窗口和统计口径。</dd></div>
+    <div><dt>简历发出后，能不能约到面试？</dt><dd>观察“简历已发 → 待面试”的约面转化。</dd></div>
+  </dl>
+  <p class="measurement-note">按平台、方向、薪资段和材料版本比较。同一联系轮次核对分子与分母；未知保留为未知，关闭与拒绝单独记录。</p>
+  <section class="rule-cycle">
+    <h2>从问题段提出规则，再用后续结果复核</h2>
+    <ol class="cycle-steps">
+      <li><h3>诊断</h3><p>历史基线、累计转化、连续窗口和排除原因</p></li>
+      <li><h3>具体提案</h3><p>展示招呼、简历或选材规则的修改和适用范围</p></li>
+      <li class="owner-step"><h3>本人确认</h3><p>记入候选人的私有规则，供下一轮读取</p></li>
+      <li><h3>效果复核</h3><p>有效保留；无效时提出调整、恢复或撤回方案</p></li>
+    </ol>
+    <p class="return-line"><span aria-hidden="true">↻</span> 下一轮按确认后的规则准备材料，继续记录实际结果。</p>
+  </section>
+  <p class="invariant">规则改进不改写候选人事实，也不替代具体消息与附件的发送审批。</p>
+  <figcaption>运营模块已合入 main；使用前请固定版本并核对能力目录。图中展示统计关系，没有虚构转化率。</figcaption>
+</figure>
+</main></body>
+</html>

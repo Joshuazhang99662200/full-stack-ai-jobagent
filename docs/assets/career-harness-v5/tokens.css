@@ -1,0 +1,8 @@
+:root {
+  --color-paper: #fbf8ef; --color-ink: #382815; --color-ink-2: #5d452a; --color-muted: #705c43;
+  --color-rule: #d7c9ad; --color-accent: #795921; --color-accent-ink: #fbf8ef; --color-focus: #795921;
+  --color-mint: #c9e2cb; --color-peach: #f6dfc8; --color-amber: #ffe6a9;
+  --font-display: "Host Grotesk", "Microsoft YaHei", sans-serif; --font-body: var(--font-display);
+  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px;
+  --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+}

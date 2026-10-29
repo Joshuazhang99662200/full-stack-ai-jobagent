@@ -25,19 +25,13 @@
 
 招聘方索取简历、本人决定继续推进，或明确要求直接申请，才进入对应材料链路。对方的请求触发准备；本人审批具体全文与附件后才执行发送。
 
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/assets/career-harness-v2/resume-exchange-mobile.png">
-  <img src="docs/assets/career-harness-v2/resume-exchange.png" alt="简历交换条件和准备流程：收到请求、本人决定推进或直接申请后，定向改写、独立复核、检查成品；本人逐项批准后再核验、执行与回读。">
-</picture>
+[![简历交换条件和准备流程：收到请求、本人决定推进或直接申请后，定向改写、独立复核、检查成品；本人逐项批准后再核验、执行与回读。](docs/assets/career-harness-v5/resume-exchange.png)](docs/assets/career-harness-v5/resume-exchange.png)
 
 ### 发出之后，继续观察和改进
 
 看招呼的触达与回复、简历后的约面转化，定位问题段；提出具体规则，经本人确认后供下一轮使用，再根据后续结果复核。
 
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/assets/career-harness-v2/feedback-mobile.png">
-  <img src="docs/assets/career-harness-v2/feedback.png" alt="投后运营闭环：招呼已发、已读、初步沟通、索取简历、简历已发、待面试与已面试；从真实记录进行诊断，提出规则，本人确认后在下一轮复核效果。">
-</picture>
+[![投后运营闭环：招呼已发、已读、初步沟通、索取简历、简历已发、待面试与已面试；从真实记录进行诊断，提出规则，本人确认后在下一轮复核效果。](docs/assets/career-harness-v5/feedback.png)](docs/assets/career-harness-v5/feedback.png)
 
 *以上为工作流说明图。渠道统一接入编排仍有缺口；运营、诊断与规则复核已通过 [PR #9](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/9) 合入 `main`，使用时需固定对应版本。已读不回率还需明确观察窗口、分母与排除规则，见[实现说明](docs/workflow-implementation.md)。*
 
@@ -45,12 +39,9 @@
 
 定向草稿引用已确认证据，diff 由基础简历与变体直接计算。独立复核单独校验主张；缺少复核时，即使草稿给自己标了“有依据”，也不能通过。
 
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/assets/career-harness-v2/evidence-mobile.png">
-  <img src="docs/assets/career-harness-v2/evidence.png" alt="实际合成测试记录：迁移经历的文本 diff、引用证据 EVID_A 和原始页码；缺少独立复核时 passed 为 false，提供复核夹具后为 true">
-</picture>
+[![合成测试输出示意：迁移经历的文本 diff、引用证据 EVID_A 和原始页码；缺少独立复核时 passed 为 false，提供复核夹具后为 true。](docs/assets/career-harness-v5/evidence.png)](docs/assets/career-harness-v5/evidence.png)
 
-*图中为程序处理合成夹具的实际结果。复核结论也由测试夹具提供，未调用真实模型。原始输出与图片生成源见[素材目录](docs/assets/career-harness-v2/README.md)。*
+*图中将程序处理合成夹具的输出重新绘制为说明图。复核结论由测试夹具提供，不代表真实模型独立复核。原始数据见[合成输出](docs/assets/career-harness-v2/samples.json)，配图来源与审核记录见[素材目录](docs/assets/career-harness-v5/README.md)。*
 
 | 你关心的事 | 工作流如何处理 |
 |---|---|
@@ -65,10 +56,7 @@
 
 预览、批准和发送各有独立入口。投递审批绑定岗位、简历、消息与策略的摘要；任何一项变化，都需要重新评审。简历附件还要核对实际成品与对应文件摘要。
 
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/assets/career-harness-v2/approval-mobile.png">
-  <img src="docs/assets/career-harness-v2/approval.png" alt="实际合成摘要校验：只修改消息正文后，message_digest 改变，其余三份摘要一致；程序返回 STALE_APPROVAL">
-</picture>
+[![合成摘要校验示意：只修改消息正文后，message_digest 改变，其余三份摘要一致；程序返回 STALE_APPROVAL。](docs/assets/career-harness-v5/approval.png)](docs/assets/career-harness-v5/approval.png)
 
 *这里只执行本地合成校验，没有平台请求或真实发送授权。程序放行后，仍需宿主执行或人工交接，并核对结果。*
 

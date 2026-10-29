@@ -212,7 +212,7 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 预执行门禁投影 | 已落地 | `jobagent tracking pending`；读取各站现有租约，不授予执行权 |
 | 追加观察与状态转移 | 已落地 | `jobagent tracking event`；CAS版本、证据校验、暂停/归档 |
 | 当前状态 | 已落地 | `jobagent tracking status`；候选人作用域 |
-| 到期只读检查清单 | 已落地 | `jobagent tracking due`；默认1/3/7/14天 |
+| 到期只读检查清单 | 已落地 | `jobagent tracking due`；未切换候选人兼容统一48小时；切换pipeline后due为空、旧档案只读 |
 | 追加历史 | 已落地 | `jobagent tracking history`；关闭后保留 |
 | 结果模式报告 | 已落地 | `jobagent tracking report`；不自动调整词库 |
 
@@ -266,3 +266,33 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 具体文案规则提案 | 已落地 | `jobagent host rule-propose` | 绑定当前评估摘要，待本人确认 |
 | 逐条规则确认 | 已落地 | `jobagent host rule-confirm` | 准确规则摘要与本人原话；独立于文案Accept |
 | 读取本人已确认规则 | 已落地 | `jobagent host confirmed-rules` | 私有候选人隔离，默认空列表 |
+
+
+## 后段流程与累计飞轮
+
+| 能力 | 状态 | 入口 | 边界 |
+|---|---|---|---|
+| 九态流程入库 | 已落地 | `jobagent pipeline create` | 实际岗位或已解析intake，候选人隔离 |
+| 有据流程转移 | 已落地 | `jobagent pipeline transition` | 固定转移图与证据，非法输入写拒绝审计 |
+| 流程观察与到期废止 | 已落地 | `jobagent pipeline observe` | 真实观察、统一48小时，不从徽标推断 |
+| 历史发送补证绑定 | 已落地 | `jobagent pipeline bind-send` | 原审批及准确回读，不构造时间 |
+| 新联系轮次绑定原获批回复 | 已落地 | `jobagent pipeline bind-reply` | 仅后续轮次，读取既有ask与approval，不审批、不发送 |
+| 同步真实完整JD与草稿 | 已落地 | `jobagent pipeline sync` | 只消费绑定intake产物，变化保留历史 |
+| 流程当前记录 | 已落地 | `jobagent pipeline list` | 候选人显式指定，返回job与meta |
+| 统一岗位表单 | 已落地 | `jobagent pipeline form` | 标准pipeline_job_form视图 |
+| 流程转移历史 | 已落地 | `jobagent pipeline history` | 只追加历史，required candidate |
+| 流程到期只读清单 | 已落地 | `jobagent pipeline due` | 不发送、不自动浏览 |
+| 私有迁移字段检查 | 已落地 | `jobagent pipeline inspect` | 只输出形状与摘要，不输出原文 |
+| 离线流程迁移 | 已落地 | `jobagent pipeline migrate` | 显式私有映射、备份、临时验证、原子激活 |
+| 流程迁移校验 | 已落地 | `jobagent pipeline verify-migration` | required candidate与原ID/来源一致性 |
+| 流程队列投影 | 已落地 | `jobagent pipeline project` | required candidate，不覆盖原始输入和备份 |
+| 受保护流程回滚 | 已落地 | `jobagent pipeline rollback` | required candidate，后续事实存在则拒绝 |
+| 累计漏斗指标 | 已落地 | `jobagent pipeline metrics` | 真实历史与来源切片，窗口比率仅参考 |
+| 累计比率诊断 | 已落地 | `jobagent pipeline diagnose` | 持久指标引用，无绝对样本门槛 |
+| 指标及来源证据 | 已落地 | `jobagent pipeline metric-show` | required candidate，透明核对分子分母 |
+| 归因诊断详情 | 已落地 | `jobagent pipeline diagnosis-show` | required candidate，附排除和累计比率 |
+| 流程优化规则提案 | 已落地 | `jobagent pipeline rule-propose` | 当前诊断与准确规则，默认不生效 |
+| 本人逐条规则确认 | 已落地 | `jobagent pipeline rule-confirm` | 准确规则摘要与本人原话，候选人隔离 |
+| 已确认流程规则 | 已落地 | `jobagent pipeline confirmed-rules` | 只读取当前候选人有效规则 |
+| 优化效果复核 | 已落地 | `jobagent pipeline rule-review` | 优化后累计比率与基线比较，回滚仍提案 |
+| 流程规则提案详情 | 已落地 | `jobagent pipeline rule-show` | required candidate，具体规则可审阅 |

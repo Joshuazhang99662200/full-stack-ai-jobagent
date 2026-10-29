@@ -3,16 +3,22 @@
 import json
 from collections import Counter
 from datetime import datetime
+from typing import get_args
+
+from pydantic import ValidationError
 
 from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
+from jobagent.jobs.pipeline import silence_deadline
 from jobagent.schemas.host_checks import HostQueryExecution, HostRoundInput, HostTwoRoundInput
 from jobagent.schemas.jd_snapshot import SnapshotDiscovery
-from jobagent.schemas.job_intake import IntakeHistory
+from jobagent.schemas.job_intake import IntakeHistory, IntakeRecord
 from jobagent.schemas.lexicon import CombinationPlan
+from jobagent.schemas.pipeline import PipelineJob, PipelineMeta, PipelineState
 from jobagent.schemas.sourcing import SourcingAttempt, SourcingResult
 from jobagent.storage.database import Database
 from jobagent.storage.host_checks import HostPageService
+from jobagent.storage.pipeline_repository import Pair, PipelineRepository
 from jobagent.storage.sent_tracking_repository import SqliteSentTrackingRepository
 from jobagent.storage.sourcing_repository import SqliteSourcingRepository
 
@@ -138,64 +144,78 @@ class HostRoundReporter:
                 }:
                     reject("Manual attribution must reference actual non-search discoveries.")
             drafts = set()
+            intakes_as_of: dict[str, IntakeRecord] = {}
             for row in connection.execute("SELECT event_json FROM intake_events").fetchall():
                 history = IntakeHistory.model_validate_json(row["event_json"])
+                state = history.state
+                if (
+                    state.candidate_id == request.candidate_id
+                    and state.domain == request.domain
+                    and state.updated_at <= request.completed_at
+                ):
+                    previous = intakes_as_of.get(state.intake_id)
+                    if previous is None or state.version > previous.version:
+                        intakes_as_of[state.intake_id] = state
                 if (
                     history.kind == "draft"
                     and history.state.candidate_id == request.candidate_id
                     and request.started_at <= history.state.updated_at <= request.completed_at
                 ):
                     drafts.add(history.state.job_id)
-            partial = []
-            for row in connection.execute(
-                "SELECT state_json FROM job_intakes WHERE candidate_id = ? AND domain = ?",
-                (request.candidate_id, request.domain),
-            ).fetchall():
-                state = json.loads(row["state_json"])
-                if state.get("legacy_snapshot_id") and not state.get("snapshot_id"):
-                    partial.append(state["intake_id"])
+            partial = [
+                state.intake_id
+                for state in intakes_as_of.values()
+                if state.snapshot_id is None and not state.closed and not state.merged_into
+            ]
             pending = connection.execute(
                 "SELECT COUNT(*) FROM host_legacy_rows r JOIN host_migration_runs m "
                 "ON m.migration_id = r.migration_id WHERE m.candidate_id = ? "
                 "AND r.tracking_proof_status = 'proof_pending'",
                 (request.candidate_id,),
             ).fetchone()[0]
-        tracking_repository = SqliteSentTrackingRepository(self.database)
-        records = []
-        for current in tracking_repository.list_records(request.candidate_id):
-            tracking_history = [
-                event
-                for event in tracking_repository.history(
-                    current.tracking_id,
-                    request.candidate_id,
-                )
-                if event.occurred_at <= request.completed_at
-            ]
-            if tracking_history:
-                records.append(tracking_history[-1].state)
-        closed = [
-            r
-            for r in records
-            if r.abandoned_at is not None
-            and request.started_at <= r.abandoned_at <= request.completed_at
-        ]
-        tracking = {
-            "counts": dict(Counter(r.tracking_state.value for r in records)),
-            "proof_pending": pending,
-            "next_checks": [
-                {
-                    "tracking_id": r.tracking_id,
-                    "source": r.platform,
-                    "next_check_at": r.next_check_at.isoformat() if r.next_check_at else None,
-                    "check_count": r.check_count,
-                    "missed_check_days": r.missed_check_days,
-                    "paused": r.paused,
-                }
+        pipeline_summary = self._pipeline_summary(request)
+        if pipeline_summary is not None:
+            tracking = pipeline_summary
+            pipeline_partial = pipeline_summary["partial_not_in_strategy"]
+            assert isinstance(pipeline_partial, list)
+            partial = sorted(set(partial) | set(pipeline_partial))
+        else:
+            tracking_repository = SqliteSentTrackingRepository(self.database)
+            records = []
+            for current in tracking_repository.list_records(request.candidate_id):
+                tracking_history = [
+                    event
+                    for event in tracking_repository.history(
+                        current.tracking_id,
+                        request.candidate_id,
+                    )
+                    if event.occurred_at <= request.completed_at
+                ]
+                if tracking_history:
+                    records.append(tracking_history[-1].state)
+            closed = [
+                r
                 for r in records
-            ],
-            "newly_closed": len(closed),
-            "closure_reasons": dict(Counter(r.abandon_reason for r in closed)),
-        }
+                if r.abandoned_at is not None
+                and request.started_at <= r.abandoned_at <= request.completed_at
+            ]
+            tracking = {
+                "counts": dict(Counter(r.tracking_state.value for r in records)),
+                "proof_pending": pending,
+                "next_checks": [
+                    {
+                        "tracking_id": r.tracking_id,
+                        "source": r.platform,
+                        "next_check_at": r.next_check_at.isoformat() if r.next_check_at else None,
+                        "check_count": r.check_count,
+                        "missed_check_days": r.missed_check_days,
+                        "paused": r.paused,
+                    }
+                    for r in records
+                ],
+                "newly_closed": len(closed),
+                "closure_reasons": dict(Counter(r.abandon_reason for r in closed)),
+            }
         pages = HostPageService(self.database).latest(request.candidate_id, at=request.completed_at)
         login_states = {key: value for key, value in pages.items() if key.split("/")[0] in sources}
         settled = all(
@@ -219,6 +239,10 @@ class HostRoundReporter:
             and request.dedup_count is not None
             and request.filter_reasons is not None
             and settled
+            and (
+                pipeline_summary is None
+                or pipeline_summary["as_of_verification"] == "immutable_request_snapshots"
+            )
         )
         details = [a for a in attempts if a.kind == "detail"]
         outcomes: Counter[str] = Counter()
@@ -266,6 +290,7 @@ class HostRoundReporter:
             "new_drafts": len(drafts),
             "lexicon_versions": sorted(set(lexicon_versions)),
             "tracking": tracking,
+            "pipeline": pipeline_summary,
             "login_states": login_states,
             "partial_not_in_strategy": partial,
             "unfinished": request.unfinished,
@@ -285,6 +310,134 @@ class HostRoundReporter:
                 ),
             )
         return report
+
+    def _pipeline_summary(self, request: HostRoundInput) -> dict[str, object] | None:
+        """Read immutable response snapshots, never project later state into an old round."""
+        with self.database.connect() as connection:
+            authority = connection.execute(
+                "SELECT activated_at FROM pipeline_authorities WHERE candidate_id = ?",
+                (request.candidate_id,),
+            ).fetchone()
+            if authority is None or datetime.fromisoformat(authority[0]) > request.completed_at:
+                return None
+            rows = connection.execute(
+                "SELECT pipeline_id,response_json FROM pipeline_requests "
+                "WHERE candidate_id = ? ORDER BY rowid",
+                (request.candidate_id,),
+            ).fetchall()
+        snapshots: dict[str, Pair] = {}
+        invalid = set()
+        for row in rows:
+            try:
+                payload = json.loads(row["response_json"])
+                job = PipelineJob.model_validate(payload["job"])
+                meta = PipelineMeta.model_validate(payload["meta"])
+            except (ValidationError, KeyError, TypeError, ValueError):
+                invalid.add(row["pipeline_id"])
+                continue
+            if (
+                job.candidate_id != request.candidate_id
+                or job.pipeline_id != row["pipeline_id"]
+                or meta.pipeline_id != job.pipeline_id
+            ):
+                invalid.add(row["pipeline_id"])
+                continue
+            if job.updated_at > request.completed_at or job.entered_at > request.completed_at:
+                continue
+            old = snapshots.get(job.pipeline_id)
+            if old is None or meta.version >= old[1].version:
+                snapshots[job.pipeline_id] = (job, meta)
+        repository = PipelineRepository(self.database)
+        for current, metadata in repository.list_records(request.candidate_id):
+            if current.entered_at > request.completed_at:
+                continue
+            saved = snapshots.get(current.pipeline_id)
+            history = [
+                entry
+                for entry in repository.history(current.pipeline_id, request.candidate_id)
+                if entry.changed_at <= request.completed_at
+            ]
+            latest = (
+                max(enumerate(history), key=lambda item: (item[1].changed_at, item[0]))[1]
+                if history
+                else None
+            )
+            if (
+                saved is None
+                or latest is None
+                or latest.to_state != saved[0].pipeline_state
+                or latest.changed_at != saved[0].state_changed_at
+                or (
+                    current.updated_at <= request.completed_at
+                    and metadata.version != saved[1].version
+                )
+            ):
+                invalid.add(current.pipeline_id)
+        verified = [pair for key, pair in sorted(snapshots.items()) if key not in invalid]
+        counts = {state: 0 for state in get_args(PipelineState)}
+        for job, _ in verified:
+            counts[job.pipeline_state] += 1
+        closed = [
+            (job, meta)
+            for job, meta in verified
+            if job.pipeline_state == "abandoned"
+            and request.started_at
+            <= (meta.abandoned_at or job.state_changed_at)
+            <= request.completed_at
+        ]
+        checks = []
+        next_poll = request.next_poll_at
+        for job, meta in verified:
+            if job.pipeline_state in {"abandoned", "interviewed"}:
+                continue
+            deadline = silence_deadline(job, meta.model_copy(update={"paused": False}))
+            eligible = deadline is not None and not meta.paused
+            checks.append(
+                {
+                    "pipeline_id": job.pipeline_id,
+                    "source": job.platform,
+                    "domain": meta.domain,
+                    "pipeline_state": job.pipeline_state,
+                    "proof_status": meta.proof_status,
+                    "version": meta.version,
+                    "paused": meta.paused,
+                    "last_checked_at": meta.last_checked_at.isoformat()
+                    if meta.last_checked_at
+                    else None,
+                    "deadline_at": deadline.isoformat() if deadline else None,
+                    "expiry_due": bool(
+                        eligible and deadline is not None and deadline <= request.completed_at
+                    ),
+                    "next_check_at": next_poll.isoformat()
+                    if next_poll is not None and eligible
+                    else None,
+                    "next_check_policy": "host_next_poll",
+                    "schedule_verification": "host_observed_only"
+                    if next_poll is not None
+                    else "unverified",
+                }
+            )
+        partial = [
+            job.pipeline_id
+            for job, meta in verified
+            if meta.domain == request.domain and (job.jd_text is None or meta.snapshot_id is None)
+        ]
+        return {
+            "state_authority": "pipeline_jobs",
+            "scope": "candidate",
+            "as_of": request.completed_at.isoformat(),
+            "counts": counts,
+            "proof_pending": sum(meta.proof_status == "proof_pending" for _, meta in verified),
+            "next_checks": checks,
+            "newly_closed": len(closed),
+            "newly_abandoned": len(closed),
+            "closure_reasons": dict(Counter(job.state_reason for job, _ in closed)),
+            "partial_not_in_strategy": sorted(partial),
+            "unverified_pipeline_ids": sorted(invalid),
+            "as_of_verification": "incomplete_snapshot_history"
+            if invalid
+            else "immutable_request_snapshots",
+        }
 
     def verify_two(self, data: dict[str, object]) -> dict[str, object]:
         request = HostTwoRoundInput.model_validate(data)

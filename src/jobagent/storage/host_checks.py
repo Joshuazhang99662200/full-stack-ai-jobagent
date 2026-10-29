@@ -8,8 +8,10 @@ from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.sent_tracking import ACTIVE
 from jobagent.schemas.host_checks import HostPageObservation
+from jobagent.schemas.pipeline import PipelineObservation
 from jobagent.schemas.sent_tracking import TrackingEventInput
 from jobagent.storage.database import Database
+from jobagent.storage.pipeline_repository import PipelineRepository
 from jobagent.storage.sent_tracking_repository import SqliteSentTrackingRepository
 
 
@@ -54,45 +56,26 @@ class HostPageService:
         current = latest.get(observation.source + "/" + observation.surface)
         stale = current is not None and current["observation_id"] != observation.observation_id
         paused = []
+        paused_pipeline = []
+        with self.database.connect() as connection:
+            authority = connection.execute(
+                "SELECT activated_at FROM pipeline_authorities WHERE candidate_id = ?",
+                (observation.candidate_id,),
+            ).fetchone()
         if (
             not stale
             and observation.surface == "messages"
             and observation.state == "login_redirect"
         ):
-            for record in self.tracking.list_records(observation.candidate_id):
-                if record.platform != observation.source or record.tracking_state not in ACTIVE:
-                    continue
-                event_id = (
-                    "HOST_" + canonical_digest([observation.observation_id, record.tracking_id])[7:]
-                )
-                if any(
-                    e.event_id == event_id
-                    for e in self.tracking.history(
-                        record.tracking_id,
-                        record.candidate_id,
-                    )
-                ):
-                    paused.append(record.tracking_id)
-                    continue
-                if observation.observed_at < record.last_event_at:
-                    continue
-                self.tracking.apply(
-                    TrackingEventInput(
-                        event_id=event_id,
-                        tracking_id=record.tracking_id,
-                        candidate_id=record.candidate_id,
-                        expected_version=record.tracking_version,
-                        kind="anomaly",
-                        observed_at=observation.observed_at,
-                        observation_id=observation.observation_id,
-                        evidence_reference=observation.evidence_reference,
-                        evidence_kind="platform_state",
-                    ),
-                    now=now,
-                )
-                paused.append(record.tracking_id)
+            if authority is not None:
+                if observation.observed_at >= datetime.fromisoformat(authority[0]):
+                    paused_pipeline = self._pause_pipeline(observation, now=now)
+            else:
+                paused = self._pause_legacy(observation, now=now)
         result.update(
             paused_tracking_ids=paused,
+            paused_pipeline_ids=paused_pipeline,
+            state_authority="pipeline_jobs" if authority is not None else "legacy_tracking",
             stale=stale,
             observation_id=observation.observation_id,
             observed_at=observation.observed_at.isoformat(),
@@ -107,6 +90,82 @@ class HostPageService:
                 (json.dumps(result, ensure_ascii=False), observation.observation_id),
             )
         return result
+
+    def _pause_pipeline(self, observation: HostPageObservation, *, now: datetime) -> list[str]:
+        repository = PipelineRepository(self.database)
+        paused = []
+        for job, meta in repository.list_records(observation.candidate_id):
+            if job.platform != observation.source or job.pipeline_state == "abandoned":
+                continue
+            event_id = (
+                "HOST_PIPE_" + canonical_digest([observation.observation_id, job.pipeline_id])[7:]
+            )
+            with self.database.connect() as connection:
+                existing = connection.execute(
+                    "SELECT candidate_id,pipeline_id FROM pipeline_requests WHERE event_id = ?",
+                    (event_id,),
+                ).fetchone()
+            if existing:
+                if (
+                    existing["candidate_id"] != observation.candidate_id
+                    or existing["pipeline_id"] != job.pipeline_id
+                ):
+                    reject("Page pause event conflicts with another pipeline target.")
+                paused.append(job.pipeline_id)
+                continue
+            if observation.observed_at < job.updated_at:
+                continue
+            repository.observe(
+                PipelineObservation(
+                    event_id=event_id,
+                    pipeline_id=job.pipeline_id,
+                    candidate_id=job.candidate_id,
+                    expected_version=meta.version,
+                    kind="pause",
+                    observed_at=observation.observed_at,
+                    evidence_kind="platform_state",
+                    evidence_reference=observation.evidence_reference,
+                ),
+                now=now,
+            )
+            paused.append(job.pipeline_id)
+        return paused
+
+    def _pause_legacy(self, observation: HostPageObservation, *, now: datetime) -> list[str]:
+        paused = []
+        for record in self.tracking.list_records(observation.candidate_id):
+            if record.platform != observation.source or record.tracking_state not in ACTIVE:
+                continue
+            event_id = (
+                "HOST_" + canonical_digest([observation.observation_id, record.tracking_id])[7:]
+            )
+            if any(
+                e.event_id == event_id
+                for e in self.tracking.history(
+                    record.tracking_id,
+                    record.candidate_id,
+                )
+            ):
+                paused.append(record.tracking_id)
+                continue
+            if observation.observed_at < record.last_event_at:
+                continue
+            self.tracking.apply(
+                TrackingEventInput(
+                    event_id=event_id,
+                    tracking_id=record.tracking_id,
+                    candidate_id=record.candidate_id,
+                    expected_version=record.tracking_version,
+                    kind="anomaly",
+                    observed_at=observation.observed_at,
+                    observation_id=observation.observation_id,
+                    evidence_reference=observation.evidence_reference,
+                    evidence_kind="platform_state",
+                ),
+                now=now,
+            )
+            paused.append(record.tracking_id)
+        return paused
 
     def latest(
         self, candidate_id: str, *, at: datetime | None = None

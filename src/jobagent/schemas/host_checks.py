@@ -27,6 +27,7 @@ class HostRoundInput(ContractModel):
     run_ids: list[NonEmptyString] = Field(min_length=1, max_length=20)
     started_at: AwareDatetime
     completed_at: AwareDatetime
+    next_poll_at: AwareDatetime | None = None
     search_observation_ids: list[str] = Field(default_factory=list, max_length=5000)
     manual_observation_ids: list[str] = Field(default_factory=list, max_length=5000)
     dedup_count: int | None = Field(default=None, ge=0)
@@ -38,6 +39,8 @@ class HostRoundInput(ContractModel):
 
     @model_validator(mode="after")
     def original_observations(self) -> "HostRoundInput":
+        if self.next_poll_at is not None and self.next_poll_at <= self.completed_at:
+            raise ValueError("The actual next host poll must follow round completion.")
         if self.completed_at < self.started_at:
             raise ValueError("Round completion cannot precede its start.")
         if (

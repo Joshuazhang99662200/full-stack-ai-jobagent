@@ -181,19 +181,21 @@ def test_tracking_creation_needs_approved_sent_audit_and_exact_text():
             outreach_proof(batch, approval, altered, text)
 
 
-def test_sent_and_awaiting_are_both_preserved_and_first_check_is_day_one():
+def test_sent_and_awaiting_are_preserved_and_first_check_is_after_four_hours():
     from jobagent.jobs.sent_tracking import start_tracking
 
     history = start_tracking(proof(), candidate_id="CAND_DEMO", tracking_id="TRACK_DEMO", now=NOW)
     assert [e.state.tracking_state.value for e in history] == ["sent", "awaiting_reply"]
-    assert history[-1].state.next_check_at == NOW + timedelta(days=1)
+    assert history[-1].state.next_check_at == NOW + timedelta(hours=4)
     assert history[-1].state.send_readback == "exact"
     assert TEXT not in history[-1].model_dump_json()
 
 
 def test_reply_screening_and_interview_require_existing_inbound_evidence():
     value, _ = confirm(record())
-    assert value.tracking_state.value == "replied" and value.next_check_at is None
+    assert value.tracking_state.value == "replied" and value.next_check_at == NOW + timedelta(
+        days=1, hours=4
+    )
     value, _ = confirm(value, "screening_confirmed")
     assert value.tracking_state.value == "screening"
     value, _ = confirm(value, "interview_confirmed", number=2, interview_invite=True)
@@ -213,32 +215,27 @@ def test_unread_counter_alone_is_only_suspected_reply():
         apply(value, "reply_confirmed", evidence_kind="unread_count")
 
 
-def test_no_response_requires_four_effective_checks_and_fourteen_days():
-    value = record()
-    for count, day in enumerate([1, 3, 7], start=1):
-        value, _ = apply(value, "no_reply", day)
-        assert value.check_count == count and value.tracking_state.value == "awaiting_reply"
-    value, history = apply(value, "no_reply", 14)
-    assert [e.state.tracking_state.value for e in history] == ["no_response_expired", "closed"]
-    assert value.check_count == 4 and value.outcome == "no_response"
-    assert value.next_check_at is None and value.abandon_reason == "no_response_expired"
-
-
-def test_missed_checks_are_not_inflated_by_four_reads_in_one_round():
-    value, _ = apply(record(), "no_reply", 14)
+def test_silence_expires_after_48_hours_without_a_check_count_threshold():
+    value, _ = apply(record(), "no_reply", day=1)
     assert value.check_count == 1 and value.tracking_state.value == "awaiting_reply"
+    value, history = apply(value, "no_reply", day=2)
+    assert [e.state.tracking_state.value for e in history] == ["no_response_expired", "closed"]
+    assert value.check_count == 2 and value.outcome == "no_response"
+    assert value.next_check_at is None and value.abandon_reason == "no_reply_2d"
+
+
+def test_first_real_check_after_deadline_closes_without_fabricated_observations():
+    value, _ = apply(record(), "no_reply", day=3)
+    assert value.check_count == 1 and value.tracking_state.value == "closed"
     with pytest.raises(ContractValidationError):
-        apply(value, "no_reply", 14, event_id="SECOND", observation_id="SECOND")
-    for day in [15, 16, 17]:
-        value, _ = apply(value, "no_reply", day)
-    assert value.tracking_state.value == "closed"
+        apply(value, "no_reply", day=3, event_id="SECOND", observation_id="SECOND")
 
 
-def test_four_checks_before_day_fourteen_do_not_expire_early():
-    value = record().model_copy(update={"check_count": 3, "next_check_at": NOW + timedelta(days=7)})
-    value, _ = apply(value, "no_reply", 7)
-    assert value.check_count == 4 and value.tracking_state.value == "awaiting_reply"
-    assert value.next_check_at == NOW + timedelta(days=14)
+def test_observation_counts_are_audit_only_and_do_not_expire_before_deadline():
+    value = record().model_copy(update={"check_count": 30})
+    value, _ = apply(value, "no_reply", day=1)
+    assert value.check_count == 31 and value.tracking_state.value == "awaiting_reply"
+    assert value.next_check_at == NOW + timedelta(days=1, hours=4)
 
 
 @pytest.mark.parametrize("kind", ["user_abandon", "queue_closed"])
@@ -282,7 +279,7 @@ def test_anomaly_pauses_and_only_explicit_owner_resume_allows_checks():
         evidence_kind="owner_message",
         owner_text="验证已处理，请恢复只读检查",
     )
-    assert not value.paused and value.next_check_at == NOW + timedelta(days=1)
+    assert not value.paused and value.next_check_at == NOW + timedelta(hours=4)
 
 
 def test_same_observation_and_future_clock_do_not_increase_checks():
@@ -374,3 +371,76 @@ def test_reply_round_cannot_use_an_older_send_or_unbound_audit_reference():
             now=update.observed_at,
             reply_proof=valid,
         )
+
+
+def test_confirmed_read_resets_the_same_silence_clock_without_increasing_checks():
+    value, _ = apply(record(), "read_confirmed", day=1, job_url=record().job_url)
+    assert value.read_at == NOW + timedelta(days=1) and value.check_count == 0
+    value, _ = apply(value, "no_reply", day=2)
+    assert value.tracking_state.value == "awaiting_reply"
+    value, _ = apply(value, "no_reply", day=3)
+    assert value.tracking_state.value == "closed" and value.abandon_reason == "read_no_reply_2d"
+
+
+def test_only_real_read_and_substantive_message_evidence_resets_silence():
+    with pytest.raises(ContractValidationError):
+        apply(
+            record(),
+            "read_confirmed",
+            day=1,
+            evidence_kind="unread_count",
+            job_url=record().job_url,
+        )
+    value, _ = confirm(record())
+    source_at = NOW + timedelta(days=1)
+    assert value.last_substantive_at == source_at
+    conversation, inbound = inbound_evidence(number=2, received_at=NOW + timedelta(hours=46))
+    inbound = inbound.model_copy(update={"recorded_at": NOW + timedelta(hours=46)})
+    value, _ = apply(
+        value,
+        "substantive_reply",
+        observed_at=NOW + timedelta(hours=47),
+        conversation=conversation,
+        inbound=inbound,
+        conversation_id=conversation.conversation_id,
+        inbound_event_id=inbound.event_id,
+        evidence_reference=inbound.event_id,
+    )
+    assert value.last_substantive_at == NOW + timedelta(hours=46)
+    value, _ = apply(value, "no_reply", observed_at=NOW + timedelta(hours=73))
+    assert value.tracking_state.value == "replied"
+    value, _ = apply(value, "no_reply", observed_at=NOW + timedelta(hours=94))
+    assert value.tracking_state.value == "closed"
+
+
+def test_reobserving_the_same_read_receipt_does_not_extend_its_deadline():
+    value, _ = apply(record(), "read_confirmed", day=1, job_url=record().job_url)
+    with pytest.raises(ContractValidationError):
+        apply(
+            value,
+            "read_confirmed",
+            day=2,
+            job_url=value.job_url,
+            event_id="REOPENED",
+            observation_id="REOPENED",
+        )
+
+
+def test_check_count_contract_has_no_expiration_cap_and_old_history_stays_readable():
+    from jobagent.schemas.sent_tracking import SentTrackingRecord
+
+    legacy = record().model_dump()
+    legacy.pop("read_at")
+    legacy.pop("last_substantive_at")
+    legacy["check_count"] = 50
+    legacy["missed_check_days"] = [1, 3]
+    parsed = SentTrackingRecord.model_validate(legacy)
+    assert parsed.check_count == 50 and parsed.missed_check_days == [1, 3]
+    assert parsed.read_at is None and parsed.last_substantive_at is None
+
+
+def test_persisted_legacy_schedule_cannot_delay_48_hour_expiry():
+    value = record().model_copy(update={"next_check_at": NOW + timedelta(days=7)})
+    value, _ = apply(value, "no_reply", day=2)
+    assert value.tracking_state.value == "closed"
+    assert value.check_count == 1 and value.abandon_reason == "no_reply_2d"

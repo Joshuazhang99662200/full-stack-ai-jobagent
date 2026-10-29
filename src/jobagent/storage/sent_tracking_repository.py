@@ -5,14 +5,13 @@ from datetime import datetime
 
 from jobagent.errors import ContractValidationError, StorageError
 from jobagent.jobs.jd_snapshot import canonical_digest
-from jobagent.jobs.sent_tracking import advance, start_tracking
+from jobagent.jobs.sent_tracking import ACTIVE, advance, check_due_at, start_tracking
 from jobagent.schemas.conversation import Conversation, ConversationEvent
 from jobagent.schemas.sent_tracking import (
     SentProof,
     SentTrackingRecord,
     TrackingEventInput,
     TrackingHistoryEvent,
-    TrackingState,
 )
 from jobagent.storage.database import Database
 
@@ -20,6 +19,23 @@ from jobagent.storage.database import Database
 class SqliteSentTrackingRepository:
     def __init__(self, database: Database) -> None:
         self.database = database
+
+    @staticmethod
+    def _pipeline_authority(connection: sqlite3.Connection, candidate_id: str) -> bool:
+        return (
+            connection.execute(
+                "SELECT 1 FROM pipeline_authorities WHERE candidate_id = ?", (candidate_id,)
+            ).fetchone()
+            is not None
+        )
+
+    @classmethod
+    def _require_legacy_authority(cls, connection: sqlite3.Connection, candidate_id: str) -> None:
+        if cls._pipeline_authority(connection, candidate_id):
+            raise ContractValidationError(
+                "This candidate uses pipeline as current truth; use pipeline commands. "
+                "Legacy tracking is historical read-only."
+            )
 
     @staticmethod
     def _current(
@@ -63,6 +79,7 @@ class SqliteSentTrackingRepository:
         try:
             with self.database.connect() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                self._require_legacy_authority(connection, candidate_id)
                 old = connection.execute(
                     "SELECT creation_digest FROM sent_tracking_roots WHERE tracking_id = ?",
                     (tracking_id,),
@@ -112,6 +129,7 @@ class SqliteSentTrackingRepository:
         try:
             with self.database.connect() as connection, connection:
                 connection.execute("BEGIN IMMEDIATE")
+                self._require_legacy_authority(connection, event.candidate_id)
                 state = self._current(connection, event.tracking_id, event.candidate_id)
                 old = connection.execute(
                     "SELECT * FROM sent_tracking_requests WHERE event_id = ?",
@@ -174,11 +192,14 @@ class SqliteSentTrackingRepository:
             return [self._current(connection, row["tracking_id"], candidate_id) for row in rows]
 
     def due(self, candidate_id: str, *, now: datetime) -> list[SentTrackingRecord]:
+        with self.database.connect() as connection:
+            if self._pipeline_authority(connection, candidate_id):
+                return []
         return [
             state
             for state in self.list_records(candidate_id)
-            if state.tracking_state == TrackingState.AWAITING_REPLY
+            if state.tracking_state in ACTIVE
             and not state.paused
-            and state.next_check_at is not None
-            and state.next_check_at <= now
+            and (due_at := check_due_at(state)) is not None
+            and due_at <= now
         ]

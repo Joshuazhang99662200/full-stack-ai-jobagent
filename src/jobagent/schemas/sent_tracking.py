@@ -81,10 +81,12 @@ class SentTrackingRecord(ContractModel):
     send_readback: Literal["exact"] = "exact"
     tracking_state: TrackingState
     last_checked_at: AwareDatetime | None = None
+    read_at: AwareDatetime | None = None
+    last_substantive_at: AwareDatetime | None = None
     registered_at: AwareDatetime | None = None
     bootstrap_next_check_at: AwareDatetime | None = None
     missed_check_days: list[int] = Field(default_factory=list)
-    check_count: int = Field(default=0, ge=0, le=4)
+    check_count: int = Field(default=0, ge=0)
     next_check_at: AwareDatetime | None = None
     reply_detected_at: AwareDatetime | None = None
     reply_kind: Literal["message", "screening", "interview"] | None = None
@@ -115,6 +117,8 @@ class SentTrackingRecord(ContractModel):
 TrackingAction = Literal[
     "no_reply",
     "suspected_reply",
+    "read_confirmed",
+    "substantive_reply",
     "reply_confirmed",
     "screening_confirmed",
     "interview_confirmed",

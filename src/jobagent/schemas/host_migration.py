@@ -29,7 +29,7 @@ class QueueMigrationConfig(ContractModel):
     migration_id: MigrationKey
     candidate_id: CandidateId
     domain: str = Field(min_length=1)
-    expected_count: int = Field(default=40, ge=1, le=10000)
+    expected_count: int = Field(ge=1, le=10000)
     fields: LegacyFieldMap = Field(default_factory=LegacyFieldMap)
     platform_values: dict[str, str] = Field(default_factory=dict)
     sent_row_ids: list[str] = Field(default_factory=list)

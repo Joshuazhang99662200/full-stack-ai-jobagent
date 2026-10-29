@@ -19,6 +19,19 @@ class HostBackfillService:
     def plan(
         self, migration_id: str, candidate_id: str, priority_ids: list[str] | None = None
     ) -> dict[str, object]:
+        with self.database.connect() as connection:
+            legacy = connection.execute(
+                "SELECT candidate_id FROM host_migration_runs WHERE migration_id = ?",
+                (migration_id,),
+            ).fetchone()
+        if legacy is None:
+            from jobagent.storage.pipeline_backfill import PipelineBackfillService
+
+            return PipelineBackfillService(self.database).plan(
+                migration_id, candidate_id, priority_ids
+            )
+        if legacy["candidate_id"] != candidate_id:
+            reject("Migration belongs to another candidate.")
         manifest = HostQueueMigrator().verify(self.database.path, migration_id)
         if manifest["candidate_id"] != candidate_id:
             reject("Migration belongs to another candidate.")
@@ -78,6 +91,17 @@ class HostBackfillService:
 
     def attach(self, data: dict[str, object], *, now: datetime) -> dict[str, object]:
         request = LegacyBackfillBinding.model_validate(data)
+        with self.database.connect() as connection:
+            legacy = connection.execute(
+                "SELECT candidate_id FROM host_migration_runs WHERE migration_id = ?",
+                (request.migration_id,),
+            ).fetchone()
+        if legacy is None:
+            from jobagent.storage.pipeline_backfill import PipelineBackfillService
+
+            return PipelineBackfillService(self.database).attach(data, now=now)
+        if legacy["candidate_id"] != request.candidate_id:
+            reject("Migration belongs to another candidate.")
         digest = canonical_digest(request.model_dump(mode="json"))
         with self.database.connect() as connection:
             old = connection.execute(

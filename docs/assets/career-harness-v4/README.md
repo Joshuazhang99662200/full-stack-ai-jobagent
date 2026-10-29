@@ -4,6 +4,8 @@
 
 README 使用 `workflow.png`：保留原暖色主图的布局与风格，仅通过局部编辑删除本人指定的左下角页脚句子；手机版已同步删除。`workflow-original.png` 为未修改的独立备份。另行重生成的 `workflow-regenerated.png` 未用于 README。局部编辑提示词见 [footer-edit-prompt.md](footer-edit-prompt.md)。
 
+README 在所有窗口宽度下均显示这张暖色手绘主图，点击图片可查看原图。`workflow-mobile.png` 仅作为独立的可选版本保留，不自动替换首页主图。
+
 用户提供暖色手绘架构图作为风格参考，覆盖此前 Blueprint 的视觉方向。主图使用内置 imagegen 生成，采用暖白纸底、棕色线条、薄荷绿图标与橙黄色审批重点；不复制参考图的品牌或架构内容。完整提示词见 [prompt.md](prompt.md)。
 
 流程来自[文字底稿](../../workflow-outline.md)与[实现范围](../../workflow-implementation.md)，图片属于流程说明，没有产品界面或真实转化数据。旧版素材保留在相邻目录。

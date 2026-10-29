@@ -2,10 +2,7 @@
 
 用于 Codex、Claude Code 和个人 AI 助手的求职工作流，包含候选人证据、岗位分析、定向简历和逐项发送审批。
 
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/assets/career-harness-v4/workflow-mobile.png">
-  <img src="docs/assets/career-harness-v4/workflow.png" alt="整体求职链路：协同接入、列表确认事实、已有对话与新岗位、完整 JD 匹配、准备招呼或简历、本人审批、执行回读，再到运营改进。">
-</picture>
+[![整体求职链路：协同接入、列表确认事实、已有对话与新岗位、完整 JD 匹配、准备招呼或简历、本人审批、执行回读，再到运营改进。](docs/assets/career-harness-v4/workflow.png)](docs/assets/career-harness-v4/workflow.png)
 
 [工作链路](#工作链路)
 [快速体验](#快速体验)

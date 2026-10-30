@@ -85,3 +85,33 @@ def test_deduplication_is_input_order_invariant_and_idempotent() -> None:
 
     assert forward.model_dump(mode="json") == reverse.model_dump(mode="json")
     assert repeated.jobs == forward.jobs
+
+
+def test_distinct_chinese_duties_are_not_merged_without_ascii_tokens() -> None:
+    first = job("mock-alpha", "alpha-001", jd="负责临床试验与医院采购管理")
+    second = job("mock-beta", "beta-991", jd="负责手游付费系统设计与虚拟道具商业化")
+
+    result = JobDeduplicator().deduplicate([first, second], DeduplicationPolicy())
+
+    assert len(result.jobs) == 2
+    assert not result.duplicate_groups
+
+
+def test_identical_chinese_duties_still_merge() -> None:
+    text = "负责财务预算规划与经营分析"
+    first = job("mock-alpha", "alpha-001", jd=text)
+    second = job("mock-beta", "beta-991", jd=text)
+
+    result = JobDeduplicator().deduplicate([first, second], DeduplicationPolicy())
+
+    assert len(result.jobs) == 1
+    assert len(result.jobs[0].provenance) == 2
+
+
+def test_shared_ascii_term_cannot_hide_distinct_chinese_duties() -> None:
+    first = job("mock-alpha", "alpha-001", jd="负责 AI 临床试验与医院采购管理")
+    second = job("mock-beta", "beta-991", jd="负责 AI 手游付费系统设计与虚拟道具商业化")
+
+    result = JobDeduplicator().deduplicate([first, second], DeduplicationPolicy())
+
+    assert len(result.jobs) == 2

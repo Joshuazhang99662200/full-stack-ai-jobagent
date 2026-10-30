@@ -1,0 +1,96 @@
+/* Hallmark · component: workflow map · genre: modern-minimal · theme: Blueprint (deal 1/3, reroll 1) · redesign: full · blueprint: cyanotype · posture: drenched · data: documented workflow · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R5 V5 · weakest: H, use a single connected route, two material branches and a real return path rather than rows of prose. */
+/* Hallmark · type: retain the repository's locally licensed Host Grotesk with Microsoft YaHei CJK fallback. */
+/* Hallmark · waive 26b · no controls or aria-disabled in workflow.html · the workflow is a static explanation exported to PNG, so an active state would imply an interaction that does not exist. */
+/* Hallmark · finish-review: subagent · fix · 1 finding resolved: reapproval label moved beside the main execution line and its dashed return routed below the label. */
+@import url("./tokens.css");
+@import url("./base.css");
+
+@font-face { font-family: "Host Grotesk"; src: url("../career-harness-v2/fonts/HostGrotesk.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+html, body { overflow-x: clip; }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+main { max-width: 1280px; margin-inline: auto; }
+figure { margin: 0; padding: 48px var(--space-2xl) 32px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-xl); margin-bottom: 36px; }
+h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-synthesis: none; overflow-wrap: break-word; min-width: 0; text-wrap: balance; text-transform: none; }
+h1 { font-size: 46px; line-height: 1.25; flex: 0 0 auto; }
+header p { max-width: 28ch; color: var(--color-ink-2); text-align: right; font-size: 23px; line-height: 1.5; }
+p { margin: 0; text-wrap: pretty; }
+.map { position: relative; height: 664px; }
+.connections { position: absolute; inset: 0; width: 100%; height: 100%; color: var(--color-ink); pointer-events: none; }
+.connections path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.connections marker path { stroke-width: 1.4; }
+.flow-links > path { marker-end: url(#arrow); }
+.flow-links > .no-arrow { marker-end: none; }
+.evidence-links { color: var(--color-muted); }
+.evidence-links path { stroke-dasharray: 5 5; marker-end: url(#arrow); }
+.reapproval { stroke-dasharray: 3 5; marker-end: url(#arrow); }
+.node { position: absolute; border: 1px solid var(--color-rule-2); padding: var(--space-lg); background: var(--color-paper); min-width: 0; }
+.node h2 { font-size: 25px; line-height: 1.35; }
+.node p { margin-top: var(--space-xs); color: var(--color-ink-2); font-size: 20px; line-height: 1.6; }
+.node .small { font-size: 18px; margin-top: var(--space-sm); color: var(--color-muted); }
+.prep { left: 0; top: 0; width: 248px; height: 144px; padding: var(--space-md); }
+.prep { height: 164px; }
+.prep p { font-size: 18px; line-height: 1.5; }
+.confirmation { left: 312px; top: 0; width: 248px; height: 144px; padding: var(--space-md); }
+.evidence { left: 632px; top: 0; width: 520px; height: 144px; padding: var(--space-md); border-color: var(--color-rule); }
+.evidence h2 { font-size: 30px; }
+.evidence p { max-width: 22ch; }
+.sources { left: 0; top: 232px; width: 248px; height: 192px; padding: 20px var(--space-lg); }
+.sources > div + div { border-top: 1px solid var(--color-rule-2); padding-top: var(--space-sm); margin-top: var(--space-sm); }
+.sources h2 { font-size: 23px; line-height: 1.3; }
+.sources p { font-size: 18px; line-height: 1.4; }
+.matching { left: 312px; top: 238px; width: 228px; height: 184px; padding: 20px; }
+.matching h2 { font-size: 23px; }
+.matching p { font-size: 19px; }
+.materials { position: absolute; left: 600px; top: 216px; width: 240px; }
+.materials .node { position: relative; width: 100%; padding: var(--space-md); }
+.greeting { height: 112px; }
+.resume { height: 144px; margin-top: var(--space-md); }
+.materials h2 { font-size: 24px; }
+.materials p { font-size: 18px; }
+.approval { left: 904px; top: 256px; width: 248px; height: 144px; border: 2px solid var(--color-ink); text-align: center; padding: var(--space-md); }
+.approval::after { content: ""; position: absolute; inset: 5px; border: 1px solid var(--color-rule-2); pointer-events: none; }
+.approval h2 { font-size: 27px; }
+.approval p { font-size: 19px; line-height: 1.5; }
+.execution, .receipt, .metrics, .rules { top: 512px; height: 132px; padding: var(--space-md); }
+.execution { left: 904px; width: 248px; }
+.receipt { left: 600px; width: 240px; padding: var(--space-md); }
+.metrics { left: 312px; width: 228px; padding: var(--space-md); }
+.rules { left: 0; width: 248px; }
+.execution h2, .receipt h2, .metrics h2, .rules h2 { font-size: 23px; }
+.execution p, .receipt p, .metrics p, .rules p { font-size: 19px; line-height: 1.5; }
+.receipt p { font-size: 18px; }
+.wire-label { position: absolute; background: var(--color-paper); color: var(--color-ink-2); font-size: 18px; line-height: 1.4; padding-inline: var(--space-xs); }
+.evidence-label { left: 484px; top: 172px; }
+.retry-label { left: 1040px; top: 432px; width: 112px; }
+.loop-label { left: 132px; top: 456px; }
+.mobile-return { display: none; }
+.mobile-approval-note { display: none; }
+figcaption { border-top: 1px solid var(--color-rule-2); padding-top: var(--space-md); color: var(--color-muted); font-size: 19px; line-height: 1.6; }
+::selection { background: var(--color-ink); color: var(--color-paper); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+
+@media (max-width: 1279px) {
+  figure { padding: 28px var(--space-lg) var(--space-lg); }
+  header { display: block; margin-bottom: var(--space-lg); }
+  h1 { font-size: 31px; }
+  header p { font-size: 18px; text-align: left; margin-top: var(--space-sm); max-width: none; }
+  .map { height: auto; display: grid; gap: var(--space-lg); padding-bottom: 28px; }
+  .connections, .wire-label { display: none; }
+  .node { position: relative; inset: auto; width: 100%; height: auto; padding: var(--space-md); }
+  .node h2, .evidence h2, .approval h2 { font-size: 21px; }
+  .node p, .node .small { font-size: 17px; line-height: 1.55; }
+  .evidence p { max-width: none; }
+  .node:not(.rules):not(.greeting):not(.resume)::before, .materials::after { content: "↓"; position: absolute; bottom: -24px; left: calc(50% - 8px); font-size: 19px; line-height: 1; color: var(--color-ink); }
+  .sources::before { content: "↓"; }
+  .materials { position: relative; inset: auto; width: 100%; padding-left: var(--space-md); border-left: 1px solid var(--color-rule); }
+  .materials .node { padding: var(--space-md); }
+  .resume { margin-top: var(--space-sm); }
+  .approval { text-align: left; padding: 20px; }
+  .mobile-approval-note { display: block; }
+  .sources > div + div { margin-top: var(--space-sm); padding-top: var(--space-sm); }
+  .mobile-return { display: block; font-size: 18px; line-height: 1.6; border-top: 1px solid var(--color-rule); padding-top: var(--space-md); color: var(--color-ink-2); }
+  figcaption { font-size: 16px; }
+}

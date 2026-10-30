@@ -84,15 +84,15 @@ class SqliteOutreachRepository:
         )
         return None if row is None else OutreachApproval.model_validate_json(row)
 
-    def append_audit(self, audit: OutreachAudit) -> None:
-        self._write(
-            "append outreach audit",
-            """
+    def append_audit(
+        self, audit: OutreachAudit, *, connection: sqlite3.Connection | None = None
+    ) -> None:
+        sql = """
             INSERT INTO outreach_audits (
                 audit_id, batch_id, number, job_id, platform, result, audit_json, recorded_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
+            """
+        parameters = (
                 audit.audit_id,
                 audit.batch_id,
                 audit.number,
@@ -101,8 +101,11 @@ class SqliteOutreachRepository:
                 audit.result.value,
                 audit.model_dump_json(),
                 audit.recorded_at.isoformat(),
-            ),
         )
+        if connection is not None:
+            connection.execute(sql, parameters)
+        else:
+            self._write("append outreach audit", sql, parameters)
 
     def list_audits(self) -> list[OutreachAudit]:
         try:

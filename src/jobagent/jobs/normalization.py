@@ -1,6 +1,7 @@
 """Deterministic source-record normalization."""
 
 import hashlib
+import json
 import re
 import unicodedata
 from decimal import Decimal
@@ -90,6 +91,13 @@ class JobNormalizer:
                 )
             ],
             warnings=warnings,
+            observation_id="sha256:" + hashlib.sha256(json.dumps(
+                record.model_dump(mode="json"), sort_keys=True, ensure_ascii=False,
+            ).encode("utf-8")).hexdigest(),
+            jd_digest="sha256:" + hashlib.sha256(record.jd_raw.encode("utf-8")).hexdigest(),
+            capture_kind=record.capture_kind,
+            panel_locator=record.panel_locator,
+            read_attempt_id=record.read_attempt_id,
         )
 
     def _parse_salary(self, salary_text: str | None) -> tuple[MoneyRange | None, str | None]:

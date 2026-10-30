@@ -17,14 +17,20 @@ def _normalized(value: str) -> str:
 
 
 def _tokens(value: str) -> set[str]:
-    return set(re.findall(r"[a-z0-9+#.]+", _normalized(value)))
+    normalized = _normalized(value)
+    tokens = set(re.findall(r"[a-z0-9+#.]+", normalized))
+    # CJK text has no word spaces. Bigrams retain its content instead of letting
+    # a shared ASCII label (or an empty token set) make unrelated duties identical.
+    for run in re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+", normalized):
+        tokens.update(run[index : index + 2] for index in range(max(1, len(run) - 1)))
+    return tokens
 
 
 def _similarity(left: str, right: str) -> float:
     left_tokens = _tokens(left)
     right_tokens = _tokens(right)
     union = left_tokens | right_tokens
-    return 1.0 if not union else len(left_tokens & right_tokens) / len(union)
+    return 0.0 if not union else len(left_tokens & right_tokens) / len(union)
 
 
 class JobDeduplicator:

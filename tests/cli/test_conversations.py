@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from tests.cli.test_outreach import drafted, invoke
-from tests.harness.test_pdf import variant
+from tests.harness.test_pdf import render, variant
 
 
 def greeted(tmp_path: Path) -> tuple[tuple[str, str], str, str]:
@@ -62,7 +62,7 @@ def test_from_greeting_to_a_sent_resume(tmp_path: Path) -> None:
         variant().model_copy(update={"target_job_id": job_id}).model_dump_json(), "utf-8"
     )
     pdf_path = tmp_path / "resume.pdf"
-    pdf_path.write_bytes(b"%PDF-1.4 test")
+    render(pdf_path, variant().items[0].text)
     code, attached = invoke(
         "conversations", "attach-resume", conversation_id, str(variant_path), str(pdf_path), *db
     )

@@ -6,7 +6,8 @@ with a box to tick and the words in an editable field, and one submit button.
 Nothing here decides anything; it only builds card JSON and reads a submission.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from jobagent.outreach.service import TIER_LABELS
@@ -22,26 +23,52 @@ class Submission:
     edited: dict[int, str]
 
 
+@dataclass(frozen=True)
+class JobDetail:
+    """What the person needs beside a greeting to judge it: where, and what the JD asks."""
+
+    location: str | None = None
+    keywords: list[str] = field(default_factory=list)
+    # The JD's own words for its main requirements, most binding first.
+    points: list[str] = field(default_factory=list)
+
+
 def _markdown(content: str) -> dict[str, Any]:
     return {"tag": "markdown", "content": content}
 
 
-def approval_card(batch: OutreachBatch, ask: OutreachAsk) -> dict[str, Any]:
+def _describe(head: str, detail: JobDetail | None, hook: str | None) -> str:
+    lines = [head]
+    if detail is not None and detail.keywords:
+        lines.append(f"**JD 关键词**：{' · '.join(detail.keywords)}")
+    if detail is not None:
+        lines += [f"<font color='grey'>· 「{point}」</font>" for point in detail.points]
+    if hook:
+        lines.append(f"<font color='grey'>这条招呼对上：{hook}</font>")
+    return "\n".join(lines)
+
+
+def approval_card(
+    batch: OutreachBatch, ask: OutreachAsk, details: Mapping[str, JobDetail] | None = None
+) -> dict[str, Any]:
     rewritten = any(item.written_by == "person" for item in batch.items)
     hint = (
         "这是你改写后的原文，确认无误再勾选提交。"
         if rewritten
-        else "勾选要发的条目，可直接改原文。改过的条目会再发一张确认卡，确认后才登记。"
+        else "勾选要发的条目，可直接改原文。点提交即批准勾选的条目，改过的按改后原文发送。"
     )
     elements: list[dict[str, Any]] = []
     for item in batch.items:
         tier = TIER_LABELS.get(item.match_tier, item.match_tier or "未评估")
         mark = "（本人改写）" if item.written_by == "person" else ""
+        detail = (details or {}).get(item.job_id)
+        where = f" · {detail.location}" if detail is not None and detail.location else ""
+        head = (
+            f"**{item.number}. {item.company}｜{item.title}**{mark}\n"
+            f"<font color='grey'>{item.platform} · {tier}{where}</font>"
+        )
         elements += [
-            _markdown(
-                f"**{item.number}. {item.company}｜{item.title}**{mark}\n"
-                f"<font color='grey'>{item.platform} · {tier}</font>"
-            ),
+            _markdown(_describe(head, detail, item.hook_requirement)),
             {
                 "tag": "checker",
                 "name": f"pick_{item.number}",
@@ -70,7 +97,7 @@ def approval_card(batch: OutreachBatch, ask: OutreachAsk) -> dict[str, Any]:
                 "title": {"tag": "plain_text", "content": "提交审批"},
                 "text": {
                     "tag": "plain_text",
-                    "content": "只登记勾选的条目，提交后这张卡不能再改。",
+                    "content": "勾选的条目将被批准发送，提交后这张卡不能再改。",
                 },
             },
         }

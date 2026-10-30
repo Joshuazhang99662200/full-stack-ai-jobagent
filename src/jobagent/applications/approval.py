@@ -86,10 +86,23 @@ def compute_digests(
     policy: DeliveryPolicy | None = None,
 ) -> ApplicationDigests:
     """Digest one package deterministically. Identical content, identical output."""
+    resume_digest = _digest_model(package.resume_variant)
+    if package.artifact is not None:
+        resume_digest = _digest_text(
+            json.dumps(
+                {
+                    "variant": resume_digest,
+                    "artifact": package.artifact.model_dump(mode="json", exclude={"path"}),
+                },
+                sort_keys=True,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
     return ApplicationDigests(
         application_id=package.application_id,
         job_digest=_digest_model(package.job),
-        resume_digest=_digest_model(package.resume_variant),
+        resume_digest=resume_digest,
         message_digest=_digest_text(package.message),
         policy_digest=_digest_model(policy if policy is not None else DeliveryPolicy()),
     )
@@ -151,6 +164,11 @@ class ApplicationApprovalService:
             question=(
                 f"Approve delivering to {package.job.company} · {package.job.title}? "
                 f"resume={package.resume_variant.id} url={package.job.url}"
+                + (
+                    f" artifact={package.artifact.path} digest={package.artifact.digest}"
+                    if package.artifact is not None
+                    else ""
+                )
             ),
             asked_at=asked_at if asked_at is not None else datetime.now(UTC),
         )

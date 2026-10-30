@@ -34,6 +34,14 @@ def _normalized(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+def _education_keyword(value: str) -> str:
+    normalized = _normalized(value)
+    degree = re.fullmatch(
+        r"(本科|学士|硕士|博士|大专|专科)(?:及以上|以上)?(?:学历|学位)?", normalized
+    )
+    return degree.group(1) if degree else normalized
+
+
 def excluded_role_term(
     title: str, terms: Sequence[str], exceptions: Sequence[str] = ()
 ) -> str | None:
@@ -55,14 +63,16 @@ def _location_prefixes(value: str) -> tuple[str, ...]:
     level of that hierarchy. Comparing the two as opaque strings rejects every
     district-scoped posting, so they are compared level by level instead.
 
-    Only `-` and `·` are treated as separators. Both order their segments broad to
-    narrow, which is what makes a prefix meaningful; the Western `District, City`
-    ordering is the reverse and is deliberately left alone.
+    `-`, `·`, and whitespace between Chinese characters separate broad-to-narrow
+    segments. Spaces inside Latin names and Western `District, City` ordering
+    are deliberately left alone.
     """
     segments = [
-        segment.strip() for segment in re.split(r"[-·]", value) if segment.strip()
+        segment.strip()
+        for segment in re.split(r"[-·]|(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])", value)
+        if segment.strip()
     ]
-    return tuple("-".join(segments[: index + 1]) for index in range(len(segments)))
+    return tuple("-".join(segments[: index + 1]) for index in range(len(segments))) or (value,)
 
 
 class HardFilterEngine:
@@ -113,8 +123,10 @@ class HardFilterEngine:
     ) -> RuleResult:
         if not context.allowed_locations:
             return None
-        observed = _normalized(job.location)
-        allowed = {_normalized(value) for value in context.allowed_locations}
+        observed = _location_prefixes(_normalized(job.location))[-1]
+        allowed = {
+            _location_prefixes(_normalized(value))[-1] for value in context.allowed_locations
+        }
         if allowed & set(_location_prefixes(observed)):
             return None
         # The candidate named a level narrower than the posting: a city-wide
@@ -261,7 +273,8 @@ class HardFilterEngine:
             )
         available = " ".join(_normalized(value) for value in context.education_levels)
         if any(
-            any(_normalized(keyword) in available for keyword in item.keywords) for item in required
+            any(_education_keyword(keyword) in available for keyword in item.keywords)
+            for item in required
         ):
             return None
         return (
@@ -304,17 +317,22 @@ class HardFilterEngine:
                     required_value=minimum.model_dump_json(),
                 ),
             )
-        if (
-            minimum.minimum is not None
-            and job.salary.maximum is not None
-            and job.salary.maximum < minimum.minimum
-        ):
+        observed_bound = (job.salary.maximum if context.compensation_compare_mode == "upper_bound"
+                          else job.salary.minimum)
+        if observed_bound is None:
+            return (
+                FilterDecision.REVIEW,
+                FilterReason(rule_id="COMPENSATION_MINIMUM",
+                             message="Selected compensation bound is unknown.",
+                             required_value=minimum.model_dump_json()),
+            )
+        if minimum.minimum is not None and observed_bound < minimum.minimum:
             return (
                 FilterDecision.REJECT,
                 FilterReason(
                     rule_id="COMPENSATION_MINIMUM",
-                    message="Job maximum compensation is below the candidate minimum.",
-                    observed_value=str(job.salary.maximum),
+                    message="Selected job compensation bound is below the candidate minimum.",
+                    observed_value=str(observed_bound),
                     required_value=str(minimum.minimum),
                 ),
             )

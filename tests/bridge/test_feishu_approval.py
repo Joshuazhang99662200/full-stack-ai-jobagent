@@ -37,6 +37,11 @@ def _event(form: dict[str, Any], *, event_id: str = "ev_1", operator: str = OWNE
     }
 
 
+def _batches(database: Path) -> list[str]:
+    with Database(database).connect() as connection:
+        return [r[0] for r in connection.execute("SELECT batch_id FROM outreach_batches")]
+
+
 def _texts(database: Path, batch_id: str) -> dict[int, str]:
     batch = _store(database).get_batch(batch_id)
     assert batch is not None
@@ -135,7 +140,7 @@ def test_nothing_ticked_leaves_the_card_open(tmp_path: Path) -> None:
     assert empty.status == "rejected" and then.status == "registered"
 
 
-def test_edited_items_become_a_new_question_instead_of_an_approval(tmp_path: Path) -> None:
+def test_a_ticked_rewrite_is_approved_as_rewritten_in_one_click(tmp_path: Path) -> None:
     database, batch_id, _ = _carded(tmp_path)
     texts = _texts(database, batch_id)
     rewritten = texts[1] + "我自己补一句，不受字数限制。"
@@ -146,26 +151,41 @@ def test_edited_items_become_a_new_question_instead_of_an_approval(tmp_path: Pat
         owner=OWNER,
     )
 
-    approval = _store(database).get_approval(batch_id)
-    assert outcome.status == "registered" and approval is not None
-    assert approval.approved_numbers == [2]
-    assert outcome.follow_up is not None
-    new_batch, new_ask = outcome.follow_up
-    assert [i.text for i in new_batch.items] == [rewritten]
-    assert new_batch.items[0].written_by == "person"
-    assert _store(database).get_approval(new_batch.batch_id) is None
-    assert new_ask.ask_id in {p["ask_id"] for p in status.pending_approvals(database)}
+    store = _store(database)
+    original = store.get_approval(batch_id)
+    assert outcome.status == "registered" and original is not None
+    assert original.approved_numbers == [2]
+    rewrites = [b for b in _batches(database) if b != batch_id]
+    assert len(rewrites) == 1
+    batch = store.get_batch(rewrites[0])
+    approval = store.get_approval(rewrites[0])
+    assert batch is not None and approval is not None
+    assert [i.text for i in batch.items] == [rewritten]
+    assert batch.items[0].written_by == "person"
+    assert approval.approved_numbers == [1] and rewritten in approval.attestation
+    assert status.pending_approvals(database) == []
 
 
-def test_listener_updates_the_card_and_sends_the_follow_up(tmp_path: Path) -> None:
+def test_a_rewrite_that_breaks_the_rules_is_not_approved(tmp_path: Path) -> None:
+    database, batch_id, _ = _carded(tmp_path)
+
+    outcome = feishu_approval.handle_card_event(
+        database, _event({"pick_1": True, "text_1": "做过 5 年投研。方便聊聊吗？"}), owner=OWNER
+    )
+
+    assert outcome.status == "rejected" and "contains_number" in outcome.lines[0]
+    assert _batches(database) == [batch_id]
+    texts = _texts(database, batch_id)
+    fixed = feishu_approval.handle_card_event(
+        database, _event({"pick_1": True, "text_1": texts[1]}, event_id="ev_2"), owner=OWNER
+    )
+    assert fixed.status == "registered"
+
+
+def test_listener_updates_the_card_in_place(tmp_path: Path) -> None:
     database, batch_id, _ = _carded(tmp_path)
     texts = _texts(database, batch_id)
     updates: list[tuple[str, dict[str, Any]]] = []
-    sent: list[dict[str, Any]] = []
-
-    def send_card(card: dict[str, Any]) -> str:
-        sent.append(card)
-        return "om_follow"
 
     lines = [
         "not json",
@@ -173,14 +193,11 @@ def test_listener_updates_the_card_and_sends_the_follow_up(tmp_path: Path) -> No
         json.dumps(_event({"pick_1": True, "text_1": texts[1] + "改"})),
     ]
     outcomes = feishu_approval.listen(
-        lines, database, owner=OWNER,
-        update=lambda token, card: updates.append((token, card)), send_card=send_card,
+        lines, database, owner=OWNER, update=lambda token, card: updates.append((token, card))
     )
 
-    assert [o.status for o in outcomes] == ["confirm"]
+    assert [o.status for o in outcomes] == ["registered"]
     assert updates[0][0] == "tok" and updates[0][1]["header"]["template"] == "green"
-    assert sent and sent[0]["header"]["title"]["content"].startswith("首条招呼审批")
-    assert feishu_approval.card_for("om_follow", database) is not None
 
 
 def test_listening_needs_an_app_bot_and_an_owner(tmp_path: Path) -> None:
@@ -192,3 +209,38 @@ def test_listening_needs_an_app_bot_and_an_owner(tmp_path: Path) -> None:
     code, report = invoke("notify", "feishu-listen", "--database", str(database))
 
     assert code == 1 and isinstance(report, dict) and "owner" in report["error"]["message"]
+
+
+def test_the_card_shows_jd_keywords_and_original_requirements(tmp_path: Path) -> None:
+    from jobagent.schemas.jobs import JobRequirement, JobRequirementProfile
+    from jobagent.storage.job_repository import SqliteJobRepository
+
+    database, batch_id, ask_id = _asked(tmp_path)
+    store = _store(database)
+    batch, ask = store.get_batch(batch_id), store.get_ask(ask_id)
+    assert batch is not None and ask is not None
+    job_id = batch.items[0].job_id
+
+    def req(n: int, priority: str, span: str, keywords: list[str]) -> JobRequirement:
+        return JobRequirement(id=f"REQ_{n}", statement=span, category="skill",
+                              priority=priority, source_span=span, keywords=keywords)
+
+    SqliteJobRepository(Database(database)).save_requirements(JobRequirementProfile(
+        job_id=job_id,
+        requirements=[
+            req(1, "context", "了解 MCP 等基础概念", ["MCP"]),
+            req(2, "must", "本科及以上学历", ["本科"]),
+            req(3, "must", "1-3 年 B 端 / SaaS 产品经验", ["B端", "SaaS"]),
+            req(4, "preferred", "有 Agent 工作流设计经验", ["Agent"]),
+        ],
+    ))
+
+    details = feishu_approval.card_details(database, batch)
+    card = feishu_card.approval_card(batch, ask, details)
+
+    text = json.dumps(card, ensure_ascii=False)
+    assert "Agent · MCP · B端 · SaaS" in text
+    assert "1-3 年 B 端 / SaaS 产品经验" in text and "本科及以上学历" not in text
+    assert text.index("1-3 年 B 端") < text.index("有 Agent 工作流") < text.index("了解 MCP")
+    other = batch.items[1].job_id
+    assert details.get(other) is None or details[other].points == []

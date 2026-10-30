@@ -56,6 +56,7 @@ class PublicPageJobDetailFetcher:
             job_kind=listing.job_kind,
             url=listing.url,
             collected_at=datetime.now(UTC),
+            completeness="full", access_state="public",
         )
 
     def _recruiter(self, page: str, listing: JobListing) -> RecruiterInfo | None:

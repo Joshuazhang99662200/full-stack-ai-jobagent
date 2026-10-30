@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field
 
+from jobagent.schemas.artifacts import EmployerArtifact
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
 from jobagent.schemas.jobs import MatchResult, NormalizedJob
 from jobagent.schemas.optimizer import ResumeVariant
@@ -60,6 +61,7 @@ class ApplicationPackage(ContractModel):
     match: MatchResult
     resume_variant: ResumeVariant
     message: NonEmptyString
+    artifact: EmployerArtifact | None = None
     risks: list[str] = Field(default_factory=list)
     prepared_at: datetime
 

@@ -30,6 +30,7 @@ from jobagent.errors import (
     UnverifiedResumeVariantError,
     UserInterventionRequiredError,
 )
+from jobagent.harness.artifacts import bind_artifact, verify_artifact
 from jobagent.schemas.applications import (
     ApplicationPackage,
     ApprovalChannel,
@@ -39,6 +40,7 @@ from jobagent.schemas.applications import (
     DeliveryRequest,
 )
 from jobagent.schemas.common import ContractModel
+from jobagent.schemas.harness import ResumeHeader
 from jobagent.schemas.jobs import MatchResult, NormalizedJob
 from jobagent.schemas.optimizer import ResumeVariant
 from jobagent.storage.application_repository import SqliteApplicationAuditRepository
@@ -200,6 +202,15 @@ def _emit(value: ContractModel) -> None:
     typer.echo(value.model_dump_json(indent=2))
 
 
+def _validate_final_artifact(package: ApplicationPackage) -> None:
+    if package.artifact is not None:
+        verify_artifact(package.artifact, package.resume_variant)
+    elif package.job.source != "mock" and not package.job.source.startswith("mock-"):
+        raise ContractValidationError(
+            "A checked final employer artifact is required; prepare and review the actual file."
+        )
+
+
 def _auditor(path: Path) -> ApplicationAuditor:
     path.parent.mkdir(parents=True, exist_ok=True)
     database = Database(path)
@@ -218,19 +229,33 @@ def preview(
         list[str] | None,
         typer.Option("--risk", help="Reviewer risk note; repeatable."),
     ] = None,
+    artifact: Annotated[
+        Path | None, typer.Option("--artifact", help="Actual employer PDF or Word file to bind.")
+    ] = None,
+    header: Annotated[
+        Path | None, typer.Option("--header", help="JSON with exact permitted identity lines.")
+    ] = None,
 ) -> None:
     """Assemble one reviewable package. This is not an approval."""
     try:
-        _emit(
-            ApplicationPreviewService().prepare(
-                application_id=application_id,
-                job=_load_model(job_path, NormalizedJob),
-                match=_load_model(match_path, MatchResult),
-                resume_variant=_load_model(variant_path, ResumeVariant),
-                message=_load_text(message_path),
-                risks=risk or [],
-            )
+        package = ApplicationPreviewService().prepare(
+            application_id=application_id,
+            job=_load_model(job_path, NormalizedJob),
+            match=_load_model(match_path, MatchResult),
+            resume_variant=_load_model(variant_path, ResumeVariant),
+            message=_load_text(message_path),
+            risks=risk or [],
         )
+        if header is not None and artifact is None:
+            raise ContractValidationError("Header lines require a final employer artifact.")
+        if artifact is not None:
+            package.artifact = bind_artifact(
+                artifact,
+                package.resume_variant,
+                _load_model(header, ResumeHeader) if header is not None else None,
+            )
+        _validate_final_artifact(package)
+        _emit(package)
     except JobAgentError as error:
         _fail(error)
 
@@ -248,6 +273,7 @@ def ask(
     """
     try:
         package = _load_model(package_path, ApplicationPackage)
+        _validate_final_artifact(package)
         _emit(ApplicationApprovalService().ask(package, DeliveryPolicy()))
     except JobAgentError as error:
         _fail(error)
@@ -286,6 +312,7 @@ def approve(
     """
     try:
         package = _load_model(package_path, ApplicationPackage)
+        _validate_final_artifact(package)
         if not confirm:
             raise ApprovalRequiredError(
                 "Approval requires an explicit human confirmation.",
@@ -296,9 +323,7 @@ def approve(
             _require_interactive_confirmation(package)
             _emit(service.approve(package, DeliveryPolicy(), confirmed=True))
             return
-        request = (
-            _load_model(request_path, ApprovalRequest) if request_path is not None else None
-        )
+        request = _load_model(request_path, ApprovalRequest) if request_path is not None else None
         _emit(
             service.approve(
                 package,
@@ -334,6 +359,7 @@ def send(
     """
     try:
         package = _load_model(package_path, ApplicationPackage)
+        _validate_final_artifact(package)
         approval = _load_model(approval_path, ApprovalRecord)
         source: ApplicationDeliverySource = _connector_provider(package.job.source)
         digests = compute_digests(package, DeliveryPolicy())

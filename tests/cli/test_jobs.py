@@ -538,6 +538,8 @@ def test_add_jd_rejects_a_too_short_description(tmp_path: Path) -> None:
 def _observation(**overrides: object) -> dict[str, object]:
     record: dict[str, object] = {
         "source": "boss",
+        "access_state": "authenticated",
+        "completeness": "full",
         "source_job_id": "abc123",
         "title": "AI 产品经理（懂 Skill）",  # noqa: RUF001
         "company": "胜算云",
@@ -553,6 +555,28 @@ def _observation(**overrides: object) -> dict[str, object]:
 
 def _import(tmp_path: Path, records: list[dict[str, object]]) -> tuple[int, object, Path]:
     database_path = tmp_path / "jobagent.sqlite3"
+    import hashlib
+    from datetime import UTC, datetime
+
+    from jobagent.schemas.sourcing import ReadOutcome, ReadReservation
+    from jobagent.storage.sourcing_repository import SqliteSourcingRepository
+
+    db = Database(database_path)
+    db.migrate()
+    reads = SqliteSourcingRepository(db)
+    records = [dict(row) for row in records]
+    for row in records:
+        if row.get("source") != "boss":
+            continue
+        identity = hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
+        attempt_id = "TEST_" + identity
+        row["read_attempt_id"] = attempt_id
+        at = datetime.fromisoformat(str(row["collected_at"]).replace("Z", "+00:00"))
+        reads.reserve(ReadReservation(
+            attempt_id=attempt_id, source="boss", target_url=str(row["url"]),
+            profile="standard", expected_daily_cap=50,
+        ), daily_cap=50, now=at.astimezone(UTC))
+        reads.record(ReadOutcome(attempt_id=attempt_id, status="read"), now=at)
     path = tmp_path / "observations.json"
     path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
     code, payload = invoke(

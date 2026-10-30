@@ -25,6 +25,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -75,6 +76,8 @@ class PushConfig:
     profile: str | None = None
     # Whose card submissions count; defaults to user_id.
     owner: str | None = None
+    # Explicit knowledge-base identity; never inferred from recipient or old evidence.
+    candidate_id: str | None = None
 
 
 def load_config(path: Path) -> PushConfig:
@@ -86,11 +89,17 @@ def load_config(path: Path) -> PushConfig:
         raw.get("chat_id"), raw.get("user_id"), raw.get("binary"),
         raw.get("webhook"), raw.get("secret"), raw.get("profile"),
         raw.get("owner"),
+        raw.get("candidate_id"),
     )
     if sum(bool(t) for t in (config.chat_id, config.user_id, config.webhook)) != 1:
         raise PushError(f"{path.name} needs exactly one of chat_id, user_id or webhook.")
     if config.webhook and not config.webhook.startswith("https://"):
         raise PushError(f"{path.name}: webhook must be an https URL.")
+    if config.candidate_id is not None and (
+        not isinstance(config.candidate_id, str)
+        or re.fullmatch(r"CAND_[A-Z0-9_]+", config.candidate_id) is None
+    ):
+        raise PushError(f"{path.name}: candidate_id must be an explicit CAND_* identifier.")
     return config
 
 
@@ -311,7 +320,9 @@ def lark_card_updater(config: PushConfig) -> Callable[[str, dict[str, Any]], Non
     return update
 
 
-def send_cards(database: Path, send_card: Callable[[dict[str, Any]], str]) -> list[str]:
+def send_cards(
+    database: Path, send_card: Callable[[dict[str, Any]], str], *, candidate_id: str | None = None,
+) -> list[str]:
     """One approval card for every open question that has none yet."""
     store = SqliteOutreachRepository(Database(database))
     done = feishu_approval.carded_asks(database)
@@ -321,7 +332,9 @@ def send_cards(database: Path, send_card: Callable[[dict[str, Any]], str]) -> li
             continue
         batch, ask = store.get_batch(pending["batch_id"]), store.get_ask(pending["ask_id"])
         if batch is not None and ask is not None:
-            sent.append(feishu_approval.send_question_card(database, batch, ask, send_card))
+            sent.append(feishu_approval.send_question_card(
+                database, batch, ask, send_card, candidate_id=candidate_id,
+            ))
     return sent
 
 
@@ -381,7 +394,9 @@ def auto_push(
         config = load_config(path)
         cards = not config.webhook
         report = push(database, send=sender_for(config), now=now, cards=cards, extra=extra)
-        carded = send_cards(database, lark_card_sender(config)) if cards else []
+        carded = send_cards(
+            database, lark_card_sender(config), candidate_id=config.candidate_id,
+        ) if cards else []
     except PushError as error:
         return {"sent": False, "error": str(error)}
     return {"sent": report["sent"], "keys": len(report["keys"]), "cards": len(carded)}

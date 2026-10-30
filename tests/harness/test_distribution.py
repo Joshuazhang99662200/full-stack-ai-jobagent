@@ -136,3 +136,71 @@ def test_accidental_private_state_inside_skill_tree_is_not_distributed(tmp_path)
     assert (installed / "references/policy.md").exists()
     assert not (installed / ".jobagent").exists()
     assert not (installed / "candidate").exists()
+
+
+def synthetic_release_source(tmp_path):
+    build = builder()
+    source = tmp_path / "source"
+    policy = source / "skills/job-hunting/references/policy.md"
+    policy.parent.mkdir(parents=True)
+    policy.write_text("Public policy", encoding="utf-8")
+    (source / "skills/job-hunting/SKILL.md").write_text("Public skill", encoding="utf-8")
+    (source / "src/jobagent").mkdir(parents=True)
+    (source / "src/jobagent/__init__.py").write_text('"""Public runtime."""')
+    (source / "LICENSE").write_text("test license")
+    (source / "pyproject.toml").write_text('[project]\nversion="test"\ndependencies=[]')
+    build.__globals__["ROOT"] = source
+    return build, source, policy
+
+
+@pytest.mark.parametrize(
+    "leak",
+    [
+        'api_key = "' + "sk-" + "synthetic" * 4 + '"',
+        'refresh_token = "' + "synthetic" * 4 + '"',
+        'refreshToken = "synthetic credential with punctuation!"',
+        'client_secret = "synthetic credential with punctuation!"',
+        'apiKey = "synthetic credential with punctuation!"',
+        "C:" + "\\Users\\SYNTHETIC\\candidate\\resume.pdf",
+        "/home/SYNTHETIC/candidate/resume.pdf",
+        "/home/合成用户/candidate/resume.pdf",
+        "-----BEGIN PRIVATE KEY-----\nSYNTHETIC ONLY",
+        "candidate@" + "synthetic-do-not-use.org",
+    ],
+)
+def test_release_privacy_rejects_leaks_before_any_output_write(tmp_path, leak):
+    build, _, policy = synthetic_release_source(tmp_path)
+    policy.write_text(leak, encoding="utf-8")
+    target = tmp_path / "installed"
+
+    with pytest.raises(ValueError, match="privacy") as caught:
+        build(target, "codex")
+
+    assert not target.exists()
+    assert leak not in str(caught.value)
+    assert "references/policy.md" in str(caught.value)
+
+
+def test_release_privacy_allows_documented_placeholders_and_reserved_contacts(tmp_path):
+    build, _, policy = synthetic_release_source(tmp_path)
+    policy.write_text(
+        'api_key = "YOUR_API_KEY"\n'
+        'refresh_token = "<provided-by-user>"\n'
+        "ada@example.com\nrecruiter@jobs.example.test\n",
+        encoding="utf-8",
+    )
+    result = build(tmp_path / "installed", "codex")
+    manifest = json.loads((result / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["privacy_check"]["passed"] is True
+    assert manifest["privacy_check"]["rules_version"] == "public-release-v1"
+
+
+def test_private_directory_names_are_excluded_case_insensitively(tmp_path):
+    build, source, _ = synthetic_release_source(tmp_path)
+    leak = source / "skills/job-hunting/references/Private/resume.json"
+    leak.parent.mkdir()
+    leak.write_text('{"contact":"synthetic private content"}')
+
+    result = build(tmp_path / "installed", "codex")
+
+    assert not (result / "references/Private").exists()

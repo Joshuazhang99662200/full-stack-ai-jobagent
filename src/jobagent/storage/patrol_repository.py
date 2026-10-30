@@ -103,6 +103,14 @@ class SqlitePatrolRepository:
             self._raise("read patrol snapshots", error)
         return [PatrolSnapshot.model_validate_json(row["body"]) for row in rows]
 
+    def latest_baseline(self, platform: str) -> PatrolSnapshot | None:
+        """Skip blocked and incomplete observations without changing their history."""
+        return next(
+            (snapshot for snapshot in self.snapshots(platform, limit=-1)
+             if snapshot.baseline_eligible),
+            None,
+        )
+
     def _one(self, sql: str) -> PatrolCheck | None:
         try:
             with self.database.connect() as connection:

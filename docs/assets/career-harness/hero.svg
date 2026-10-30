@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" role="img" aria-labelledby="title desc">
+  <title id="title">CareerHarness：把真实经历变成有依据的每一次申请</title>
+  <desc id="desc">求职工作流示意。已确认证据结合完整岗位描述，形成定向草稿，经过独立复核和本人审批，最后由宿主执行或人工交接。</desc>
+  <defs>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#cbd8d1"/></pattern>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M1 1 6 4 1 7" fill="none" stroke="#7f9b8f" stroke-width="1.5"/></marker>
+  </defs>
+  <rect width="1280" height="600" rx="28" fill="#f1f5ef"/>
+  <rect x="682" width="598" height="462" rx="28" fill="url(#dots)" opacity=".6"/>
+  <g font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+    <rect x="48" y="40" width="38" height="38" rx="11" fill="#17493d"/>
+    <path d="m59 59 6 6 12-14" stroke="#daf589" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="100" y="65" font-size="13" font-weight="700" letter-spacing="2.2" fill="#49675a">YOUR CAREER. YOUR CALL.</text>
+    <text x="48" y="145" font-size="58" font-weight="750" letter-spacing="-2" fill="#163d33">CareerHarness</text>
+    <text x="48" y="226" font-size="48" font-weight="700" fill="#163d33">真实经历，</text>
+    <text x="48" y="288" font-size="48" font-weight="700" fill="#163d33">有据可循。</text>
+    <text x="50" y="340" font-size="20" fill="#49675a">让 AI 协助你准备，让每次申请都有依据。</text>
+    <text x="50" y="374" font-size="20" fill="#49675a">事实有出处 · 改写有复核 · 发送由你决定</text>
+    <rect x="48" y="412" width="126" height="30" rx="15" fill="#ddebda"/>
+    <text x="111" y="432" text-anchor="middle" font-size="13" font-weight="600" fill="#365847">开发者 Alpha</text>
+    <text x="191" y="432" font-size="13" fill="#667d71">工作流示意 · 平台能力按宿主验收</text>
+
+    <g fill="none" stroke="#7f9b8f" stroke-width="2" marker-end="url(#arrow)"><path d="M983 178v20"/><path d="M983 320v18"/></g>
+    <rect x="744" y="66" width="488" height="110" rx="20" fill="#fff" stroke="#d6e1d7"/>
+    <circle cx="787" cy="121" r="22" fill="#eaf1e5"/>
+    <path d="m778 121 6 6 12-13" fill="none" stroke="#2a7057" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="828" y="97" font-size="11" letter-spacing="1.6" font-weight="700" fill="#4f785e">01 / GROUNDED</text>
+    <text x="828" y="127" font-size="23" font-weight="650" fill="#163d33">从本人确认的经历出发</text>
+    <text x="828" y="153" font-size="16" fill="#667d71">保留原始出处与证据编号</text>
+
+    <rect x="744" y="208" width="488" height="110" rx="20" fill="#fff" stroke="#d6e1d7"/>
+    <circle cx="787" cy="263" r="22" fill="#eaf1e5"/>
+    <path d="M779 251h11l7 7v17h-18zm11 0v8h7m-13 7h8m-8 5h8" stroke="#2a7057" stroke-width="1.7" fill="none" stroke-linejoin="round"/>
+    <text x="828" y="239" font-size="11" letter-spacing="1.6" font-weight="700" fill="#4f785e">02 / REVIEWED</text>
+    <text x="828" y="269" font-size="23" font-weight="650" fill="#163d33">按岗位定制，独立复核</text>
+    <text x="828" y="295" font-size="16" fill="#667d71">把主张、缺口与改动摆出来</text>
+
+    <rect x="744" y="350" width="488" height="110" rx="20" fill="#17493d"/>
+    <circle cx="787" cy="405" r="22" fill="#daf589"/>
+    <path d="M778 404v-4a9 9 0 0 1 18 0v4m-18 0h18v13h-18z" stroke="#17493d" stroke-width="1.7" fill="none" stroke-linejoin="round"/>
+    <text x="828" y="381" font-size="11" letter-spacing="1.6" font-weight="700" fill="#daf589">03 / HUMAN-APPROVED</text>
+    <text x="828" y="411" font-size="23" font-weight="650" fill="#fff">你批准的，才进入执行</text>
+    <text x="828" y="437" font-size="16" fill="#c9dfd2">逐项审批，发送前再核验</text>
+
+    <line x1="48" y1="486" x2="1232" y2="486" stroke="#d2ded2"/>
+    <g font-size="16" font-weight="600" fill="#365847" text-anchor="middle">
+      <text x="118" y="538">已确认证据</text><text x="314" y="538">完整 JD</text><text x="510" y="538">定向草稿</text><text x="706" y="538">独立复核</text><text x="902" y="538">本人审批</text><text x="1153" y="538">执行 / 交接</text>
+    </g>
+    <g fill="none" stroke="#7f9b8f" stroke-width="1.5" marker-end="url(#arrow)">
+      <path d="M201 532h32"/><path d="M397 532h32"/><path d="M593 532h32"/><path d="M789 532h32"/><path d="M985 532h77"/>
+    </g>
+    <text x="48" y="577" font-size="12" fill="#6b8174">AI 辅助准备与复核，程序守住边界，本人作出决定。</text>
+  </g>
+</svg>

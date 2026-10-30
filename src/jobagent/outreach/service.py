@@ -66,6 +66,8 @@ def _item_digest(job: NormalizedJob, draft: OutreachDraft) -> str:
         content["tags"] = tags
     if draft.written_by == "person":
         content["written_by"] = "person"
+    if draft.source_binding is not None:
+        content["source_binding"] = draft.source_binding.model_dump(mode="json")
     return _digest(content)
 
 
@@ -91,6 +93,32 @@ UNDRAFTED_TIERS = frozenset({"weak_match", "no_match"})
 
 
 class OutreachService:
+    @staticmethod
+    def verify_current_batch(batch: OutreachBatch, jobs: Mapping[str, NormalizedJob]) -> None:
+        """Recompute approved content, including the current source job and exact text."""
+        if (
+            batch.policy_digest != policy_digest(batch.policy)
+            or batch.batch_digest != _digest([[i.number, i.item_digest] for i in batch.items])
+        ):
+            raise StaleApprovalError("Outreach batch content changed after approval.")
+        for item in batch.items:
+            job = jobs.get(item.job_id)
+            if job is None:
+                raise StaleApprovalError("An approved job is no longer available.")
+            draft = OutreachDraft(
+                job_id=item.job_id, platform=item.platform, text=item.text,
+                evidence_ids=item.evidence_ids, variant=item.variant,
+                hook_requirement=item.hook_requirement, experiment_id=item.experiment_id,
+                written_by=item.written_by,
+                source_binding=item.source_binding,
+            )
+            if (
+                item.item_digest != _item_digest(job, draft)
+                or item.platform != job.source or item.url != str(job.url)
+                or item.company != job.company or item.title != job.title
+            ):
+                raise StaleApprovalError("Approved greeting or source job changed.")
+
     def build_batch(
         self,
         drafts: Sequence[OutreachDraft],
@@ -157,6 +185,7 @@ class OutreachService:
                     hook_requirement=draft.hook_requirement,
                     experiment_id=draft.experiment_id,
                     written_by=draft.written_by,
+                    source_binding=draft.source_binding,
                     item_digest=_item_digest(job, draft),
                 )
             )
@@ -192,9 +221,7 @@ class OutreachService:
             return ["already_contacted"]
         if draft.job_id in listed:
             return ["duplicate_in_batch"]
-        reasons = first_greeting_problems(
-            draft.text, length_limit=draft.written_by != "person"
-        )
+        reasons = first_greeting_problems(draft.text)
         if any(evidence not in confirmed_evidence_ids for evidence in draft.evidence_ids):
             reasons.append("unconfirmed_evidence")
         return reasons

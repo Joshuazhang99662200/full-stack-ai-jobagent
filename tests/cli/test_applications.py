@@ -154,7 +154,9 @@ def connector(monkeypatch: pytest.MonkeyPatch) -> ConnectorHarness:
     return ConnectorHarness(monkeypatch)
 
 
-def preview(workspace: Path, variant_name: str = "variant.json") -> tuple[int, Any]:
+def preview(
+    workspace: Path, variant_name: str = "variant.json", artifact: Path | None = None
+) -> tuple[int, Any]:
     return invoke(
         "applications",
         "preview",
@@ -163,16 +165,17 @@ def preview(workspace: Path, variant_name: str = "variant.json") -> tuple[int, A
         str(workspace / "match.json"),
         str(workspace / variant_name),
         str(workspace / "message.txt"),
+        *(["--artifact", str(artifact)] if artifact is not None else []),
     )
 
 
-def approved(workspace: Path) -> Path:
+def approved(workspace: Path, *, artifact: Path | None = None) -> Path:
     """Mint an approval through the service, because the CLI now requires a TTY.
 
     That is the point of the gate: an automated caller must not be able to
     approve on its own behalf through the documented command.
     """
-    code, package = preview(workspace)
+    code, package = preview(workspace, artifact=artifact)
     assert code == 0
     package_path = workspace / "package.json"
     package_path.write_text(json.dumps(package), encoding="utf-8")
@@ -423,11 +426,17 @@ def test_audit_log_can_be_scoped_to_one_application(
 
 
 def test_liepin_rehearsal_reports_missing_custom_artifact_support(workspace: Path) -> None:
+    from reportlab.pdfgen import canvas
+
     posting = job()
     posting.source = "liepin"
     posting.job_kind = "2"
     (workspace / "job.json").write_text(posting.model_dump_json(), encoding="utf-8")
-    package_path = approved(workspace)
+    artifact = workspace / "resume.pdf"
+    pdf = canvas.Canvas(str(artifact))
+    pdf.drawString(50, 700, variant().items[0].text)
+    pdf.save()
+    package_path = approved(workspace, artifact=artifact)
     code, payload = invoke(
         "applications", "send", str(package_path), str(workspace / "approval.json"), "--dry-run"
     )

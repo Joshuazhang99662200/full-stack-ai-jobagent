@@ -25,26 +25,26 @@ def fetcher(opener: object) -> PublicPageJobDetailFetcher:
 
 LISTING = JobListing(
     source="liepin",
-    source_job_id="1976319881",
-    title="大模型产品经理（投研方向）",
-    company="宁波银行",
+    source_job_id="SYNTHETIC_LISTING",
+    title="数据研究工程师（合成示例）",
+    company="合成示例研究机构",
     location="上海-浦东新区",
-    url="https://www.liepin.com/job/1976319881.shtml",
-    salary_text="40-60k",
+    url="https://www.liepin.com/job/SYNTHETIC_LISTING.shtml",
+    salary_text="20-30k",
     collected_at=datetime.now(UTC),
 )
 
-# Mirrors the real page: the JD is followed by other sections that must be cut.
+# Synthetic HTML preserves section boundaries without a real employer or posting.
 PAGE = """
 <html><body>
 <div class="job-intro"><h2>职位介绍</h2>
-<p>1、负责大模型产品设计工作，推动大模型技术在金融场景的深度应用。</p>
-<p>2、针对金融领域专业需求，优化Prompt和智能体机制。</p>
+<p>1、负责合成示例数据处理流程设计，验证实验数据的一致性与可复现性。</p>
+<p>2、针对合成实验需求，编写数据质量检查与研究结果复核流程。</p>
 </div>
 <div class="other"><h2>其他信息</h2><p>语言要求：英语、普通话</p></div>
-<div class="comp"><h2>公司简介</h2><p>宁波银行股份有限公司诚聘</p></div>
+<div class="comp"><h2>公司简介</h2><p>合成示例研究机构说明</p></div>
 <div class="tip"><h2>猎聘温馨提示：</h2><p>如您发现平台内招聘方存在违规行为</p></div>
-<div class="rec"><h2>猜你喜欢</h2><p>AI Infra 产品经理</p></div>
+<div class="rec"><h2>猜你喜欢</h2><p>合成示例运营经理</p></div>
 </body></html>
 """
 
@@ -85,20 +85,20 @@ def opener_for(body: str):
 def test_jd_is_extracted_and_bounded_at_the_next_section() -> None:
     record = fetcher(opener_for(PAGE)).fetch(LISTING)
 
-    assert "负责大模型产品设计工作" in record.jd_raw
-    assert "优化Prompt和智能体机制" in record.jd_raw
+    assert "负责合成示例数据处理流程设计" in record.jd_raw
+    assert "编写数据质量检查与研究结果复核流程" in record.jd_raw
     # Everything after the JD block must be excluded.
-    for leaked in ("语言要求", "宁波银行股份有限公司诚聘", "猎聘温馨提示", "AI Infra 产品经理"):
+    for leaked in ("语言要求", "合成示例研究机构说明", "猎聘温馨提示", "合成示例运营经理"):
         assert leaked not in record.jd_raw
 
 
 def test_listing_fields_are_carried_into_the_full_record() -> None:
     record = fetcher(opener_for(PAGE)).fetch(LISTING)
 
-    assert record.source_job_id == "1976319881"
-    assert record.title == "大模型产品经理（投研方向）"
-    assert record.company == "宁波银行"
-    assert record.salary_text == "40-60k"
+    assert record.source_job_id == "SYNTHETIC_LISTING"
+    assert record.title == "数据研究工程师（合成示例）"
+    assert record.company == "合成示例研究机构"
+    assert record.salary_text == "20-30k"
     assert str(record.url) == str(LISTING.url)
     assert record.collected_at.tzinfo is not None
 
@@ -112,7 +112,7 @@ def test_gated_page_requires_a_human_instead_of_saving_a_partial_jd(marker: str)
 
 
 def test_missing_jd_section_is_not_silently_accepted() -> None:
-    page = "<html><body><div>公司简介 宁波银行</div></body></html>"
+    page = "<html><body><div>公司简介 合成示例研究机构</div></body></html>"
 
     with pytest.raises(InvalidProviderOutputError, match="no job description"):
         fetcher(opener_for(page)).fetch(LISTING)

@@ -1,0 +1,21 @@
+{
+  "desktop": "built-in imagegen local edit: original warm diagram with specified bottom-left footer sentence removed",
+  "mobile": "new native diagram with original inline SVG icons",
+  "outputs": {
+    "workflow.png": "24c5a4e27a87aff119017afaa4ec57d88f6ee62efccaafc8488aa2e8052e5d76",
+    "workflow-mobile.png": "e41022a7b2302e0af3b6b6fe8df3e02a863c9bfa3fb161d02ebbd5ad4ea97f8f",
+    "workflow-original.png": "18469382c1696fb1fc56c6c3901870800652b19a89dc7164570d252631f3f3a6",
+    "workflow-regenerated.png": "4e6feafa8f8d53d57a9ea5199809107b2d04315daf33260299369bb60a9afded"
+  },
+  "sources": {
+    "prompt.md": "96ec99dd16ceee8fe5b1449e5f4fdbdc07ba2f90fae49554118ade300fe2ce6d",
+    "mobile.html": "d3fde61fd2ef708200b618cc754bc8f9baa6d27040f12b810fb287deb8a51235",
+    "mobile.css": "04725086891ce8fb88e400b8a5be512d4c6d958c72bcca98ac90ba19eaa063d5",
+    "render-mobile.mjs": "9b6d85a58e4d824be1332d55163198872faafc495e250a6499de69ba55e2337d",
+    "../../workflow-outline.md": "0e162cfb41e92b9ad69c25ba65668d5c6b7c0f795ae685e13588f1d9d3263f3f",
+    "../../workflow-implementation.md": "364a7be9755299fc7a542e5265950fea9e18631917ba770a74b9b49e8ba08e7c",
+    "footer-edit-prompt.md": "285009c8a3e48f40f272c79f9e5466d4bf74eaafbb37a447d26fc1a5e66c4da9"
+  },
+  "selection": "README uses the original diagram with the footer sentence removed; unmodified original backup and regenerated alternative retained separately.",
+  "source_hash_policy": "UTF-8 text normalized to LF; output hashes use file bytes"
+}

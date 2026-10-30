@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from jobagent.jobs.hard_filter import HardFilterEngine
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.schemas.common import MoneyRange
@@ -117,6 +119,41 @@ def test_explicit_unmet_language_requirement_rejects() -> None:
     assert result.reasons[0].rule_id == "LANGUAGE_HARD_REQUIREMENT"
 
 
+@pytest.mark.parametrize(
+    ("available", "keyword", "expected"),
+    [
+        ("本科", "本科及以上学历", FilterDecision.PASS),
+        ("硕士", "硕士及以上", FilterDecision.PASS),
+        ("本科", "硕士及以上", FilterDecision.REJECT),
+        ("专科", "本科及以上学历", FilterDecision.REJECT),
+        ("本科", "计算机相关专业", FilterDecision.REJECT),
+        ("本科", "本科及以上(计算机专业)", FilterDecision.REJECT),
+    ],
+)
+def test_chinese_degree_qualifiers_do_not_reject_the_same_confirmed_degree(
+    available: str, keyword: str, expected: FilterDecision
+) -> None:
+    normalized = job()
+    education = JobRequirement(
+        id="REQ_EDUCATION",
+        statement=keyword,
+        category="education",
+        priority=RequirementPriority.MUST,
+        source_span=keyword,
+        keywords=[keyword],
+    )
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id, education),
+        context(education_levels=[available]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is expected
+    assert education.keywords == [keyword]
+
+
 def test_multiple_reject_reasons_keep_catalog_order() -> None:
     normalized = job(title="Sales Manager", location="Berlin")
 
@@ -147,6 +184,35 @@ def test_city_constraint_accepts_a_district_scoped_posting() -> None:
 
     assert result.decision is FilterDecision.PASS
     assert result.reasons == []
+
+
+@pytest.mark.parametrize(
+    ("observed", "allowed", "expected"),
+    [
+        ("上海 浦东 张江", "上海", FilterDecision.PASS),
+        ("上海\u3000浦东\u3000张江", "上海", FilterDecision.PASS),
+        ("上海-浦东-张江", "上海 浦东", FilterDecision.PASS),
+        ("上海", "上海 浦东", FilterDecision.REVIEW),
+        ("北京 朝阳 望京", "上海", FilterDecision.REJECT),
+        ("上海 浦东 张江", "海", FilterDecision.REJECT),
+        ("New York", "New", FilterDecision.REJECT),
+        ("上海 浦东 张江", "", FilterDecision.REJECT),
+    ],
+)
+def test_chinese_location_spacing_preserves_city_and_district_constraints(
+    observed: str, allowed: str, expected: FilterDecision
+) -> None:
+    normalized = job(location=observed)
+
+    result = HardFilterEngine().evaluate(
+        normalized,
+        requirements(normalized.id),
+        context(allowed_locations=[allowed]),
+        HardFilterPolicy(),
+    )
+
+    assert result.decision is expected
+    assert normalized.location == " ".join(observed.split())
 
 
 def test_district_constraint_reviews_a_city_scoped_posting() -> None:

@@ -25,7 +25,7 @@
 宿主起草 25 条招呼语（每条绑定一个 JOB_*）
         │
         ▼
-outreach draft-batch drafts.json ──► 校验：职位已入库 / 未联系过 / 字数 / 证据已确认 / 外联规则
+outreach draft-batch drafts.json ──► 校验：职位已入库 / 未联系过 / 证据已确认 / 外联内容规则
         │                              不合格的逐条退回，写明原因
         ▼
 outreach ask BATCH_…  ──► 给人一张编号清单：平台｜公司｜岗位｜原文（逐字）
@@ -73,7 +73,7 @@ outreach status BATCH_…  ──► 已发 / 跳过（重复）/ 失败 / 因�
 
 - 职位必须已入库，且平台与职位来源一致；
 - 同一职位在审计里已有 `sent` 或 `duplicate_found`，退回，不再进清单；
-- 首条招呼的写法规范见 [message-generation.md](../skills/job-hunting/references/message-generation.md)「首条招呼」，其中字数、数字、黑名单由仓库确定性检查；
+- 首条招呼按 [message-generation.md](../skills/job-hunting/references/message-generation.md) 阅读 JD 与证据生成全文并独立复核；数字、禁用词继续由仓库检查，不设置首招字数硬上限；
 - 引用的证据必须是已确认证据；
 - 清单内同一职位不得出现两次。
 

@@ -7,7 +7,13 @@ from typing import Annotated
 from pydantic import Field, HttpUrl, model_validator
 
 from jobagent.schemas.candidate import EvidenceId
-from jobagent.schemas.common import ContractModel, MoneyRange, NonEmptyString, ProvenanceRecord
+from jobagent.schemas.common import (
+    ContractModel,
+    Digest,
+    MoneyRange,
+    NonEmptyString,
+    ProvenanceRecord,
+)
 
 JobId = Annotated[str, Field(pattern=r"^JOB_[A-Z0-9_]+$")]
 RequirementId = Annotated[str, Field(pattern=r"^REQ_[A-Z0-9_]+$")]
@@ -58,6 +64,11 @@ class NormalizedJob(ContractModel):
     collected_at: datetime
     provenance: list[ProvenanceRecord] = Field(min_length=1)
     warnings: list[str] = Field(default_factory=list)
+    observation_id: Digest | None = None
+    jd_digest: Digest | None = None
+    capture_kind: str = "detail"
+    panel_locator: str | None = None
+    read_attempt_id: str | None = None
 
 
 class RequirementPriority(StrEnum):

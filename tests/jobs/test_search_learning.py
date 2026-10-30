@@ -163,3 +163,66 @@ def test_cli_validation_error_does_not_echo_private_source_text(tmp_path: Path):
     assert result.exit_code == 1
     assert json.loads(result.stdout)["error"]["code"] == "CONTRACT_VALIDATION_ERROR"
     assert "PRIVATE_SENTINEL" not in result.stdout
+
+
+def test_explicit_job_like_and_message_revision_contribute_only_job_support():
+    plan = learn(request(
+        signal(kind="feedback", job_preference="like", message_feedback="revise"),
+        signal(2, kind="feedback", job_preference="like", message_feedback="accept"),
+    ))
+    assert plan.hypotheses[0].status == "active"
+    assert plan.grants_delivery_permission is False
+
+
+@pytest.mark.parametrize("message", ["accept", "revise", "reject"])
+def test_message_feedback_does_not_implicitly_like_or_dislike_a_job(message):
+    plan = learn(request(signal(kind="feedback", message_feedback=message)))
+    assert plan.hypotheses == []
+    assert plan.ordered_queries == ["产品经理"]
+
+
+def test_later_message_only_feedback_does_not_erase_explicit_job_like():
+    later = signal(kind="feedback", message_feedback="revise", event_id="SIG_EDIT",
+                   occurred_at=(NOW + timedelta(hours=1)).isoformat())
+    plan = learn(request(signal(), signal(2), later))
+    assert plan.hypotheses[0].status == "active"
+    assert "SIG_EDIT" in plan.source_event_ids
+
+
+def test_explicit_neutral_job_preference_retracts_earlier_support():
+    later = signal(kind="feedback", job_preference="neutral", event_id="SIG_NEUTRAL",
+                   occurred_at=(NOW + timedelta(hours=1)).isoformat())
+    plan = learn(request(signal(), signal(2), later))
+    assert plan.hypotheses[0].status == "proposed"
+    assert plan.hypotheses[0].support_event_ids == ["SIG_2"]
+
+
+def test_split_feedback_rejection_still_needs_explicit_feature_reason():
+    negative = signal(3, kind="feedback", job_preference="dislike",
+                      owner_text="我不想做智能体产品。", rejected_features=["智能体产品"])
+    assert learn(request(signal(), signal(2), negative)).hypotheses[0].status == "contested"
+    with pytest.raises(ValueError):
+        learn(request(signal(3, kind="feedback", job_preference="dislike",
+                             owner_text="薪资太低", rejected_features=["智能体产品"])))
+
+
+@pytest.mark.parametrize("changes", [
+    {"kind": "feedback"}, {"kind": "feedback", "message_feedback": "accept", "owner_text": ""},
+    {"kind": "like", "message_feedback": "accept"},
+])
+def test_ambiguous_or_unattributed_split_feedback_is_rejected(changes):
+    with pytest.raises(ValueError):
+        learn(request(signal(**changes)))
+
+
+def test_split_preference_participates_in_same_time_conflict_detection():
+    with pytest.raises(ValueError, match="ambiguous"):
+        learn(request(signal(), signal(event_id="SIG_OTHER", kind="feedback",
+                                      job_preference="dislike")))
+
+
+def test_message_only_event_at_same_time_can_coexist_with_a_job_preference():
+    plan = learn(request(signal(), signal(2), signal(
+        event_id="SIG_MSG", kind="feedback", message_feedback="revise",
+    )))
+    assert plan.hypotheses[0].status == "active"

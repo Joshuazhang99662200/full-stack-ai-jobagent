@@ -31,7 +31,7 @@ def bind_filter_context(
                 minimum=Decimal(str(values["SALARY_FLOOR_K"])) * Decimal(1000),
             ),
             "unstated_compensation_passes": False,
-            "compensation_compare_mode": values["SALARY_COMPARE_MODE"],
+            "compensation_comparison": values["SALARY_COMPARE_MODE"],
         }
     )
 

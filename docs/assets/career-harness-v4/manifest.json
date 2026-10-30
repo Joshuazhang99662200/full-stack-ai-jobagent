@@ -17,5 +17,6 @@
     "footer-edit-prompt.md": "285009c8a3e48f40f272c79f9e5466d4bf74eaafbb37a447d26fc1a5e66c4da9"
   },
   "selection": "README uses the original diagram with the footer sentence removed; unmodified original backup and regenerated alternative retained separately.",
-  "source_hash_policy": "UTF-8 text normalized to LF; output hashes use file bytes"
+  "source_hash_policy": "UTF-8 text normalized to LF; output hashes use file bytes",
+  "display_policy": "README shows workflow.png at every screen width; workflow-mobile.png is an optional standalone asset."
 }

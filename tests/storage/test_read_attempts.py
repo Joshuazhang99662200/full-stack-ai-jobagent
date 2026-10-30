@@ -10,11 +10,11 @@ from jobagent.storage.database import Database
 
 def setup(tmp_path):
     from jobagent.schemas.sourcing import ReadReservation
-    from jobagent.storage.sourcing_repository import SqliteSourcingRepository
+    from jobagent.storage.read_repository import SqliteReadRepository
 
     db = Database(tmp_path / "reads.sqlite3")
     db.migrate()
-    repo = SqliteSourcingRepository(db)
+    repo = SqliteReadRepository(db)
     request = ReadReservation(
         attempt_id="SYN_1", source="zhaopin", target_url="https://www.zhaopin.com/jobs/",
         profile="standard", expected_daily_cap=2,

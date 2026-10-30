@@ -33,5 +33,5 @@ CREATE TABLE worker_event_acks (
     acknowledged_at TEXT NOT NULL
 );
 
-PRAGMA user_version = 14;
+PRAGMA user_version = 27;
 COMMIT;

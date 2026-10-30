@@ -293,3 +293,91 @@ def test_an_exception_phrase_keeps_a_product_role_past_an_excluded_term() -> Non
 
     assert blocked.decision is FilterDecision.REJECT
     assert allowed.decision is FilterDecision.PASS
+
+
+@pytest.mark.parametrize(("salary", "expected"), [
+    ("CNY 15000-25000 month", FilterDecision.PASS),
+    ("CNY 15000-18000 month", FilterDecision.PASS),
+    ("CNY 18000-18000 month", FilterDecision.PASS),
+    ("CNY 15000-17000 month", FilterDecision.REJECT),
+    ("CNY 20000-25000 month", FilterDecision.PASS),
+])
+def test_salary_range_overlap_with_the_floor_passes(salary, expected) -> None:
+    normalized = job(salary=salary)
+    result = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id),
+        context(minimum_compensation=MoneyRange(currency="CNY", minimum=18000, period="month")),
+        HardFilterPolicy(),
+    )
+    assert result.decision is expected
+    if expected is FilterDecision.REJECT:
+        assert result.reasons[0].observed_value == "17000"
+    else:
+        assert result.reasons == []
+
+
+def test_salary_default_uses_upper_bound_overlap() -> None:
+    assert context().compensation_comparison == "upper_bound"
+
+
+def test_lower_bound_comparison_requires_an_explicit_stricter_choice() -> None:
+    normalized = job(salary="CNY 15000-25000 month")
+    result = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id),
+        context(
+            minimum_compensation=MoneyRange(currency="CNY", minimum=18000, period="month"),
+            compensation_comparison="lower_bound",
+        ),
+        HardFilterPolicy(),
+    )
+    assert result.decision is FilterDecision.REJECT
+
+
+@pytest.mark.parametrize(("minimum", "maximum", "expected"), [
+    (None, 25000, FilterDecision.PASS),
+    (20000, None, FilterDecision.PASS),
+    (15000, None, FilterDecision.REVIEW),
+    (None, None, FilterDecision.REVIEW),
+])
+def test_incomplete_salary_bounds_use_only_what_is_known(minimum, maximum, expected) -> None:
+    normalized = job().model_copy(update={
+        "salary": MoneyRange(currency="CNY", minimum=minimum, maximum=maximum, period="month"),
+    })
+    result = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id),
+        context(minimum_compensation=MoneyRange(currency="CNY", minimum=18000, period="month")),
+        HardFilterPolicy(),
+    )
+    assert result.decision is expected
+
+
+def test_incomparable_salary_period_is_not_converted_to_meet_the_floor() -> None:
+    normalized = job(salary="CNY 150000-250000 year")
+    result = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id),
+        context(minimum_compensation=MoneyRange(currency="CNY", minimum=18000, period="month")),
+        HardFilterPolicy(),
+    )
+    assert result.decision is FilterDecision.REVIEW
+
+
+def test_default_overlap_policy_does_not_silently_pass_unknown_salary():
+    normalized = job()
+    result = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id),
+        context(minimum_compensation=MoneyRange(currency="CNY", minimum=18000, period="month")),
+        HardFilterPolicy(review_on_unknown=False),
+    )
+    assert result.decision is FilterDecision.REVIEW
+
+
+def test_unknown_salary_period_cannot_be_compared_even_if_both_periods_are_absent():
+    normalized = job().model_copy(update={
+        "salary": MoneyRange(currency="CNY", minimum=20000, maximum=25000),
+    })
+    result = HardFilterEngine().evaluate(
+        normalized, requirements(normalized.id),
+        context(minimum_compensation=MoneyRange(currency="CNY", minimum=18000)),
+        HardFilterPolicy(),
+    )
+    assert result.decision is FilterDecision.REVIEW

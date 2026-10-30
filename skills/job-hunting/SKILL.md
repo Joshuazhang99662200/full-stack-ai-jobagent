@@ -31,11 +31,22 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 - 调整时间、阈值、次数、比例或写作偏好时，先读 [references/dynamic-variables.md](references/dynamic-variables.md)。用私有单变量提问、本人确认与版本快照，不把外部表格、宿主猜测或平台参考自动激活。
 
 - 采集状态、面板全文、真实读取预算、追加观察历史与整轮对账，先读 [references/sourcing-reliability.md](references/sourcing-reliability.md)。适用于所有岗位方向；宿主必须先预留再读取，未声明完整性或未绑定读取尝试的真实浏览器观察不能进入正式链路。
+- 需要后段九态表单、48小时静默核对、累计指标/诊断、规则优化复核或候选人状态权威切换时，优先加载 [references/pipeline.md](references/pipeline.md)。只加载当前阶段；旧tracking在authority切换后只读，pipeline不授予发送权。
+
+- Muse旧JD回填或初稿/最终稿差异、本人规则推广时，加载 [references/muse-backfill-and-diff.md](references/muse-backfill-and-diff.md)；仅已确认规则可作为生成偏好。
+
+- Muse旧队列迁移、扩展预算、登录判定或轮末验收时，按需加载 [references/muse-host-adoption.md](references/muse-host-adoption.md)。
+
+- 用户从聊天、消息列表或卡片加岗，以及恢复人工加岗任务时，优先加载 [references/manual-job-intake.md](references/manual-job-intake.md)。先持久入队，再取全文/起草；next逐步恢复，明确兴趣才参与偏好，下一轮必须领取实际计划。
+
+- 需要JD快照、原文特征、私有词库或组合查询时，只加载 [references/jd-knowledge.md](references/jd-knowledge.md) 与当前域文件，不预读所有JD和行业。
+- 已切换pipeline的候选人，用 [references/pipeline.md](references/pipeline.md) 做后段核对与恢复；仅查旧跟踪审计时再加载 [references/sent-tracking.md](references/sent-tracking.md)。回复仍走原有逐项审批。
 
 - 需要完整产品契约时,阅读 [references/product-spec.md](references/product-spec.md)。
 - 需要跨域边界时,阅读 [references/architecture-invariants.md](references/architecture-invariants.md) 与 [references/capability-catalog.md](references/capability-catalog.md)。
 - 任何步骤返回 `AGENT_HANDOFF_REQUIRED`,或需要模型判断而你不想配置厂商凭证时,阅读 [references/agent-reasoning.md](references/agent-reasoning.md)。**你自己就是推理引擎**,这是默认路径。
 - 处理入库或面试工作时,阅读 [references/candidate-kb.md](references/candidate-kb.md) 与 [references/evidence-policy.md](references/evidence-policy.md)。
+- 在 Muse 执行寻源、反馈学习、薪资比较或预算计量时，先读 [references/sourcing-budget.md](references/sourcing-budget.md)，按程序预占后才读取；文案反馈不等于岗位偏好。
 - 处理归一化、过滤、匹配或排序时,阅读 [references/job-intelligence.md](references/job-intelligence.md)。
 - 从猎聘寻源,或遇到只有列表字段、没有 JD 正文的来源时,阅读 [references/liepin-listings.md](references/liepin-listings.md)。
 - **接入一个新平台**时,先读 [references/source-onboarding.md](references/source-onboarding.md) 的五档阶梯逐档评估,再按 [references/adding-a-source.md](references/adding-a-source.md) 写一份来源清单。来源是数据不是代码,内置来源只是参考实现。

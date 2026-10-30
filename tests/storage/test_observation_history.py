@@ -84,12 +84,12 @@ def test_panel_observed_identity_must_match_requested_identity():
 def test_one_completed_read_cannot_be_rebound_to_a_different_capture(tmp_path):
     from jobagent.errors import ContractValidationError
     from jobagent.schemas.sourcing import ReadOutcome, ReadReservation
-    from jobagent.storage.sourcing_repository import SqliteSourcingRepository
+    from jobagent.storage.read_repository import SqliteReadRepository
 
     db = Database(tmp_path / "read-history.sqlite3")
     db.migrate()
     repo = SqliteJobRepository(db)
-    reads = SqliteSourcingRepository(db)
+    reads = SqliteReadRepository(db)
     first = record(read_attempt_id="ONE_READ")
     reads.reserve(ReadReservation(
         attempt_id="ONE_READ", source=first.source, target_url=first.url,

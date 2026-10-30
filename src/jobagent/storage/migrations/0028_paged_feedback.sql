@@ -27,5 +27,5 @@ BEGIN SELECT RAISE(ABORT, 'feedback is append only'); END;
 CREATE TRIGGER sourcing_feedback_no_delete BEFORE DELETE ON sourcing_feedback_events
 BEGIN SELECT RAISE(ABORT, 'feedback is append only'); END;
 
-PRAGMA user_version = 15;
+PRAGMA user_version = 28;
 COMMIT;

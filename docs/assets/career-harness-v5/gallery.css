@@ -1,0 +1,23 @@
+/* Hallmark · component: README figure gallery · genre: editorial · theme: brand (user-approved warm hand-drawn main figure) · imagery: generated explanatory diagrams and synthetic fixture records · states: static links · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: E, preserve fixture strings and check the raster labels separately from the gallery markup. */
+/* Hallmark · finish review: ship · independent visual and fixture audit complete · wrapper lint: 0 fails, 0 reflex, 0 warns · raster pixels reviewed separately. */
+@import url("./tokens.css");
+@font-face { font-family: "Host Grotesk"; src: url("../career-harness-v2/fonts/HostGrotesk.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+* { box-sizing: border-box; }
+html, body { overflow-x: clip; }
+html { scrollbar-color: var(--color-muted) var(--color-paper); }
+body { margin: 0; font-family: var(--font-body); background: var(--color-paper); color: var(--color-ink); line-height: 1.6; caret-color: var(--color-accent); }
+main { max-width: 1280px; margin-inline: auto; padding: var(--space-xl) var(--space-2xl); }
+h1,h2 { margin: 0; min-width: 0; overflow-wrap: break-word; font-weight: 500; line-height: 1.3; text-wrap: balance; }
+h1 { font-size: 36px; }
+h2 { font-size: 30px; margin-bottom: var(--space-lg); }
+p { max-width: 65ch; margin: var(--space-md) 0 0; font-size: 18px; color: var(--color-ink-2); text-wrap: pretty; }
+section { padding-block: var(--space-2xl); }
+section + section { border-top: 1px solid var(--color-rule); }
+figure { margin: 0; }
+img { display: block; width: 100%; height: auto; }
+figcaption { margin-top: var(--space-md); max-width: 65ch; font-size: 16px; color: var(--color-muted); }
+a { display: block; color: inherit; }
+a:focus-visible, a:active { outline: 2px solid var(--color-focus); outline-offset: 4px; }
+::selection { color: var(--color-accent-ink); background: var(--color-accent); }
+@media (max-width: 600px) { main { padding: var(--space-lg); } h1 { font-size: 30px; } h2 { font-size: 26px; } section { padding-block: var(--space-xl); } }

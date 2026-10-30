@@ -194,7 +194,8 @@ class CandidateFilterContext(ContractModel):
     languages: dict[str, str] = Field(default_factory=dict)
     education_levels: list[str] = Field(default_factory=list)
     minimum_compensation: MoneyRange | None = None
-    compensation_compare_mode: Literal["upper_bound", "lower_bound"] = "upper_bound"
+    # Any range reaching the candidate floor qualifies; strict floor mode is opt-in.
+    compensation_comparison: Literal["lower_bound", "upper_bound"] = "upper_bound"
     # A posting that states no salary ("面议") meets the floor instead of waiting
     # for review. A stated salary is still compared with the floor.
     unstated_compensation_passes: bool = False
@@ -317,6 +318,8 @@ class ImportedObservation(ContractModel):
     known_before: bool = False
     # A first greeting already reached this job; do not list it for outreach again.
     contacted: bool = False
+    snapshot_id: str | None = None
+    snapshot_status: str | None = None
 
 
 class RejectedObservation(ContractModel):

@@ -22,7 +22,7 @@
 
 - [x] Write failing registry/service/storage tests: unknown variable, invalid type/unit/range, platform/snapshot/invariant misuse, stale parent, changed question digest, candidate isolation, rollback, exact single-variable diff, unacknowledged notice persistence.
 - [x] Implement the contracts, registry and pure proposal/confirmation/digest service. Platform/invariant/observation entries cannot be turned into ordinary user tuning.
-- [x] Add migration 0017 with immutable versions/proposals/decisions and transactional candidate head/announcement acknowledgement. Do not touch actual user databases.
+- [x] Add migration 0030 (renumbered after published main migrations during integration) with immutable versions/proposals/decisions and transactional candidate head/announcement acknowledgement. Do not touch actual user databases.
 - [x] Add `rules definitions`, `rules propose`, `rules approve`, `rules effective`, `rules history`, `rules acknowledge`. Persist the question before accepting a response; change only the named variable; effective snapshots carry versions/provenance and pending notices.
 - [x] Update capability catalog to the exact command surface.
 
@@ -48,3 +48,10 @@
 ## Final verification
 
 1166 tests passed; final focused regression 36 passed; Ruff, mypy (166 source files), and diff checks passed. Both 0.3.0 archives contain 248 whitelisted files and pass privacy, integrity, current-source and standalone definition probes. The supplied private table is copied with SHA-256 and classified, without activation. No commits, live state changes or platform calls. Detailed delivery evidence remains under candidate/private/codex-harness/reviews/.
+
+
+## GitHub integration follow-up
+
+The owner subsequently authorized committing, pushing and merging the completed changes. The local-only validation above records the earlier delivery stage. Integration preserves the published main branch and its migrations 0001-0026; worker, paged feedback, reliability and dynamic rules append as 0027-0030. Conflicting unpublished local schema numbering is rejected before migration. Both sourcing entry points share daily usage and gate halts; observation history and JD snapshots commit atomically. Dynamic evaluators remain distinct from the persistent pipeline consumers as documented.
+
+The merged tree passed all 1656 tests. Privacy scanning covered 614 public text files with no unresolved findings; six deliberate negative-test fixtures remain documented. No personal database migration, task changes or recruitment-platform actions were performed.

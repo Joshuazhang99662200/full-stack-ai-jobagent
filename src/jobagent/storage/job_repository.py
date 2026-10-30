@@ -104,14 +104,38 @@ class SqliteJobRepository:
                 "SELECT request_json, result_json FROM sourcing_read_attempts WHERE attempt_id = ?",
                 (record.read_attempt_id,),
             ).fetchone()
-            from jobagent.schemas.sourcing import ReadOutcome, ReadReservation
+            from jobagent.schemas.sourcing import (
+                ReadOutcome,
+                ReadReservation,
+                SourcingAttempt,
+                SourcingResult,
+            )
 
-            if attempt is None or attempt["result_json"] is None:
-                raise ContractValidationError("Observation has no completed read attempt.")
-            request = ReadReservation.model_validate_json(attempt["request_json"])
-            outcome = ReadOutcome.model_validate_json(attempt["result_json"])
-            if (request.source != record.source or request.target_url != record.url
-                    or outcome.status != "read"):
+            if attempt is not None:
+                if attempt["result_json"] is None:
+                    raise ContractValidationError("Observation has no completed read attempt.")
+                request = ReadReservation.model_validate_json(attempt["request_json"])
+                outcome = ReadOutcome.model_validate_json(attempt["result_json"])
+                matches = (request.source == record.source and request.target_url == record.url
+                           and outcome.status == "read")
+            else:
+                row = connection.execute(
+                    "SELECT a.attempt_json, r.result_json FROM sourcing_attempts a "
+                    "JOIN sourcing_results r ON a.attempt_id = r.attempt_id "
+                    "WHERE a.attempt_id = ?", (record.read_attempt_id,),
+                ).fetchone()
+                if row is None:
+                    raise ContractValidationError("Observation has no completed read attempt.")
+                reserved = SourcingAttempt.model_validate_json(row["attempt_json"])
+                result = SourcingResult.model_validate_json(row["result_json"])
+                matches = (
+                    reserved.kind == "detail" and reserved.source == record.source
+                    and reserved.source_job_id == record.source_job_id
+                    and reserved.url == record.url
+                    and result.outcome == "complete" and record.collected_at.tzinfo is not None
+                    and record.collected_at >= reserved.occurred_at
+                )
+            if not matches:
                 raise ContractValidationError("Read attempt does not match captured observation.")
             bound = connection.execute(
                 "SELECT observation_id FROM job_observations "

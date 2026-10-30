@@ -48,5 +48,5 @@ CREATE TABLE sourcing_read_halts (
     PRIMARY KEY(source, platform_day)
 );
 
-PRAGMA user_version = 16;
+PRAGMA user_version = 29;
 COMMIT;

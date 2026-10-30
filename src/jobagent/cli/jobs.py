@@ -17,6 +17,8 @@ from jobagent.bridge.preference_memory import refresh_preference_memory
 from jobagent.bridge.preference_reasoning import CodexPreferenceProvider
 from jobagent.capabilities import ReasoningOutputT
 from jobagent.cli.greetings import _find_executable, _load_settings, _private_path
+from jobagent.cli.jd_knowledge import register_knowledge_commands
+from jobagent.cli.sourcing import register_sourcing_commands
 from jobagent.connectors.extraction import MIN_JD_LENGTH
 from jobagent.connectors.factory import build_detail_fetcher, build_listing_source
 from jobagent.connectors.observations import check_observation
@@ -28,6 +30,7 @@ from jobagent.errors import (
 )
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
+from jobagent.jobs.jd_snapshot import capture_from_record
 from jobagent.jobs.matching import MatchAggregator
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
@@ -37,7 +40,7 @@ from jobagent.jobs.search_learning import learn_search
 from jobagent.jobs.search_plan import plan_searches
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
 from jobagent.outreach.preference_memory import PreferenceLearner
-from jobagent.outreach.service import PLATFORM_DAY, contacted_job_ids
+from jobagent.outreach.service import contacted_job_ids
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher, is_admissible
 from jobagent.reasoning.job_requirements import ReasoningJobRequirementExtractor
 from jobagent.rules.bindings import bind_filter_context, bind_query_count, bind_read_cap
@@ -69,9 +72,10 @@ from jobagent.schemas.sourcing import ReadOutcome, ReadReservation, SourcingComp
 from jobagent.sources import SourceRegistry
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
+from jobagent.storage.jd_snapshot_repository import SqliteJDSnapshotRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
-from jobagent.storage.sourcing_repository import SqliteSourcingRepository
+from jobagent.storage.read_repository import SqliteReadRepository
 
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 DEFAULT_FIXTURE = Path(__file__).parents[1] / "connectors" / "fixtures" / "jobs.json"
@@ -352,7 +356,8 @@ def ingest_jd(
     try:
         listing = _load_model(listing_path, JobListing)
         try:
-            jd_raw = jd_path.read_text(encoding="utf-8").strip()
+            jd_original = jd_path.read_text(encoding="utf-8")
+            jd_raw = jd_original.strip()
         except OSError:
             raise ContractValidationError(
                 "The JD text file could not be read.",
@@ -403,7 +408,8 @@ def add_jd(
     """
     try:
         try:
-            jd_raw = jd_path.read_text(encoding="utf-8").strip()
+            jd_original = jd_path.read_text(encoding="utf-8")
+            jd_raw = jd_original.strip()
         except OSError:
             raise ContractValidationError(
                 "The JD text file could not be read.",
@@ -432,14 +438,24 @@ def add_jd(
                 "company": company,
                 "location": location or "未标注",
                 "salary_text": salary,
-                "jd_raw": jd_raw,
+                "jd_raw": jd_original,
                 "url": url,
                 "collected_at": datetime.now(UTC),
                 "capture_kind": "manual", "completeness": "full", "access_state": "public",
             }
         )
         job = _normalizer_for(record.source).normalize(record)
-        jobs.save_observation(record, job)
+        _, jobs = _repositories(database)
+        raw_capture = record.model_copy(update={"jd_raw": jd_original})
+        captured = capture_from_record(raw_capture, job.id)
+        captured = captured.model_copy(update={
+            "observation_id": "MANUAL_"+captured.observation_id,
+            "discovery_kind": "manual",
+        })
+        with jobs.database.connect() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            jobs.save_observation(record, job, connection=connection)
+            SqliteJDSnapshotRepository(jobs.database).capture(captured, connection=connection)
         _emit_model(job)
     except ValidationError:
         _fail(ContractValidationError("The posting details are invalid (check --url)."))
@@ -492,7 +508,24 @@ def import_observations(
                 continue
             job = _normalizer_for(record.source).normalize(record)
             known_before = jobs.get_job(job.id) is not None
-            jobs.save_observation(record, job)
+            snapshot_id = None
+            snapshot_status = "timestamp_missing_timezone"
+            try:
+                with jobs.database.connect() as connection, connection:
+                    connection.execute("BEGIN IMMEDIATE")
+                    jobs.save_observation(record, job, connection=connection)
+                    if record.collected_at.tzinfo is not None:
+                        captured = SqliteJDSnapshotRepository(jobs.database).capture(
+                            capture_from_record(record, job.id), connection=connection,
+                        )
+                        snapshot_id = captured.snapshot.snapshot_id
+                        snapshot_status = "captured"
+            except ContractValidationError as error:
+                report.rejected.append(RejectedObservation(
+                    index=index, source_job_id=record.source_job_id,
+                    reason="capture_or_read_conflict",
+                ))
+                raise error
             if record.search_term and record.search_term.strip():
                 jobs.record_search_hit(
                     JobSearchHit(
@@ -511,56 +544,10 @@ def import_observations(
                     company=job.company,
                     known_before=known_before,
                     contacted=job.id in contacted,
+                    snapshot_id=snapshot_id, snapshot_status=snapshot_status,
                 )
             )
         _emit_model(report)
-    except JobAgentError as error:
-        _fail(error)
-
-
-@jobs_app.command("sourcing-budget")
-def sourcing_budget(
-    database: DatabaseOption = DEFAULT_DATABASE,
-    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
-    candidate: Annotated[str | None, typer.Option("--candidate")] = None,
-) -> None:
-    """Report, per board with a host route, how many detail reads remain today.
-
-    Actual attempts plus conservative legacy estimates; never a refund on failure.
-    """
-    try:
-        if rules_file is not None and candidate is None:
-            raise ContractValidationError("Dynamic read budget requires an explicit candidate.")
-        rules = load_effective_rule_snapshot(rules_file, candidate, database)
-        _, jobs = _repositories(database)
-        today = datetime.now(UTC).astimezone(PLATFORM_DAY).date()
-        stored_today: dict[str, int] = {}
-        for job in jobs.list_jobs():
-            if (not job.read_attempt_id
-                    and job.collected_at.astimezone(PLATFORM_DAY).date() == today):
-                stored_today[job.source] = stored_today.get(job.source, 0) + 1
-        reads = SqliteSourcingRepository(Database(database))
-        budget: dict[str, dict[str, object]] = {}
-        for manifest in _registry().all():
-            spec = manifest.host_browser
-            if spec is None:
-                continue
-            attempts = reads.used(manifest.id, now=datetime.now(UTC))
-            legacy = stored_today.get(manifest.id, 0)
-            read = attempts + legacy
-            cap = bind_read_cap(rules, source_ceiling=spec.max_detail_reads_per_day) if rules \
-                else spec.max_detail_reads_per_day
-            budget[manifest.id] = {
-                "daily_cap": cap,
-                "read_today": read,
-                "remaining": max(cap - read, 0),
-                "attempts_today": attempts,
-                "legacy_estimate": legacy,
-                "profile": "standard",
-            }
-            if rules:
-                budget[manifest.id]["rules_version"] = rules.version
-        typer.echo(json.dumps(budget, ensure_ascii=False, indent=2))
     except JobAgentError as error:
         _fail(error)
 
@@ -591,14 +578,9 @@ def reserve_read(
         if not any((target.scheme, target.hostname, target.port) ==
                    (origin.scheme, origin.hostname, origin.port) for origin in origins):
             raise ContractValidationError("Read target is outside the declared source.")
-        _, jobs = _repositories(database)
-        today = datetime.now(UTC).astimezone(PLATFORM_DAY).date()
-        legacy = sum(1 for job in jobs.list_jobs()
-                     if job.source == request.source and not job.read_attempt_id
-                     and job.collected_at.astimezone(PLATFORM_DAY).date() == today)
-        receipt = SqliteSourcingRepository(Database(database)).reserve(
+        _repositories(database)
+        receipt = SqliteReadRepository(Database(database)).reserve(
             request, daily_cap=cap, now=datetime.now(UTC),
-            legacy_reads=legacy,
         )
         typer.echo(json.dumps({**receipt.model_dump(mode="json"), **(
             {"rules_version": rules.version} if rules else {}
@@ -613,7 +595,7 @@ def record_read(outcome_path: Path, database: DatabaseOption = DEFAULT_DATABASE)
     try:
         outcome = _load_model(outcome_path, ReadOutcome)
         _repositories(database)
-        SqliteSourcingRepository(Database(database)).record(outcome, now=datetime.now(UTC))
+        SqliteReadRepository(Database(database)).record(outcome, now=datetime.now(UTC))
         _emit_model(outcome)
     except JobAgentError as error:
         _fail(error)
@@ -1225,3 +1207,8 @@ def pipeline(
             _emit_model(run)
     except JobAgentError as error:
         _fail(error)
+
+
+register_sourcing_commands(jobs_app)
+
+register_knowledge_commands(jobs_app)

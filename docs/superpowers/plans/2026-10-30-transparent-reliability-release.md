@@ -33,7 +33,7 @@
 ## Task 3: Observation identity, panel provenance and historical storage
 
 - [x] Add contract/import tests for panel records with exact platform ID and actual search URL, partial/unloaded rejection, stable identity after salary/JD changes, and exact raw text preservation.
-- [x] Add immutable job observation history in migration 0016; preserve latest normalized view and legacy records without labeling old raw text complete.
+- [x] Add immutable job observation history in migration 0029 (renumbered after published main migrations during integration); preserve latest normalized view and legacy records without labeling old raw text complete.
 - [x] Update SourceJobRecord, NormalizedJob, HostBrowserSpec, observation validation, normalizer, repository, CLI import and worker transaction. Store raw input and normalized view in one transaction.
 - [x] Readback must expose version IDs and content digests without printing JD text. Preserve historical search hits and contact history.
 - [x] Run storage/import/worker tests, including transaction rollback and replay idempotency.
@@ -69,3 +69,10 @@
 ## Final Verification
 
 1135 tests passed; Ruff, mypy (156 source files), and diff checks passed. Both 0.2.0 host archives passed hash, privacy, standalone metadata, and current-source consistency checks. Local working-tree delivery only; no commit, push, host installation, live state migration, or platform operation. Private delivery evidence is stored under candidate/private/codex-harness/reviews/.
+
+
+## GitHub integration follow-up
+
+The owner subsequently authorized committing, pushing and merging the completed changes. The local-only validation above records the earlier delivery stage. Integration preserves the published main branch and its migrations 0001-0026; worker, paged feedback, reliability and dynamic rules append as 0027-0030. Conflicting unpublished local schema numbering is rejected before migration. Both sourcing entry points share daily usage and gate halts; observation history and JD snapshots commit atomically. Dynamic evaluators remain distinct from the persistent pipeline consumers as documented.
+
+The merged tree passed all 1656 tests. Privacy scanning covered 614 public text files with no unresolved findings; six deliberate negative-test fixtures remain documented. No personal database migration, task changes or recruitment-platform actions were performed.

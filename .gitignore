@@ -29,3 +29,4 @@ candidate/variants/
 
 # Agent worktrees
 .claude/worktrees/
+.hallmark/

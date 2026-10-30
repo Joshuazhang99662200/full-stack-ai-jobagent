@@ -38,5 +38,5 @@ CREATE TRIGGER dynamic_confirmations_no_update BEFORE UPDATE ON dynamic_rule_con
 BEGIN SELECT RAISE(ABORT, 'rule confirmations are immutable'); END;
 CREATE TRIGGER dynamic_confirmations_no_delete BEFORE DELETE ON dynamic_rule_confirmations
 BEGIN SELECT RAISE(ABORT, 'rule confirmations are immutable'); END;
-PRAGMA user_version = 17;
+PRAGMA user_version = 30;
 COMMIT;

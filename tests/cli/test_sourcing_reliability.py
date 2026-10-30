@@ -64,3 +64,19 @@ def test_manual_job_identity_survives_jd_changes_at_same_source_url(tmp_path):
     history = runner.invoke(app, ["jobs", "observation-history", first["id"], "--database", db])
     assert len(json.loads(history.stdout)) == 2
     assert all(row["kind"] == "captured" for row in json.loads(history.stdout))
+
+
+def test_invalid_read_receipt_cannot_leave_a_jd_snapshot(tmp_path):
+    from jobagent.storage.database import Database
+    from tests.storage.test_observation_history import record
+
+    path = tmp_path / "observations.json"
+    path.write_text(json.dumps([record(read_attempt_id="NOT_RESERVED").model_dump(mode="json")]))
+    db = Database(tmp_path / "observations.sqlite3")
+    result = CliRunner().invoke(app, [
+        "jobs", "import-observations", str(path), "--database", str(db.path),
+    ])
+    assert result.exit_code != 0
+    with db.connect() as connection:
+        assert connection.execute("SELECT count(*) FROM jd_snapshots").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM job_observations").fetchone()[0] == 0

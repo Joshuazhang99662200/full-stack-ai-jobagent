@@ -559,11 +559,11 @@ def _import(tmp_path: Path, records: list[dict[str, object]]) -> tuple[int, obje
     from datetime import UTC, datetime
 
     from jobagent.schemas.sourcing import ReadOutcome, ReadReservation
-    from jobagent.storage.sourcing_repository import SqliteSourcingRepository
+    from jobagent.storage.read_repository import SqliteReadRepository
 
     db = Database(database_path)
     db.migrate()
-    reads = SqliteSourcingRepository(db)
+    reads = SqliteReadRepository(db)
     records = [dict(row) for row in records]
     for row in records:
         if row.get("source") != "boss":

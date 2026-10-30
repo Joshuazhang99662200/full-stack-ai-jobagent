@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "kind": "warm hand-drawn README figure set",
+  "main_image_preserved": true,
+  "hash_policy": {
+    "images": "SHA-256 of file bytes",
+    "text": "SHA-256 of UTF-8 content normalized to LF"
+  },
+  "data_source": {
+    "path": "docs/assets/career-harness-v2/samples.json",
+    "sha256": "8f336d9c31ae1bb0cc6aa19b0c4ec0e09d437df7f2170f11ade86a8c1ceaca52",
+    "kind": "existing V2 local synthetic fixture output, illustrated again without replacing the historical capture",
+    "real_model_independent_review": false,
+    "platform_calls": 0,
+    "captured_sources": [
+      {
+        "path": "src/jobagent/optimizer/review.py",
+        "captured_sha256": "c24e3763bc34f776922d641e2d807c90740802eac56a36f8af3f77c013673653",
+        "current_sha256": "c24e3763bc34f776922d641e2d807c90740802eac56a36f8af3f77c013673653",
+        "matches_current": true
+      },
+      {
+        "path": "src/jobagent/optimizer/diffing.py",
+        "captured_sha256": "843a9452d701e2147339e8003192c09f7e0a6c115d468f0f7688fd9d55b0a470",
+        "current_sha256": "843a9452d701e2147339e8003192c09f7e0a6c115d468f0f7688fd9d55b0a470",
+        "matches_current": true
+      },
+      {
+        "path": "src/jobagent/applications/approval.py",
+        "captured_sha256": "aeb03ebc3696cf2fa0f0220a7f1d79cd4f583d9c6304dd61acbf70b87fdfb3a3",
+        "current_sha256": "68f1d8999cfa659db41398499cd104caf596feabe9c820f8ae6bcdf625db4cbd",
+        "matches_current": false
+      },
+      {
+        "path": "src/jobagent/connectors/fixtures/jobs.json",
+        "captured_sha256": "a4603c21c2e944bba977c5612c1647a1c6a7ee1ab1fcc1c0d16407b9ed0148ad",
+        "current_sha256": "a4603c21c2e944bba977c5612c1647a1c6a7ee1ab1fcc1c0d16407b9ed0148ad",
+        "matches_current": true
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "docs/assets/career-harness-v4/workflow.png",
+      "sha256": "24c5a4e27a87aff119017afaa4ec57d88f6ee62efccaafc8488aa2e8052e5d76",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "docs/assets/career-harness-v5/resume-exchange.png",
+      "sha256": "bb8bd24372f192717710531f9f9e4998c682b8edc23a8a246fcc07034b6bf079",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "docs/assets/career-harness-v5/feedback.png",
+      "sha256": "c7321f61457f45a846fb73f56fceb837c9d6ae7e1ab272c8dc00631b6de35ac6",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "docs/assets/career-harness-v5/evidence.png",
+      "sha256": "e413ded0280ee6b3945b133f65554a48da2edd05729a131874cd4bd220567119",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "docs/assets/career-harness-v5/approval.png",
+      "sha256": "35e548b49541f0c5daedd3eb789250751207c0b3b93a88e3d53af90c1656dad2",
+      "width": 1448,
+      "height": 1086
+    }
+  ],
+  "sources": [
+    {
+      "path": "README.md",
+      "sha256": "9698c15ea56e07ed8f4d65c41835f1239407a1c80f8f6314ce4e70b38eb84ff6"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/README.md",
+      "sha256": "8c1b75a49929124c91a89e54b0a383fc63436b5e656799099c625483ea77509c"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/gallery.css",
+      "sha256": "cfcb057f34a5ff01b40d98588188d8b92546859c8f68dd3e75f862377e932be0"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/gallery.html",
+      "sha256": "5aef933965ddf62f79011365a30e9c713b6f099e50ea0691f7fc5f104acc1612"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/lint.json",
+      "sha256": "29f4896bb82350d4ce728c1937667362f8265e82f8117ee9ddb4bd11dcfdb48f"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/prompts.md",
+      "sha256": "65f4a4bcdd74eec16e1037acf20153bdca24d3c416aca1ca9a9f14d9873be17b"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/review.md",
+      "sha256": "3f447e7bd35d893e22100a071bc47fb89446feac73014727aeabc7efc5e66f6e"
+    },
+    {
+      "path": "docs/assets/career-harness-v5/tokens.css",
+      "sha256": "6cc71f1df179abd154b397028a76bc8e493ffd6f9075e2ed126911a4adae22b5"
+    }
+  ]
+}

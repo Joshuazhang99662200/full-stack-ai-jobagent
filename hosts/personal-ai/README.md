@@ -2,8 +2,6 @@
 
 这是 Personal AI 的默认入口。代码仓只提供规则、契约与校验；宿主提供网页操作、推理、私有文件、记忆、定时和通知。无需连接本地 Codex、Chrome、飞书或本机服务。适用来源为 BOSS 直聘与智联招聘；真实可用性要在用户自己的宿主账号中逐项验证。
 
-工程、科研、设计、金融、运营、销售、产品等方向共用这套流程。本人先确认目标岗位与硬条件，再生成检索计划；任何示例职位都不构成默认方向，也不预设“非产品岗”应被排除。平台来源由本人配置和实际宿主能力共同确定；新增来源先查能力目录并逐项验收。
-
 ## 复制到 Muse 的启动文本
 
 > 请通过已连接的 GitHub 插件读取 `Joshuazhang99662200/full-stack-ai-jobagent` 的 `hosts/personal-ai/README.md`，以及它引用的 `memory.md` 和 `tasks.md`，固定本次使用的 commit SHA。如果入口不存在，停止并报告所读分支，不根据旧 README 启动本机桥接。把它作为我的求职工作流：我会在本会话提供自己的履历和 Markdown，资料及学习记录只保存在我的私有工作区，不回写公共仓库。先检查 GitHub 读取、私有状态重读、Python、定时任务、BOSS 和智联网页能力，逐项展示真实结果。先完成初始化与一条只读 JD 验收，再让我设置轮询时间。任何招呼或投递都需要我批准具体岗位、准确全文和实际附件；缺少程序门禁或发送回读能力时只输出草稿。
@@ -59,3 +57,33 @@ BOSS/智联网页发送属于宿主动作，仓库没有新增平台投递连接
 ## 当前交付状态
 
 仓库提供可读取的接入协议和可执行的搜索学习核心。Muse 的 GitHub 连接、私有文件、真实 JD、定时恢复、审批转交和发送回读需在用户完成设置后验收。本目录没有预置某人的账号，也没有声称已经完成 Muse 集成测试。
+
+## 寻源策略修订（38afd89 后的独立改动）
+
+岗位偏好与文案反馈已拆分；默认按薪资区间能达到本人底线的规则筛选。每站新轮次先通过 sourcing-start 固定预算，每次搜索/详情先 sourcing-reserve，结果以 sourcing-result 追加。默认3查询/20详情尝试，来源每日详情上限仍不超过50，失败和重复读取占额。具体 JSON、恢复规则与宿主适应性调整见 [寻源政策](../../skills/job-hunting/references/sourcing-budget.md)。快照、因子化、MD词库和组合引擎已落地，按 [知识路由](../../skills/job-hunting/references/jd-knowledge.md) 分步调用；已切换候选人的后段按 [pipeline协议](../../skills/job-hunting/references/pipeline.md) 核对，旧tracking只供历史读取，不能据此自动回复。真实 Muse 联调仍未执行。
+
+
+## 人工塞岗与持续处理
+
+URL/列表编号/消息卡片统一先入intake队列，按 [人工加岗协议](../../skills/job-hunting/references/manual-job-intake.md) 用next取得可恢复步骤。全新岗位可先绑定真实listing，再取完整JD；不会为解析身份造占位JD。草稿和学习两个分支独立，明确兴趣直接接既有user_added，文案Accept仍只代表文案决定。
+
+下一轮搜索须从同私有库领取活跃CombinationPlan，实际成功查询才写执行归因。完整实现与迁移见 [交付记录](../../docs/muse-manual-intake-2026-10-28.md)。须更新真实Muse聊天/轮询入口后验收；仓库未提供运行中的Muse事件插件。
+
+
+## 既有 Muse 状态接入
+
+旧队列、已发补证、显式扩展读取预算、页面登录状态及两轮报告按 [宿主接线协议](../../skills/job-hunting/references/muse-host-adoption.md) 执行。仅升级代码不会更新运行中的宿主任务；Muse需固定新版本并实际接入这些调用，未知保持未知。数据库为事实源，原始JSONL保留并作为可回查投影；不要双写两套互相覆盖的状态。
+
+
+旧岗位全文优先回填、初稿/最终稿差异与本人确认后规则落盘按 [P1接线协议](../../skills/job-hunting/references/muse-backfill-and-diff.md)。先取完整JD再恢复原intake链；差异采集与岗位兴趣分别处理。生成前读取当前候选人的confirmed-rules；中间编辑恢复原稿须追加无变化事件。
+
+
+## 后段 Pipeline 与累计飞轮
+
+身份确认的岗位通过pipeline create或通用离线迁移进入统一表单；pipeline_jobs是当前态权威，pipeline_job_form读取职位、JD、拟稿/已发、定制简历和状态。缺URL/身份继续留intake。候选人authority切换后旧tracking只读，不运行两套当前态；切换必须停旧写者、备份、临时库验证、原子激活，再用实际私有原ID和SHA逐条对账。
+
+后段只用真实发送/已读/实质回复/附件结果时间核算48小时静默；proof_pending、未知时间与暂停不能凭空废止，已面试不能无回复自动关闭，终态不复活。同岗新联系需要独立轮次、新本人请求和新批准。具体门禁与命令见 [pipeline](../../skills/job-hunting/references/pipeline.md)，迁移和两轮模板见 [工程说明](../../docs/pipeline-flywheel.md)。
+
+指标从真实记录按闭合累计窗口和来源切片计算；先metrics再用原metric IDs诊断。诊断、文案diff、规则提案各保留出处；规则和回滚效果均需本人明确确认。默认不自动生效，未确认假设不进入生成规则、词库或查询。私人批次数量、队列编号、求职条件和原文只存本人工作区，不写公共技能。
+
+本工程没有改写运行中的Muse任务、访问招聘网站、发送消息、创建任务或送达通知。真实迁移与两轮宿主验收仍为unverified，real_browser_verified=false；升级代码不表示已完成这些操作。

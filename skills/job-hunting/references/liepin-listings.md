@@ -6,14 +6,14 @@
 
 `jobId` · `jobName` · `company` · `location` · `salary` · `education` · `workYears` · `industry` · `companyTags` · `companySize` · `financingStage` · `jobDetailUrl`
 
-这不是缺陷,是该接口的设计意图:它面向「检索即投递」,不假设你会读 JD。
+当前搜索输出不足以满足本项目的完整 JD 契约，仍需独立取得正文。
 
 结果里还带一个「直招 / 猎头」标记,键名是 `jobType` 或 `jobKind`(取值有 int 也有 str),映射进 `JobListing.job_kind` 并**原样保留**。上游明确要求 `--job-kind` 与搜索结果一致、不得凭感觉填写,所以它只能从搜索结果里带出来:缺失就是 `None`,绝不补默认值,也绝不从公司名或招聘方类型反推。
 
 因此猎聘实现 `JobListingSource` 而非 `JobDiscoverySource`,产出 `JobListing` 而非 `SourceJobRecord`。两个端口刻意分开,让「没有 JD」在类型层面无法被绕过。
 
 ```powershell
-jobagent jobs listings "AI Agent 产品负责人" --location 上海
+jobagent jobs listings "软件工程师" --location 上海
 ```
 
 `jobs search --source liepin` 会被显式拒绝并指向本命令。
@@ -39,10 +39,10 @@ listing **不足以**驱动匹配、改写或投递包。那些一律需要完�
 1. `jobs suggest-queries` 从已确认证据推导检索词
 2. `jobs listings` 按词取回真实职位,跨词去重
 3. 用 listing 字段做硬过滤与排序,收窄到少数目标
-4. **由人**从 `jobDetailUrl` 取回 JD 正文
+4. 从 `jobDetailUrl` 取回 JD 正文：已有 `jobs fetch-jd` 公开详情解析路径；宿主也可使用已验证、获准的浏览器能力读取完整正文。读取前先核对来源额度，记录真实访问结果
 5. 有了 JD 才进入 `jobs requirements` → `filter` → `match` → 优化器
 
-第 4 步没有自动化。不要为了跑通流程去抓详情页:那需要登录态,会触碰风控与反爬边界。
+第 4 步的公开详情解析已经实现，但能否读取某个真实岗位要以当次结果为准。宿主有正常可用的获准读取能力时，应完成读取；缺正文则保留未完成并报告原因。任何路径出现登录、安全检查、风控或限流立即停站，不换路径重试，也不把错误或截断正文记作零结果。平台能力、岗位类别和候选人硬条件彼此独立，本路径不限定产品岗位。
 
 ## 招聘方类型:本项目唯一被允许影响产物的推断属性
 
@@ -75,7 +75,7 @@ listing **不足以**驱动匹配、改写或投递包。那些一律需要完�
 | 退出码 1 其余情形 | `INVALID_PROVIDER_OUTPUT`;传输失败,不伪装成需人工介入 |
 | 输出非合法 JSON 或缺必填字段 | `INVALID_PROVIDER_OUTPUT` |
 
-授权由用户在**可交互终端**用 `liepin-cli setup` 粘贴猎聘官方 `x-user-token` 完成。智能体不代为完成,也不经手 token 值。token 有效期 90 天。
+授权由用户在**可交互终端**用 `liepin-cli setup` 粘贴猎聘官方 `x-user-token` 完成。智能体不代为完成,也不经手 token 值。有效期与额度以当次官方授权说明和真实回执为准。
 
 ## 实现注记
 

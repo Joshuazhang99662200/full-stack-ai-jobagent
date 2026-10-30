@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" role="img" aria-labelledby="title desc">
+  <title id="title">有证据的改写：完整 JD、已确认证据与定向草稿</title>
+  <desc id="desc">所有内容为合成示例。岗位需要 Python、SQLite 和数据质量校验。两条已确认证据支持一段定向草稿；未确认的生产规模、性能提升和团队管理保持为缺口。</desc>
+  <rect width="1280" height="700" rx="28" fill="#f6f7f3"/>
+  <g font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+    <text x="48" y="44" font-size="12" letter-spacing="2" font-weight="700" fill="#5a7a66">01 / EVIDENCE TO DRAFT</text>
+    <text x="48" y="93" font-size="34" font-weight="700" fill="#163d33">为什么这样改，每一句都有依据。</text>
+    <rect x="984" y="30" width="248" height="30" rx="15" fill="#e5ebdf"/>
+    <text x="1108" y="50" text-anchor="middle" font-size="13" fill="#4f6b58">合成示例 · 内容关系示意</text>
+
+    <rect x="48" y="132" width="512" height="358" rx="20" fill="#fff" stroke="#dce3d6"/>
+    <text x="76" y="169" font-size="13" font-weight="700" fill="#5a7a66">完整 JD 中的要求</text>
+    <text x="76" y="207" font-size="22" font-weight="600" fill="#163d33">Python / SQLite / 数据质量校验</text>
+    <line x1="76" y1="234" x2="532" y2="234" stroke="#dce3d6"/>
+    <text x="76" y="266" font-size="13" font-weight="700" fill="#5a7a66">本人已确认的原始证据</text>
+    <rect x="76" y="288" width="144" height="27" rx="7" fill="#e9f1e4"/>
+    <text x="88" y="306" font-size="12" font-weight="650" fill="#32634b">EVID_DEMO_01</text>
+    <text x="76" y="347" font-size="19" fill="#294d3b">使用 Python 整理多源岗位数据，</text>
+    <text x="76" y="375" font-size="19" fill="#294d3b">并将结果写入 SQLite。</text>
+    <rect x="76" y="397" width="144" height="27" rx="7" fill="#e9f1e4"/>
+    <text x="88" y="415" font-size="12" font-weight="650" fill="#32634b">EVID_DEMO_02</text>
+    <text x="76" y="455" font-size="19" fill="#294d3b">用 pytest 校验重复记录和字段完整性。</text>
+
+    <path d="M573 310h22m-7-6 7 6-7 6" fill="none" stroke="#799781" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="608" y="132" width="624" height="358" rx="20" fill="#17493d"/>
+    <text x="640" y="169" font-size="13" font-weight="700" fill="#daf589">定向草稿 / 把已有事实讲清楚</text>
+    <text x="640" y="221" font-size="23" font-weight="600" fill="#fff">使用 Python 与 SQLite 整理多源岗位数据，</text>
+    <text x="640" y="261" font-size="23" font-weight="600" fill="#fff">并通过 pytest 校验重复记录和字段完整性。</text>
+    <rect x="640" y="291" width="180" height="31" rx="8" fill="#2b5c49"/>
+    <text x="653" y="312" font-size="13" fill="#dcebd6">依据 EVID_DEMO_01</text>
+    <rect x="834" y="291" width="180" height="31" rx="8" fill="#2b5c49"/>
+    <text x="847" y="312" font-size="13" fill="#dcebd6">依据 EVID_DEMO_02</text>
+    <line x1="640" y1="350" x2="1200" y2="350" stroke="#48715c"/>
+    <circle cx="653" cy="388" r="12" fill="#daf589"/>
+    <path d="m647 388 4 4 8-9" fill="none" stroke="#17493d" stroke-width="2" stroke-linecap="round"/>
+    <text x="679" y="395" font-size="20" font-weight="600" fill="#fff">下一步：独立复核</text>
+    <text x="640" y="437" font-size="17" fill="#c9dfd2">核对主张与原始证据，再组装变体、计算 diff。</text>
+    <text x="640" y="466" font-size="14" fill="#c9dfd2">示例改写不等于程序验证已通过。</text>
+
+    <rect x="48" y="522" width="1184" height="124" rx="18" fill="#eef1d8"/>
+    <rect x="72" y="547" width="4" height="70" rx="2" fill="#9aac50"/>
+    <text x="94" y="566" font-size="21" font-weight="650" fill="#465123">缺口保持为缺口</text>
+    <text x="94" y="602" font-size="18" fill="#64703c">生产规模、性能提升、团队管理尚未确认，就不写进对外简历。</text>
+    <text x="48" y="678" font-size="12" fill="#71816c">出处与证据编号随产物保留。不同岗位可以调整表达重点，候选人事实仍以本人确认的证据为准。</text>
+  </g>
+</svg>

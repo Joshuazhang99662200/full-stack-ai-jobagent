@@ -35,80 +35,89 @@ class SqliteJDSnapshotRepository:
         with self.database.connect() as connection:
             return self._get(connection, snapshot_id)
 
-    def capture(self, request: JDSnapshotInput) -> SnapshotCaptureResult:
-        fingerprint = canonical_digest(request.model_dump(mode="json"))
+    def capture(
+        self, request: JDSnapshotInput, *, connection: sqlite3.Connection | None = None,
+    ) -> SnapshotCaptureResult:
+        if connection is not None:
+            return self._capture_in(connection, request)
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
-                old = connection.execute(
-                    "SELECT * FROM jd_discoveries WHERE observation_id = ?",
-                    (request.observation_id,),
-                ).fetchone()
-                if old is not None:
-                    if old["input_digest"] != fingerprint:
-                        raise ContractValidationError("Observation ID has different content.")
-                    return SnapshotCaptureResult(
-                        snapshot=self._get(connection, old["snapshot_id"]),
-                        discovery=SnapshotDiscovery.model_validate_json(old["discovery_json"]),
-                        created=False,
-                    )
-                row = connection.execute(
-                    "SELECT snapshot_json FROM jd_snapshots WHERE job_id = ? "
-                    "ORDER BY snapshot_version DESC LIMIT 1",
-                    (request.job_id,),
-                ).fetchone()
-                latest = (
-                    None if row is None else JDSnapshot.model_validate_json(row["snapshot_json"])
-                )
-                changed = latest is None or latest.content_digest != snapshot_content_digest(
-                    request
-                )
-                if latest is not None and changed and request.fetched_at < latest.fetched_at:
-                    raise ContractValidationError("Older capture cannot replace the current JD.")
-                snapshot = (
-                    make_snapshot(
-                        request,
-                        1 if latest is None else latest.snapshot_version + 1,
-                    )
-                    if changed
-                    else latest
-                )
-                assert snapshot is not None
-                if changed:
-                    connection.execute(
-                        "INSERT INTO jd_snapshots VALUES (?, ?, ?, ?, ?, ?)",
-                        (
-                            snapshot.snapshot_id,
-                            snapshot.job_id,
-                            snapshot.snapshot_version,
-                            snapshot.fetched_at.isoformat(),
-                            snapshot.content_digest,
-                            snapshot.model_dump_json(),
-                        ),
-                    )
-                discovery = SnapshotDiscovery(
-                    observation_id=request.observation_id,
-                    snapshot_id=snapshot.snapshot_id,
-                    job_id=request.job_id,
-                    fetched_at=request.fetched_at,
-                    query_hit=request.query_hit,
-                    discovery_kind=request.discovery_kind,
-                )
-                connection.execute(
-                    "INSERT INTO jd_discoveries VALUES (?, ?, ?, ?, ?)",
-                    (
-                        request.observation_id,
-                        snapshot.snapshot_id,
-                        request.job_id,
-                        fingerprint,
-                        discovery.model_dump_json(),
-                    ),
-                )
-                return SnapshotCaptureResult(
-                    snapshot=snapshot, discovery=discovery, created=changed
-                )
+            with self.database.connect() as own, own:
+                own.execute("BEGIN IMMEDIATE")
+                return self._capture_in(own, request)
         except sqlite3.Error as error:
             raise StorageError("JD snapshot ledger unavailable.") from error
+
+    def _capture_in(
+        self, connection: sqlite3.Connection, request: JDSnapshotInput,
+    ) -> SnapshotCaptureResult:
+        fingerprint = canonical_digest(request.model_dump(mode="json"))
+        old = connection.execute(
+            "SELECT * FROM jd_discoveries WHERE observation_id = ?",
+            (request.observation_id,),
+        ).fetchone()
+        if old is not None:
+            if old["input_digest"] != fingerprint:
+                raise ContractValidationError("Observation ID has different content.")
+            return SnapshotCaptureResult(
+                snapshot=self._get(connection, old["snapshot_id"]),
+                discovery=SnapshotDiscovery.model_validate_json(old["discovery_json"]),
+                created=False,
+            )
+        row = connection.execute(
+            "SELECT snapshot_json FROM jd_snapshots WHERE job_id = ? "
+            "ORDER BY snapshot_version DESC LIMIT 1",
+            (request.job_id,),
+        ).fetchone()
+        latest = (
+            None if row is None else JDSnapshot.model_validate_json(row["snapshot_json"])
+        )
+        changed = latest is None or latest.content_digest != snapshot_content_digest(
+            request
+        )
+        if latest is not None and changed and request.fetched_at < latest.fetched_at:
+            raise ContractValidationError("Older capture cannot replace the current JD.")
+        snapshot = (
+            make_snapshot(
+                request,
+                1 if latest is None else latest.snapshot_version + 1,
+            )
+            if changed
+            else latest
+        )
+        assert snapshot is not None
+        if changed:
+            connection.execute(
+                "INSERT INTO jd_snapshots VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    snapshot.snapshot_id,
+                    snapshot.job_id,
+                    snapshot.snapshot_version,
+                    snapshot.fetched_at.isoformat(),
+                    snapshot.content_digest,
+                    snapshot.model_dump_json(),
+                ),
+            )
+        discovery = SnapshotDiscovery(
+            observation_id=request.observation_id,
+            snapshot_id=snapshot.snapshot_id,
+            job_id=request.job_id,
+            fetched_at=request.fetched_at,
+            query_hit=request.query_hit,
+            discovery_kind=request.discovery_kind,
+        )
+        connection.execute(
+            "INSERT INTO jd_discoveries VALUES (?, ?, ?, ?, ?)",
+            (
+                request.observation_id,
+                snapshot.snapshot_id,
+                request.job_id,
+                fingerprint,
+                discovery.model_dump_json(),
+            ),
+        )
+        return SnapshotCaptureResult(
+            snapshot=snapshot, discovery=discovery, created=changed
+        )
 
     def list_snapshots(self, job_id: str) -> list[JDSnapshot]:
         with self.database.connect() as connection:

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from jobagent.errors import StorageError
 
-LATEST_SCHEMA_VERSION = 26
+LATEST_SCHEMA_VERSION = 30
 _MIGRATION_FILES = {
     1: "0001_candidate.sql",
     2: "0002_jobs.sql",
@@ -36,6 +36,10 @@ _MIGRATION_FILES = {
     24: "0024_pipeline_metrics.sql",
     25: "0025_pipeline_rules.sql",
     26: "0026_pipeline_backfill.sql",
+    27: "0027_worker.sql",
+    28: "0028_paged_feedback.sql",
+    29: "0029_reliability.sql",
+    30: "0030_dynamic_rules.sql",
 }
 
 
@@ -66,6 +70,17 @@ class Database:
         try:
             with self.connect() as connection:
                 current_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+                if 14 <= current_version <= 17:
+                    tables = {
+                        row[0] for row in connection.execute(
+                            "SELECT name FROM sqlite_master WHERE type = 'table'",
+                        )
+                    }
+                    if "worker_fetch_receipts" in tables and "sourcing_runs" not in tables:
+                        raise StorageError(
+                            "Conflicting unpublished local schema; reconcile an isolated copy "
+                            "before upgrading. The database has not been changed.",
+                        )
                 if current_version > LATEST_SCHEMA_VERSION:
                     raise StorageError(
                         "SQLite schema is newer than this JobAgent version.",

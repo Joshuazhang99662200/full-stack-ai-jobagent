@@ -182,6 +182,15 @@ def snapshot(
         str | None, typer.Option("--check", help="The PCHECK_* it belongs to.")
     ] = None,
     now: NowOption = None,
+    access_state: Annotated[
+        str, typer.Option("--access-state", help="Observed access state; unknown is not success.")
+    ] = "unknown",
+    coverage: Annotated[
+        str, typer.Option("--coverage", help="full, partial or unknown message-list coverage.")
+    ] = "unknown",
+    load_state: Annotated[
+        str, typer.Option("--load-state", help="loaded, loading or unknown page state.")
+    ] = "unknown",
 ) -> None:
     """Keep a board's message list and report what changed since the last one."""
     try:
@@ -193,20 +202,27 @@ def snapshot(
                 details={"file_name": items_path.name},
             ) from None
         checks, conversations = _stores(database)
-        previous = next(iter(checks.snapshots(platform, limit=1)), None)
-        current = PatrolSnapshot(
-            snapshot_id=f"PSNAP_{uuid.uuid4().hex[:16].upper()}",
-            platform=platform,
-            captured_at=_now(now),
-            check_id=check_id,
-            items=items,
-        )
+        previous = checks.latest_baseline(platform)
+        if "legacy_declared" in {access_state, coverage, load_state}:
+            raise ContractValidationError("New CLI snapshots require explicit current page states.")
+        current = PatrolSnapshot.model_validate({
+            "snapshot_id": f"PSNAP_{uuid.uuid4().hex[:16].upper()}", "platform": platform,
+            "captured_at": _now(now), "check_id": check_id, "items": items,
+            "access_state": access_state, "coverage": coverage, "load_state": load_state,
+        })
         checks.save_snapshot(current)
         report, recorded = _receipts(current, conversations)
+        status = ("complete" if current.baseline_eligible else
+                  "partial" if current.rows_observable else "intervention")
         _emit(
             {
                 "snapshot_id": current.snapshot_id,
                 "items": len(items),
+                "status": status,
+                "baseline_eligible": current.baseline_eligible,
+                "access_state": current.access_state,
+                "coverage": current.coverage,
+                "load_state": current.load_state,
                 "diff": diff_snapshots(previous, current).model_dump(mode="json"),
                 "receipts": {
                     "recorded": recorded,
@@ -214,6 +230,8 @@ def snapshot(
                 },
             }
         )
+        if status == "intervention":
+            raise typer.Exit(1)
     except (JobAgentError, ValueError) as error:
         _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
@@ -234,6 +252,10 @@ def snapshots(
                     "captured_at": kept.captured_at.isoformat(),
                     "check_id": kept.check_id,
                     "items": len(kept.items),
+                    "access_state": kept.access_state,
+                    "coverage": kept.coverage,
+                    "load_state": kept.load_state,
+                    "baseline_eligible": kept.baseline_eligible,
                 }
                 for kept in checks.snapshots(platform, limit=limit)
             ]

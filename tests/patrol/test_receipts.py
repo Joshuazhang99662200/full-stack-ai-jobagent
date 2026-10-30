@@ -269,3 +269,13 @@ def test_a_snapshot_yields_receipts_and_lists_rows_it_could_not_place() -> None:
     assert [(u.key, u.status, u.reason) for u in report.unmatched] == [
         ("王女士|丙公司", "delivered", "no_match")
     ]
+
+
+def test_login_snapshot_cannot_generate_receipts_even_with_stale_visible_rows() -> None:
+    snapshot = PatrolSnapshot.model_validate({
+        "snapshot_id": "PSNAP_BLOCKED", "platform": "boss", "captured_at": AT,
+        "items": [item("甲公司", "[已读]您好")], "access_state": "login_required",
+        "coverage": "full", "load_state": "loaded",
+    })
+    report = receipts_from_snapshot(snapshot, [conversation("CONV_A", "甲公司")], BOSS)
+    assert not report.receipts and not report.unmatched

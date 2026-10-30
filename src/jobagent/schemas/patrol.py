@@ -118,6 +118,44 @@ class PatrolSnapshot(ContractModel):
     captured_at: datetime
     check_id: PatrolCheckId | None = None
     items: list[SnapshotItem] = Field(default_factory=list)
+    # Absent historical declarations stay labeled; they are not upgraded to a
+    # verified login, full coverage or a confirmed empty message list.
+    access_state: Literal[
+        "authenticated", "public", "login_required", "loading", "verification",
+        "risk_control", "unknown", "legacy_declared",
+    ] = "legacy_declared"
+    coverage: Literal["full", "partial", "unknown", "legacy_declared"] = "legacy_declared"
+    load_state: Literal["loaded", "loading", "unknown", "legacy_declared"] = "legacy_declared"
+
+    @model_validator(mode="after")
+    def unique_conversation_keys(self) -> "PatrolSnapshot":
+        keys = [item.key for item in self.items]
+        if not self.legacy_declared and len(keys) != len(set(keys)):
+            raise ValueError("Snapshot conversation keys must be unique.")
+        return self
+
+    @property
+    def legacy_declared(self) -> bool:
+        return (self.access_state, self.coverage, self.load_state) == (
+            "legacy_declared", "legacy_declared", "legacy_declared",
+        )
+
+    @property
+    def rows_observable(self) -> bool:
+        keys = [item.key for item in self.items]
+        return len(keys) == len(set(keys)) and (
+            (self.legacy_declared and bool(self.items)) or (
+                self.access_state in {"authenticated", "public"} and self.load_state == "loaded"
+            )
+        )
+
+    @property
+    def full_coverage_confirmed(self) -> bool:
+        return self.rows_observable and self.coverage == "full"
+
+    @property
+    def baseline_eligible(self) -> bool:
+        return self.rows_observable and (self.coverage == "full" or self.legacy_declared)
 
 
 class SnapshotChange(ContractModel):
@@ -134,6 +172,7 @@ class SnapshotDiff(ContractModel):
     gone: list[str] = Field(default_factory=list)
     # New or changed conversations whose latest message is from the recruiter.
     their_new_messages: list[SnapshotItem] = Field(default_factory=list)
+    comparison_status: Literal["compared", "initialized", "partial", "unavailable"] = "compared"
 
 
 ReceiptStatus = Literal["delivered", "read"]

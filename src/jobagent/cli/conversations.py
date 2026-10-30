@@ -6,7 +6,6 @@ person, released by `reply-gate`, sent by the host and recorded. Nothing here
 reads or clicks a page.
 """
 
-import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,6 +23,7 @@ from jobagent.conversation.service import (
 )
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.versioning import read_harness_version
+from jobagent.harness.artifacts import bind_artifact, check_artifact
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.conversation import (
     Conversation,
@@ -36,6 +36,7 @@ from jobagent.schemas.conversation import (
     ReplyKind,
     ReplyResult,
 )
+from jobagent.schemas.harness import ResumeHeader
 from jobagent.schemas.job_intelligence import CandidateFilterContext
 from jobagent.schemas.optimizer import ResumeVariant
 from jobagent.schemas.outreach import OutreachResult
@@ -322,6 +323,9 @@ def attach_resume(
     variant_path: Annotated[Path, typer.Argument(help="Verified ResumeVariant JSON.")],
     pdf_path: Annotated[Path, typer.Argument(help="The rendered file that will be sent.")],
     database: DatabaseOption = DEFAULT_DATABASE,
+    header: Annotated[
+        Path | None, typer.Option("--header", help="JSON with exact permitted identity lines.")
+    ] = None,
 ) -> None:
     """Attach a verified variant for this job, bound to the exact file's digest."""
     try:
@@ -329,14 +333,15 @@ def attach_resume(
         conversation, events = _load(store, conversation_id)
         try:
             variant = ResumeVariant.model_validate_json(variant_path.read_bytes())
-            pdf_digest = "sha256:" + hashlib.sha256(pdf_path.read_bytes()).hexdigest()
+            identity = ResumeHeader.model_validate_json(header.read_bytes()) if header else None
         except (OSError, ValidationError):
             raise ContractValidationError(
                 "The variant or resume file could not be read.",
                 details={"variant": variant_path.name, "file": pdf_path.name},
             ) from None
+        binding = bind_artifact(pdf_path, variant, identity)
         event = SERVICE.attach_resume(
-            conversation, events, variant, pdf_digest=pdf_digest, now=datetime.now(UTC)
+            conversation, events, variant, pdf_digest=binding.digest, now=datetime.now(UTC)
         )
         _append(store, conversation, events, [event])
     except JobAgentError as error:
@@ -457,12 +462,13 @@ def record_reply(
             )
         attachment: str | None = None
         if file is not None:
-            try:
-                attachment = "sha256:" + hashlib.sha256(file.read_bytes()).hexdigest()
-            except OSError:
+            report = check_artifact(file)
+            if not report.passed:
                 raise ContractValidationError(
-                    "The uploaded file could not be read.", details={"file": file.name}
-                ) from None
+                    "The uploaded final employer artifact failed checks.",
+                    details={"issues": report.issues},
+                )
+            attachment = report.digest
         new = SERVICE.record_reply(
             conversation,
             events,

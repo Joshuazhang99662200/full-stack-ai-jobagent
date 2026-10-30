@@ -219,6 +219,8 @@ def receipts_from_snapshot(
     spec: ObservabilitySpec | None,
 ) -> ReceiptReport:
     report = ReceiptReport()
+    if not snapshot.rows_observable:
+        return report
     for item in snapshot.items:
         status = receipt_status(item, spec)
         if status is None:

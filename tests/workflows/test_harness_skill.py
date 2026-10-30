@@ -78,7 +78,8 @@ def test_installed_harness_workflow_without_checkout_cwd(tmp_path):
     message = private / "message.txt"
     message.write_text("I would like to discuss this migration role.", encoding="utf-8")
     package = command(
-        "applications", "preview", "APP_FIXTURE", job_path, match_path, variant_path, message
+        "applications", "preview", "APP_FIXTURE", job_path, match_path, variant_path, message,
+        "--artifact", pdf_path,
     )
     package_path = save("package.json", package)
     command(

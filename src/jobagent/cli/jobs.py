@@ -6,15 +6,22 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Never, TypeVar
+from urllib.parse import urlsplit
 
 import typer
-from pydantic import TypeAdapter, ValidationError
+from pydantic import HttpUrl, TypeAdapter, ValidationError
 
+from jobagent.bridge.codex_runner import CodexTextRunner
+from jobagent.bridge.dynamic_rules import load_effective_rule_snapshot
+from jobagent.bridge.preference_memory import refresh_preference_memory
+from jobagent.bridge.preference_reasoning import CodexPreferenceProvider
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.cli.greetings import _find_executable, _load_settings, _private_path
 from jobagent.cli.jd_knowledge import register_knowledge_commands
 from jobagent.cli.sourcing import register_sourcing_commands
 from jobagent.connectors.extraction import MIN_JD_LENGTH
 from jobagent.connectors.factory import build_detail_fetcher, build_listing_source
+from jobagent.connectors.observations import check_observation
 from jobagent.errors import (
     ContractValidationError,
     InvalidProviderOutputError,
@@ -32,9 +39,11 @@ from jobagent.jobs.ranking import JobRanker
 from jobagent.jobs.search_learning import learn_search
 from jobagent.jobs.search_plan import plan_searches
 from jobagent.jobs.workflow import JobIntelligenceWorkflow
+from jobagent.outreach.preference_memory import PreferenceLearner
 from jobagent.outreach.service import contacted_job_ids
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher, is_admissible
 from jobagent.reasoning.job_requirements import ReasoningJobRequirementExtractor
+from jobagent.rules.bindings import bind_filter_context, bind_query_count, bind_read_cap
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.job_intelligence import (
     CandidateFilterContext,
@@ -59,13 +68,14 @@ from jobagent.schemas.jobs import (
     NormalizedJob,
 )
 from jobagent.schemas.search_learning import SearchLearningRequest
-from jobagent.schemas.sources import SourceManifest
+from jobagent.schemas.sourcing import ReadOutcome, ReadReservation, SourcingCompletion
 from jobagent.sources import SourceRegistry
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
 from jobagent.storage.jd_snapshot_repository import SqliteJDSnapshotRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
+from jobagent.storage.read_repository import SqliteReadRepository
 
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 DEFAULT_FIXTURE = Path(__file__).parents[1] / "connectors" / "fixtures" / "jobs.json"
@@ -369,6 +379,7 @@ def ingest_jd(
                 jd_raw=jd_raw,
                 url=listing.url,
                 collected_at=datetime.now(UTC),
+                capture_kind="manual", completeness="full", access_state="public",
             )
         )
     except JobAgentError as error:
@@ -409,18 +420,28 @@ def add_jd(
                 "The supplied JD is too short to trust.",
                 details={"length": len(jd_raw), "minimum": MIN_JD_LENGTH},
             )
-        fingerprint = hashlib.sha256(f"{company}\n{title}\n{jd_raw}".encode()).hexdigest()
+        canonical_url = str(HttpUrl(url))
+        _, jobs = _repositories(database)
+        existing = [job for job in jobs.list_jobs()
+                    if job.source.casefold() == source.strip().casefold()
+                    and str(job.url) == canonical_url]
+        if len(existing) > 1:
+            raise ContractValidationError("Ambiguous stored source URL; reconcile job identities.")
+        fingerprint = hashlib.sha256(f"{source}\0{canonical_url}".encode()).hexdigest()
+        source_job_id = (existing[0].source_job_id if existing
+                         else f"MANUAL_{fingerprint[:16].upper()}")
         record = SourceJobRecord.model_validate(
             {
                 "source": source,
-                "source_job_id": f"MANUAL_{fingerprint[:16].upper()}",
+                "source_job_id": source_job_id,
                 "title": title,
                 "company": company,
                 "location": location or "未标注",
                 "salary_text": salary,
-                "jd_raw": jd_raw,
+                "jd_raw": jd_original,
                 "url": url,
                 "collected_at": datetime.now(UTC),
+                "capture_kind": "manual", "completeness": "full", "access_state": "public",
             }
         )
         job = _normalizer_for(record.source).normalize(record)
@@ -431,8 +452,10 @@ def add_jd(
             "observation_id": "MANUAL_"+captured.observation_id,
             "discovery_kind": "manual",
         })
-        SqliteJDSnapshotRepository(jobs.database).capture(captured)
-        jobs.save_job(job)
+        with jobs.database.connect() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            jobs.save_observation(record, job, connection=connection)
+            SqliteJDSnapshotRepository(jobs.database).capture(captured, connection=connection)
         _emit_model(job)
     except ValidationError:
         _fail(ContractValidationError("The posting details are invalid (check --url)."))
@@ -473,7 +496,7 @@ def import_observations(
         report = ObservationImportReport()
         for index, item in enumerate(raw):
             source_job_id = item.get("source_job_id") if isinstance(item, dict) else None
-            reason, record = _check_observation(item, known)
+            reason, record = check_observation(item, known)
             if record is None:
                 report.rejected.append(
                     RejectedObservation(
@@ -487,20 +510,22 @@ def import_observations(
             known_before = jobs.get_job(job.id) is not None
             snapshot_id = None
             snapshot_status = "timestamp_missing_timezone"
-            if record.collected_at.tzinfo is not None:
-                try:
-                    captured = SqliteJDSnapshotRepository(jobs.database).capture(
-                        capture_from_record(record, job.id),
-                    )
-                except ContractValidationError:
-                    report.rejected.append(RejectedObservation(
-                        index=index, source_job_id=record.source_job_id,
-                        reason="snapshot_conflict",
-                    ))
-                    continue
-                snapshot_id = captured.snapshot.snapshot_id
-                snapshot_status = "captured"
-            jobs.save_job(job)
+            try:
+                with jobs.database.connect() as connection, connection:
+                    connection.execute("BEGIN IMMEDIATE")
+                    jobs.save_observation(record, job, connection=connection)
+                    if record.collected_at.tzinfo is not None:
+                        captured = SqliteJDSnapshotRepository(jobs.database).capture(
+                            capture_from_record(record, job.id), connection=connection,
+                        )
+                        snapshot_id = captured.snapshot.snapshot_id
+                        snapshot_status = "captured"
+            except ContractValidationError as error:
+                report.rejected.append(RejectedObservation(
+                    index=index, source_job_id=record.source_job_id,
+                    reason="capture_or_read_conflict",
+                ))
+                raise error
             if record.search_term and record.search_term.strip():
                 jobs.record_search_hit(
                     JobSearchHit(
@@ -527,24 +552,76 @@ def import_observations(
         _fail(error)
 
 
-def _check_observation(
-    item: object, known: Mapping[str, SourceManifest]
-) -> tuple[str, SourceJobRecord | None]:
+@jobs_app.command("reserve-read")
+def reserve_read(
+    request_path: Path, database: DatabaseOption = DEFAULT_DATABASE,
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
+    candidate: Annotated[str | None, typer.Option("--candidate")] = None,
+) -> None:
+    """Reserve one attempt before the host reads; no external action is performed."""
     try:
-        record = SourceJobRecord.model_validate(item)
-    except ValidationError:
-        return "invalid_record", None
-    manifest = known.get(record.source)
-    spec = manifest.host_browser if manifest is not None else None
-    if spec is None:
-        return "no_host_route", None
-    if not any(str(record.url).startswith(prefix) for prefix in spec.detail_url_prefixes):
-        return "url_outside_board", None
-    if len(record.jd_raw.strip()) < MIN_JD_LENGTH:
-        return "jd_too_short", None
-    if any(marker in record.jd_raw for marker in spec.stop_markers):
-        return "gate_page", None
-    return "", record
+        request = _load_model(request_path, ReadReservation)
+        manifest = _registry().get(request.source)
+        spec = manifest.host_browser
+        if spec is None:
+            raise ContractValidationError("Source has no host read route.")
+        if rules_file is not None and candidate is None:
+            raise ContractValidationError("Dynamic read budget requires an explicit candidate.")
+        rules = load_effective_rule_snapshot(rules_file, candidate, database)
+        cap = bind_read_cap(rules, source_ceiling=spec.max_detail_reads_per_day) if rules \
+            else spec.max_detail_reads_per_day
+        target = urlsplit(str(request.target_url))
+        origins = [urlsplit(prefix) for prefix in (
+            *spec.detail_url_prefixes, *spec.panel_url_prefixes,
+            spec.search_url.format(query="", city=""),
+        )]
+        if not any((target.scheme, target.hostname, target.port) ==
+                   (origin.scheme, origin.hostname, origin.port) for origin in origins):
+            raise ContractValidationError("Read target is outside the declared source.")
+        _repositories(database)
+        receipt = SqliteReadRepository(Database(database)).reserve(
+            request, daily_cap=cap, now=datetime.now(UTC),
+        )
+        typer.echo(json.dumps({**receipt.model_dump(mode="json"), **(
+            {"rules_version": rules.version} if rules else {}
+        )}, ensure_ascii=False, indent=2))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("record-read")
+def record_read(outcome_path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    """Record an actual read outcome, preserving the consumed attempt."""
+    try:
+        outcome = _load_model(outcome_path, ReadOutcome)
+        _repositories(database)
+        SqliteReadRepository(Database(database)).record(outcome, now=datetime.now(UTC))
+        _emit_model(outcome)
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("check-coverage")
+def check_coverage(report_path: Path) -> None:
+    """Require a disposition for every input; incomplete runs retain a checkpoint."""
+    try:
+        _emit_model(_load_model(report_path, SourcingCompletion))
+    except JobAgentError as error:
+        _fail(error)
+
+
+@jobs_app.command("observation-history")
+def observation_history(job_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    """Read immutable observation metadata without disclosing raw JD text."""
+    try:
+        _, jobs = _repositories(database)
+        typer.echo(json.dumps([{
+            "observation_id": item.observation_id, "job_id": item.job_id,
+            "content_digest": item.content_digest, "kind": item.kind,
+            "collected_at": item.normalized.collected_at.isoformat(),
+        } for item in jobs.observations(job_id)], ensure_ascii=False, indent=2))
+    except JobAgentError as error:
+        _fail(error)
 
 
 @jobs_app.command("search-log")
@@ -585,7 +662,7 @@ def search_plan(
     filter_context: Annotated[
         Path, typer.Option("--filter-context", help="Holds preferred_search_terms.")
     ],
-    per_site: Annotated[int, typer.Option("--per-site", min=1, max=6)] = 3,
+    per_site: Annotated[int | None, typer.Option("--per-site", min=1)] = None,
     site: Annotated[
         list[str] | None, typer.Option("--site", help="Board id; repeat. Default: all three.")
     ] = None,
@@ -593,6 +670,14 @@ def search_plan(
         str | None, typer.Option("--candidate", help="Judge terms by this candidate's matches.")
     ] = None,
     database: DatabaseOption = DEFAULT_DATABASE,
+    memory_settings: Annotated[
+        Path | None, typer.Option("--memory-settings", help="Explicit private preference settings.")
+    ] = None,
+    memory_timeout: Annotated[
+        float, typer.Option("--memory-timeout", min=1, max=600)
+    ] = 120,
+    codex_executable: Annotated[Path | None, typer.Option("--codex-executable")] = None,
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
 ) -> None:
     """Which preferred search terms each board should run next, with each term's record."""
     try:
@@ -608,6 +693,32 @@ def search_plan(
             raise ContractValidationError(
                 "The filter context has no preferred_search_terms to plan from."
             )
+        if rules_file is not None and candidate is None:
+            raise ContractValidationError("Dynamic query planning requires an explicit candidate.")
+        rules = load_effective_rule_snapshot(rules_file, candidate, database)
+        if rules is not None and raw.get("candidate_id") != candidate:
+            raise ContractValidationError("Dynamic filter context belongs to another candidate.")
+        chosen_count = bind_query_count(rules, explicit=per_site) if rules else per_site or 3
+        memory = None
+        learner = None
+        if memory_settings is not None:
+            if candidate is None:
+                raise ContractValidationError(
+                    "Preference-aware search planning requires an explicit candidate."
+                )
+            config = _load_settings(memory_settings, candidate)
+            if raw.get("candidate_id") not in (None, candidate):
+                raise ContractValidationError("The search filter belongs to another candidate.")
+            if not config.memory_path:
+                raise ContractValidationError("Preference settings need a private memory_path.")
+            memory_path = _private_path(Path(config.memory_path))
+            runtime = _private_path(Path.cwd() / ".jobagent" / "preference-runtime")
+            model = CodexTextRunner(
+                _find_executable(codex_executable), runtime, timeout_seconds=memory_timeout,
+            )
+            provider = CodexPreferenceProvider(model)
+            memory = refresh_preference_memory(database, memory_path, candidate, provider)
+            learner = PreferenceLearner(provider)
         _, jobs = _repositories(database)
         runs, hits = jobs.searches(), jobs.search_hits()
         tiers = (
@@ -615,18 +726,38 @@ def search_plan(
             if candidate
             else {}
         )
-        plans = {
-            board: plan_searches(
-                terms,
+        plans = {}
+        selections = {}
+        for board in site or ["boss", "liepin", "zhaopin"]:
+            planned_terms = terms
+            if memory is not None and learner is not None:
+                selection = learner.select(
+                    memory, task="search", job_id=None,
+                    context=json.dumps({"source": board, "base_queries": terms},
+                                       ensure_ascii=False),
+                )
+                selections[board] = selection.model_dump(mode="json")
+                if selection.search_queries:
+                    planned_terms = selection.search_queries
+            plans[board] = plan_searches(
+                planned_terms,
                 board,
                 runs=runs,
                 hits=hits,
                 tiers=tiers,
-                per_site=per_site,
+                per_site=chosen_count,
             ).model_dump(mode="json")
-            for board in (site or ["boss", "liepin", "zhaopin"])
+        result: object = plans if memory is None else {
+            "memory_version": memory.version, "selections": selections, "plans": plans,
         }
-        typer.echo(json.dumps(plans, ensure_ascii=False, indent=2))
+        if rules:
+            result = {
+                "plans": plans, "rules_version": rules.version, "requested_per_site": chosen_count,
+                "shortfalls": {board: max(chosen_count - len(plan["chosen"]), 0)
+                               for board, plan in plans.items()},
+                **({"memory_version": memory.version, "selections": selections} if memory else {}),
+            }
+        typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
     except JobAgentError as error:
         _fail(error)
 
@@ -641,6 +772,7 @@ def triage(
     database: DatabaseOption = DEFAULT_DATABASE,
     job: Annotated[list[str] | None, typer.Option("--job", help="A stored JOB_* id.")] = None,
     all_stored: Annotated[bool, typer.Option("--all-stored")] = False,
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
 ) -> None:
     """Filter, then rank stored jobs; list the ones still waiting for reviewed input.
 
@@ -651,6 +783,9 @@ def triage(
     """
     try:
         context = _load_model(filter_context, CandidateFilterContext)
+        rules = load_effective_rule_snapshot(rules_file, candidate_id, database)
+        if rules:
+            context = bind_filter_context(rules, context)
         if context.candidate_id != candidate_id:
             raise ContractValidationError(
                 "The filter context belongs to another candidate.",
@@ -776,6 +911,7 @@ def triage(
             ]
             worklist = {
                 "candidate_id": candidate_id,
+                **({"rules_version": rules.version} if rules else {}),
                 "created_at": datetime.now(UTC).isoformat(),
                 "instructions": (
                     "For each job write the two files named in `write`, following `rules`. "
@@ -799,6 +935,7 @@ def triage(
                     "invalid": invalid,
                     "pending": pending,
                     "worklist": worklist_path,
+                    **({"rules_version": rules.version} if rules else {}),
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -954,6 +1091,7 @@ def filter_job(
     filter_context: Path,
     fixture: FixtureOption = DEFAULT_FIXTURE,
     database: OptionalDatabaseOption = None,
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
 ) -> None:
     """Run deterministic candidate hard constraints for one job."""
     try:
@@ -961,11 +1099,17 @@ def filter_job(
             job_ref, reviewed_requirements, fixture, database
         )
         context = _load_model(filter_context, CandidateFilterContext)
-        _emit_model(
-            HardFilterEngine().evaluate(
-                job, profile, context, JobIntelligencePolicies().hard_filter
-            )
+        rules = load_effective_rule_snapshot(rules_file, context.candidate_id, database)
+        if rules:
+            context = bind_filter_context(rules, context)
+        filtered = HardFilterEngine().evaluate(
+            job, profile, context, JobIntelligencePolicies().hard_filter
         )
+        if rules:
+            typer.echo(json.dumps({"rules_version": rules.version,
+                                   "filter": filtered.model_dump(mode="json")}, ensure_ascii=False))
+        else:
+            _emit_model(filtered)
     except JobAgentError as error:
         _fail(error)
 
@@ -1031,10 +1175,14 @@ def pipeline(
     query: Annotated[str, typer.Option("--query")] = "",
     database: DatabaseOption = DEFAULT_DATABASE,
     fixture: FixtureOption = DEFAULT_FIXTURE,
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
 ) -> None:
     """Run the complete offline intelligence pipeline from reviewed JSON inputs."""
     try:
         context = _load_model(filter_context, CandidateFilterContext)
+        rules = load_effective_rule_snapshot(rules_file, candidate_id, database)
+        if rules:
+            context = bind_filter_context(rules, context)
         provider = _ReviewedDirectoryProvider(reviewed_directory)
         candidate_repository, job_repository = _repositories(database)
         workflow = JobIntelligenceWorkflow(
@@ -1049,14 +1197,14 @@ def pipeline(
             candidate_repository=candidate_repository,
             job_repository=job_repository,
         )
-        _emit_model(
-            workflow.run(
-                JobSearchQuery(query=query),
-                candidate_id,
-                context,
-                JobIntelligencePolicies(),
-            )
+        run = workflow.run(
+            JobSearchQuery(query=query), candidate_id, context, JobIntelligencePolicies(),
         )
+        if rules:
+            typer.echo(json.dumps({"rules_version": rules.version,
+                                   "run": run.model_dump(mode="json")}, ensure_ascii=False))
+        else:
+            _emit_model(run)
     except JobAgentError as error:
         _fail(error)
 

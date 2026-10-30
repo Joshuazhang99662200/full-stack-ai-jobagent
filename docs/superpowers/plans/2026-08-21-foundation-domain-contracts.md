@@ -618,7 +618,7 @@ Expected: FAIL because `SKILL.md` is absent.
 
 - [ ] **Step 4: Validate the skill and run tests**
 
-Run: `python C:\Users\18121\.codex\skills\.system\skill-creator\scripts\quick_validate.py skills/job-hunting`
+Run: `python "$env:CODEX_HOME\skills\.system\skill-creator\scripts\quick_validate.py" skills/job-hunting`
 Expected: validation success.
 
 Run: `python -m pytest tests/test_skill_context.py -q`
@@ -715,7 +715,7 @@ Expected: success with no issues.
 
 - [ ] **Step 4: Revalidate Skill Context and privacy state**
 
-Run: `python C:\Users\18121\.codex\skills\.system\skill-creator\scripts\quick_validate.py skills/job-hunting`
+Run: `python "$env:CODEX_HOME\skills\.system\skill-creator\scripts\quick_validate.py" skills/job-hunting`
 Expected: validation success.
 
 Run: `git status --short --ignored`

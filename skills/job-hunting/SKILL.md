@@ -28,6 +28,9 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 
 ## 上下文路由
 
+- 调整时间、阈值、次数、比例或写作偏好时，先读 [references/dynamic-variables.md](references/dynamic-variables.md)。用私有单变量提问、本人确认与版本快照，不把外部表格、宿主猜测或平台参考自动激活。
+
+- 采集状态、面板全文、真实读取预算、追加观察历史与整轮对账，先读 [references/sourcing-reliability.md](references/sourcing-reliability.md)。适用于所有岗位方向；宿主必须先预留再读取，未声明完整性或未绑定读取尝试的真实浏览器观察不能进入正式链路。
 - 需要后段九态表单、48小时静默核对、累计指标/诊断、规则优化复核或候选人状态权威切换时，优先加载 [references/pipeline.md](references/pipeline.md)。只加载当前阶段；旧tracking在authority切换后只读，pipeline不授予发送权。
 
 - Muse旧JD回填或初稿/最终稿差异、本人规则推广时，加载 [references/muse-backfill-and-diff.md](references/muse-backfill-and-diff.md)；仅已确认规则可作为生成偏好。
@@ -52,9 +55,11 @@ description: 在 Codex 或 Claude Code 中启动与恢复求职 harness,用于�
 - **按 JD 生成简历**(含用户自带的 JD、用户在 Word 里改过的稿)时,先阅读 [references/resume-pipeline.md](references/resume-pipeline.md):入库、事实确认、改写、独立复核、版面门禁、手改合并全程走这条链路,不用裸 LLM 改写。
 - 处理常规简历接地时,阅读 [references/resume-grounding.md](references/resume-grounding.md)。母版简历重构与 JD 定向改写请路由到 [optimizer/SKILL.md](optimizer/SKILL.md);该嵌套技能自行决定后续策略选择。
 - 处理简历渲染、模板或 ATS 关键词覆盖时,阅读 [references/rendering-ats.md](references/rendering-ats.md)。排版与出 PDF 默认路由到外部技能 resume-builder;它是下游消费者,**不替代证据契约与蕴含校验**。
-- 撰写打招呼语、求职信或投递邮件时，阅读 [references/message-generation.md](references/message-generation.md)。首条招呼按 [references/greeting-writing.md](references/greeting-writing.md) 阅读完整 JD、已确认证据和适用偏好后生成全文，再独立复核；不调用旧话术库或固定结构，仓库不设置首招字数硬上限。
+- 首条招呼统一按 [references/message-generation.md](references/message-generation.md) 与 [references/greeting-writing.md](references/greeting-writing.md) 阅读完整 JD、已确认证据和适用偏好生成全文，再独立复核；不设置首招字数硬上限，不加载旧话术库或固定结构。
+- 已安装的 Codex 全文生成入口可按 [references/greeting-ai.md](references/greeting-ai.md) 调用 `jobagent greetings generate`；生成通过后仍走具体岗位与准确全文的本人审批。
+- 求职信或投递邮件继续按 [references/message-generation.md](references/message-generation.md) 的证据与内容要求处理。
 - **首条招呼之后的跟进**(读新消息、分级、回复、确认意向、发简历)时,阅读 [references/conversation.md](references/conversation.md):对方消息交给 `jobagent conversations inbound` 记录并推进阶段;回复一条一审,经 `reply-gate` 放行后才发;L3 与危险来信只摘要、交人。
-- **定时巡检或轮询**(抓新职位、对比上次快照读新回复、按来源分开记账、推送待审批事项)时,阅读 [references/patrol.md](references/patrol.md):先跑 `jobagent patrol next`,不到时间就结束;巡检从不自行发送。
+- **定时巡检或轮询**(抓新职位、对比上次快照读新回复、按来源分开记账、推送待审批事项)时,阅读 [references/patrol.md](references/patrol.md):已启用动态参数时按 dynamic-variables.md 使用 `jobagent rules evaluate` 的 poll 求值并传真实最近检查时间；未启用时先跑 `jobagent patrol next`，不到时间就结束。不要混用两种节奏；巡检从不自行发送。
 - **批量发首条招呼**时,先按 message-generation.md「首条招呼」起草,再走 `jobagent outreach draft-batch → ask → approve → lease → next → record`:人逐字看过编号清单并回答后才可发送;每条发送前由 `next` 复核租约、审批时效、间隔与每日上限;失败或风控当天叫停该站。宿主只在 `next` 放行后操作浏览器。
 - 处理预览、审批、投递、批量时,阅读 [references/hitl-approval.md](references/hitl-approval.md)。
 - 处理审计记录或投递结果回流时,阅读 [references/audit-feedback.md](references/audit-feedback.md)。

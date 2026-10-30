@@ -49,7 +49,10 @@ def feishu(
                 database, send=feishu_push.sender_for(config), cards=cards
             )
             if cards:
-                sent = feishu_push.send_cards(database, feishu_push.lark_card_sender(config))
+                sent = feishu_push.send_cards(
+                    database, feishu_push.lark_card_sender(config),
+                    candidate_id=config.candidate_id,
+                )
                 report["cards"] = sent
     except feishu_push.PushError as error:
         _fail(str(error))
@@ -70,7 +73,6 @@ def feishu_listen(
     if config.webhook or not owner:
         _fail("Card answers need an app bot with user_id (or owner) in feishu_push.json.")
     update = feishu_push.lark_card_updater(config)
-    send_card = feishu_push.lark_card_sender(config)
     log = (database.parent / LISTEN_LOG).open("a", encoding="utf-8")
     try:
         process = subprocess.Popen(
@@ -88,7 +90,7 @@ def feishu_listen(
             line = raw.decode("utf-8", errors="replace")
             try:
                 outcomes = feishu_approval.listen(
-                    [line], database, owner=str(owner), update=update, send_card=send_card
+                    [line], database, owner=str(owner), update=update
                 )
             except feishu_push.PushError as error:
                 typer.echo(json.dumps({"error": str(error)}, ensure_ascii=False))

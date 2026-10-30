@@ -7,6 +7,7 @@ import typer
 from jobagent.cli.applications import applications_app
 from jobagent.cli.candidate import candidate_app
 from jobagent.cli.conversations import conversations_app
+from jobagent.cli.greetings import greetings_app
 from jobagent.cli.harness import harness_app
 from jobagent.cli.host import host_app
 from jobagent.cli.job_intake import intake_app
@@ -18,7 +19,9 @@ from jobagent.cli.outreach import outreach_app
 from jobagent.cli.patrol import patrol_app
 from jobagent.cli.pipeline import pipeline_app
 from jobagent.cli.profile import profile_app
+from jobagent.cli.rules import rules_app
 from jobagent.cli.tracking import tracking_app
+from jobagent.cli.worker import worker_app
 
 app = typer.Typer(
     name="jobagent",
@@ -48,6 +51,7 @@ app.add_typer(applications_app, name="applications")
 app.add_typer(harness_app, name="harness")
 app.add_typer(host_app, name="host")
 app.add_typer(outreach_app, name="outreach")
+app.add_typer(greetings_app, name="greetings")
 app.add_typer(conversations_app, name="conversations")
 app.add_typer(patrol_app, name="patrol")
 app.add_typer(pipeline_app, name="pipeline")
@@ -55,6 +59,8 @@ app.add_typer(profile_app, name="profile")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(mailbox_app, name="mailbox")
 app.add_typer(notify_app, name="notify")
+app.add_typer(worker_app, name="worker")
+app.add_typer(rules_app, name="rules")
 
 
 if __name__ == "__main__":

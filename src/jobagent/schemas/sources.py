@@ -103,6 +103,7 @@ class HostBrowserSpec(ContractModel):
     city_codes: dict[str, NonEmptyString] = Field(default_factory=dict)
     # A captured posting must come from one of these pages, or its provenance is false.
     detail_url_prefixes: list[NonEmptyString] = Field(min_length=1)
+    panel_url_prefixes: list[NonEmptyString] = Field(default_factory=list)
     # URL fragments or page wording meaning the board wants a person (verification,
     # risk control). Seeing one ends this board for the session; it is never retried.
     stop_markers: list[NonEmptyString] = Field(min_length=1)

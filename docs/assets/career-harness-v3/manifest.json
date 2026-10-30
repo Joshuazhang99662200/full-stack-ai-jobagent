@@ -1,0 +1,18 @@
+{
+  "theme": "Blueprint",
+  "type": "repository fonts retained",
+  "data": "workflow explanation; no numerical metrics",
+  "sources": {
+    "workflow.html": "f05c9caf82170de2c219b1e1f8ef5da5bfbbad08a397f4ffdc837d9a0bd93b79",
+    "workflow.css": "537eb9c916d2d6b29b920b274c6e4602a1d720a05268cd87ed3f45df0412fd5b",
+    "tokens.css": "330b00647f4e8571a56a2ad634201ec4fc0b67fde857f5882f6ff1397ba08c30",
+    "base.css": "3932e9c0696c85e99657928ce5f54f27e5ca4b06a9baee7cc2641cb8e3fd581f",
+    "render.mjs": "4012b9b38dddeb169b816e9d654b3a397a2a14abaeff50110e9156d733a48cc9",
+    "../../workflow-outline.md": "d61dc6f342e5d615a23844cd7cc92d16d397e926e3e7cff01751fe398cfe080c",
+    "../../workflow-implementation.md": "35ebd3555ee12c46875120611d4e7d3b0525348176441c8d44c76cd859b345a4"
+  },
+  "outputs": {
+    "workflow.png": "5b8a01bcf9dfe614e638dd094882de85d113d93b05c3a44b18eefad3ed0cf922",
+    "workflow-mobile.png": "0b5dcd0b614d85e266076d202a746db5d0c9961424d0fec0129f3205dc36f481"
+  }
+}

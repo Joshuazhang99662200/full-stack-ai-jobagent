@@ -8,7 +8,9 @@ from typing import Annotated, Never, TypeVar
 import typer
 from pydantic import ValidationError
 
+from jobagent.bridge.dynamic_rules import load_effective_rule_snapshot
 from jobagent.errors import ContractValidationError, JobAgentError
+from jobagent.rules.bindings import bind_read_cap
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.sources import HostBrowserSpec
 from jobagent.schemas.sourcing import (
@@ -114,6 +116,8 @@ def budget(
     database: DatabaseOption = Path(".jobagent/jobagent.sqlite3"),
     budget_profile: Annotated[str, typer.Option("--budget-profile")] = "conservative",
     daily_detail_cap: Annotated[int | None, typer.Option("--daily-detail-cap")] = None,
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
+    candidate: Annotated[str | None, typer.Option("--candidate")] = None,
 ) -> None:
     """Meter attempts plus disclosed legacy observations, per source calendar day."""
     try:
@@ -126,13 +130,21 @@ def budget(
             raise ContractValidationError(
                 "Budget report needs a valid explicit policy and daily cap."
             )
+        if rules_file is not None and candidate is None:
+            raise ContractValidationError("Dynamic read budget requires an explicit candidate.")
+        rules = load_effective_rule_snapshot(rules_file, candidate, database)
+        if rules and (budget_profile != "conservative" or daily_detail_cap is not None):
+            raise ContractValidationError(
+                "Explicit profile/cap conflicts with dynamic read budget.",
+            )
         repo = _repository(database)
         now = datetime.now(UTC)
         report = {
             item.id: repo.budget(
                 item.id,
                 daily_cap=(
-                    daily_detail_cap
+                    bind_read_cap(rules, source_ceiling=item.host_browser.max_detail_reads_per_day)
+                    if rules else daily_detail_cap
                     if budget_profile == "muse-expanded-v1"
                     else min(
                         item.host_browser.max_detail_reads_per_day,
@@ -145,6 +157,12 @@ def budget(
             for item in SourceRegistry.default().all()
             if item.host_browser is not None
         }
+        for row in report.values():
+            row["attempts_today"] = row["read_today"] - row["legacy_unmetered"]
+            row["legacy_estimate"] = row["legacy_unmetered"]
+            row["profile"] = "standard" if rules else budget_profile
+            if rules:
+                row["rules_version"] = rules.version
         typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
     except JobAgentError as error:
         _fail(error)

@@ -9,6 +9,16 @@ runner = CliRunner()
 
 
 def test_browser_import_captures_raw_jd_and_query_in_private_ledger(tmp_path):
+    from datetime import datetime
+
+    from jobagent.schemas.sourcing import (
+        SourcingAttemptRequest,
+        SourcingResultRequest,
+        SourcingRunRequest,
+    )
+    from jobagent.storage.database import Database
+    from jobagent.storage.sourcing_repository import SqliteSourcingRepository
+
     raw = "合成岗位职责：第一行保持原样。\n  第二行说明产品研究和项目交付，需要具备沟通能力。 "
     data = [
         {
@@ -21,18 +31,34 @@ def test_browser_import_captures_raw_jd_and_query_in_private_ledger(tmp_path):
             "jd_raw": raw,
             "collected_at": "2026-10-28T10:00:00+08:00",
             "search_term": "合成 产品",
+            "completeness": "full",
+            "access_state": "authenticated",
+            "read_attempt_id": "SYNTHETIC_BROWSER_READ",
         }
     ]
     path = tmp_path / "observations.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     database = tmp_path / "private.sqlite3"
+    db = Database(database)
+    db.migrate()
+    ledger = SqliteSourcingRepository(db)
+    now = datetime.fromisoformat(data[0]["collected_at"])
+    ledger.start_run(SourcingRunRequest(
+        run_id="SYNTHETIC_RUN", candidate_id="CAND_SYNTHETIC", source="boss",
+    ), now=now, daily_cap=50)
+    ledger.reserve(SourcingAttemptRequest(
+        attempt_id="SYNTHETIC_BROWSER_READ", run_id="SYNTHETIC_RUN", kind="detail",
+        source_job_id="synthetic", url=data[0]["url"],
+    ), now=now)
+    ledger.complete(SourcingResultRequest(
+        attempt_id="SYNTHETIC_BROWSER_READ", outcome="complete",
+    ), now=now)
     result = runner.invoke(
         app, ["jobs", "import-observations", str(path), "--database", str(database)]
     )
     assert result.exit_code == 0, result.output
     item = json.loads(result.stdout)["stored"][0]
     assert item["snapshot_id"]
-    from jobagent.storage.database import Database
     from jobagent.storage.jd_snapshot_repository import SqliteJDSnapshotRepository
 
     snap = SqliteJDSnapshotRepository(Database(database)).get(item["snapshot_id"])

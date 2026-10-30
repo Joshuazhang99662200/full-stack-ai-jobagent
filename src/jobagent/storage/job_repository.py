@@ -5,8 +5,13 @@ import sqlite3
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from jobagent.errors import StorageError
-from jobagent.schemas.job_intelligence import JobSearchHit, SearchRun
+from jobagent.errors import ContractValidationError, StorageError
+from jobagent.schemas.job_intelligence import (
+    JobSearchHit,
+    SearchRun,
+    SourceJobRecord,
+    StoredJobObservation,
+)
 from jobagent.schemas.jobs import (
     HardFilterResult,
     JobRequirementProfile,
@@ -30,49 +35,155 @@ class SqliteJobRepository:
     def __init__(self, database: Database) -> None:
         self.database = database
 
-    def save_job(self, job: NormalizedJob) -> None:
-        timestamp = _now()
+    def save_job(
+        self, job: NormalizedJob, *, connection: sqlite3.Connection | None = None
+    ) -> None:
+        if connection is not None:
+            self._save_job_in(connection, job)
+            return
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute(
-                    """
-                    INSERT INTO normalized_jobs (job_id, job_json, created_at, updated_at)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT(job_id) DO UPDATE SET
-                        job_json = excluded.job_json,
-                        updated_at = excluded.updated_at
-                    """,
-                    (job.id, job.model_dump_json(), timestamp, timestamp),
-                )
-                connection.execute("DELETE FROM job_provenance WHERE job_id = ?", (job.id,))
-                for item in job.provenance:
-                    connection.execute(
-                        """
-                        INSERT INTO job_provenance (
-                            job_id, source, source_id, url, collected_at
-                        ) VALUES (?, ?, ?, ?, ?)
-                        """,
-                        (
-                            job.id,
-                            item.source,
-                            item.source_id,
-                            str(item.url) if item.url is not None else "",
-                            item.collected_at.isoformat(),
-                        ),
-                    )
+            with self.database.connect() as own_connection, own_connection:
+                self._save_job_in(own_connection, job)
         except sqlite3.Error as error:
             self._raise_storage_error("save normalized job", error)
 
-    def record_search_hit(self, hit: JobSearchHit) -> None:
+    @staticmethod
+    def _save_job_in(
+        connection: sqlite3.Connection, job: NormalizedJob, *, archive: bool = True,
+    ) -> None:
+        timestamp = _now()
+        identities = [item.model_dump_json() for item in job.provenance]
+        if len(set(identities)) != len(identities):
+            raise sqlite3.IntegrityError("Duplicate input provenance.")
+        connection.execute(
+            """
+            INSERT INTO normalized_jobs (job_id, job_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(job_id) DO UPDATE SET
+                job_json = excluded.job_json,
+                updated_at = excluded.updated_at
+            """,
+            (job.id, job.model_dump_json(), timestamp, timestamp),
+        )
+        if archive:
+            body = job.model_dump_json()
+            connection.execute(
+                "INSERT OR IGNORE INTO job_observations VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (_digest(body), job.id, None, None, body, "normalized_only",
+                 job.collected_at.isoformat()),
+            )
+        for item in job.provenance:
+            connection.execute(
+                """INSERT OR IGNORE INTO job_provenance
+                (job_id, source, source_id, url, collected_at)
+                VALUES (?, ?, ?, ?, ?)""",
+                (job.id, item.source, item.source_id,
+                 str(item.url) if item.url is not None else "", item.collected_at.isoformat()),
+            )
+
+    def save_observation(
+        self, record: SourceJobRecord, job: NormalizedJob,
+        *, connection: sqlite3.Connection | None = None,
+    ) -> None:
+        if connection is None:
+            try:
+                with self.database.connect() as own, own:
+                    own.execute("BEGIN IMMEDIATE")
+                    self.save_observation(record, job, connection=own)
+                return
+            except sqlite3.Error as error:
+                self._raise_storage_error("save observation", error)
+        assert connection is not None
+        from jobagent.jobs.normalization import JobNormalizer
+
+        expected = JobNormalizer().normalize(record)
+        if job.id != expected.id or job.observation_id != expected.observation_id:
+            raise ContractValidationError("Observation and normalized job have different identity.")
+        if record.read_attempt_id is not None:
+            attempt = connection.execute(
+                "SELECT request_json, result_json FROM sourcing_read_attempts WHERE attempt_id = ?",
+                (record.read_attempt_id,),
+            ).fetchone()
+            from jobagent.schemas.sourcing import (
+                ReadOutcome,
+                ReadReservation,
+                SourcingAttempt,
+                SourcingResult,
+            )
+
+            if attempt is not None:
+                if attempt["result_json"] is None:
+                    raise ContractValidationError("Observation has no completed read attempt.")
+                request = ReadReservation.model_validate_json(attempt["request_json"])
+                outcome = ReadOutcome.model_validate_json(attempt["result_json"])
+                matches = (request.source == record.source and request.target_url == record.url
+                           and outcome.status == "read")
+            else:
+                row = connection.execute(
+                    "SELECT a.attempt_json, r.result_json FROM sourcing_attempts a "
+                    "JOIN sourcing_results r ON a.attempt_id = r.attempt_id "
+                    "WHERE a.attempt_id = ?", (record.read_attempt_id,),
+                ).fetchone()
+                if row is None:
+                    raise ContractValidationError("Observation has no completed read attempt.")
+                reserved = SourcingAttempt.model_validate_json(row["attempt_json"])
+                result = SourcingResult.model_validate_json(row["result_json"])
+                matches = (
+                    reserved.kind == "detail" and reserved.source == record.source
+                    and reserved.source_job_id == record.source_job_id
+                    and reserved.url == record.url
+                    and result.outcome == "complete" and record.collected_at.tzinfo is not None
+                    and record.collected_at >= reserved.occurred_at
+                )
+            if not matches:
+                raise ContractValidationError("Read attempt does not match captured observation.")
+            bound = connection.execute(
+                "SELECT observation_id FROM job_observations "
+                "WHERE json_extract(record_json, '$.read_attempt_id') = ?",
+                (record.read_attempt_id,),
+            ).fetchone()
+            if bound is not None and bound[0] != job.observation_id:
+                raise ContractValidationError("Read attempt is already bound to another capture.")
+        self._save_job_in(connection, job, archive=False)
+        connection.execute(
+            "INSERT OR IGNORE INTO job_observations VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (job.observation_id, job.id, job.jd_digest, record.model_dump_json(),
+             job.model_dump_json(), "captured", record.collected_at.isoformat()),
+        )
+
+    def observations(self, job_id: str) -> list[StoredJobObservation]:
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM job_observations WHERE job_id = ? ORDER BY collected_at, rowid",
+                (job_id,),
+            ).fetchall()
+        return [StoredJobObservation(
+            observation_id=row["observation_id"], job_id=row["job_id"],
+            content_digest=row["content_digest"],
+            record=SourceJobRecord.model_validate_json(row["record_json"])
+            if row["record_json"] is not None else None,
+            normalized=NormalizedJob.model_validate_json(row["normalized_json"]), kind=row["kind"],
+        ) for row in rows]
+
+    def record_search_hit(
+        self, hit: JobSearchHit, *, connection: sqlite3.Connection | None = None
+    ) -> None:
+        if connection is not None:
+            self._record_search_hit_in(connection, hit)
+            return
         try:
             with self.database.connect() as connection, connection:
-                connection.execute(
-                    "INSERT OR IGNORE INTO job_search_hits "
-                    "(job_id, source, search_term, collected_at) VALUES (?, ?, ?, ?)",
-                    (hit.job_id, hit.source, hit.search_term, hit.collected_at.isoformat()),
-                )
+                self._record_search_hit_in(connection, hit)
         except sqlite3.Error as error:
             self._raise_storage_error("record job search hit", error)
+
+    @staticmethod
+    def _record_search_hit_in(connection: sqlite3.Connection, hit: JobSearchHit) -> None:
+        connection.execute(
+            "INSERT OR IGNORE INTO job_search_hits "
+            "(job_id, source, search_term, collected_at) VALUES (?, ?, ?, ?)",
+            (hit.job_id, hit.source, hit.search_term, hit.collected_at.isoformat()),
+        )
 
     def record_search(self, run: SearchRun) -> None:
         try:

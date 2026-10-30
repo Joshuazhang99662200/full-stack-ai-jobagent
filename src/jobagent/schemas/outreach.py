@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 from pydantic import ConfigDict, Field
 
 from jobagent.schemas.applications import ApprovalChannel
-from jobagent.schemas.candidate import EvidenceId
+from jobagent.schemas.candidate import CandidateId, EvidenceId
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
 from jobagent.schemas.jobs import JobId
 
@@ -39,6 +39,17 @@ class OutreachPolicy(ContractModel):
     halt_platform_on_failure: Literal[True] = True
 
 
+class OutreachSourceBinding(ContractModel):
+    """The source snapshot of an AI-reviewed greeting; never human approval."""
+
+    candidate_id: CandidateId
+    evidence_ids: list[EvidenceId] = Field(min_length=1)
+    evidence_digest: Digest
+    job_digest: Digest
+    text_digest: Digest
+    policy_digest: Digest
+
+
 class OutreachDraft(ContractModel):
     """One first greeting a host drafted for one stored job."""
 
@@ -54,6 +65,7 @@ class OutreachDraft(ContractModel):
     experiment_id: str | None = None
     # Authorship is retained for review and audit; the same content checks apply.
     written_by: Literal["agent", "person"] = "agent"
+    source_binding: OutreachSourceBinding | None = None
 
 
 class OutreachItem(ContractModel):
@@ -71,6 +83,7 @@ class OutreachItem(ContractModel):
     hook_requirement: str | None = None
     experiment_id: str | None = None
     written_by: Literal["agent", "person"] = "agent"
+    source_binding: OutreachSourceBinding | None = None
     # Binds the job content, the platform, the exact words and any strategy labels.
     item_digest: Digest
 

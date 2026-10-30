@@ -15,6 +15,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.bridge.feishu_push import auto_push
+from jobagent.bridge.greeting_freshness import verify_greeting_sources
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.versioning import read_harness_version
 from jobagent.jobs.preferences import preference_score
@@ -135,6 +136,7 @@ def draft_batch(
         store = SqliteOutreachRepository(db)
         jobs = SqliteJobRepository(db)
         found = {draft.job_id: jobs.get_job(draft.job_id) for draft in drafts}
+        verify_greeting_sources(db, drafts, candidate_id=candidate)
         confirmed: set[str] = set()
         tiers: dict[str, str] = {}
         if candidate is not None:
@@ -192,6 +194,7 @@ def ask(batch_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
                 "Outreach batch was not found.", details={"batch_id": batch_id}
             )
         question = OutreachService().ask(batch)
+        verify_greeting_sources(store.database, batch.items)
         store.save_ask(question)
         _emit(question)
         pushed = auto_push(database)
@@ -222,6 +225,7 @@ def approve(
                 "This batch was withdrawn and can no longer be approved.",
                 details={"batch_id": batch_id},
             )
+        verify_greeting_sources(store.database, batch.items)
         approval = OutreachService().approve(
             batch, ask=store.get_ask(request), numbers=_numbers(items), attestation=answer
         )
@@ -294,6 +298,7 @@ def next_item(
     try:
         store = SqliteOutreachRepository(_database(database))
         batch, approval = _batch_and_approval(store, batch_id)
+        verify_greeting_sources(store.database, batch.items)
         now = datetime.now(UTC)
         held = store.holds_lease(platform, session, now=now)
         if held:

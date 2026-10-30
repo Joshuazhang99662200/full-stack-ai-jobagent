@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field, HttpUrl, model_validator
 
 from jobagent.schemas.candidate import CandidateId, EvidenceId
-from jobagent.schemas.common import ContractModel, MoneyRange, NonEmptyString
+from jobagent.schemas.common import ContractModel, Digest, MoneyRange, NonEmptyString
 from jobagent.schemas.jobs import (
     FilterDecision,
     HardFilterResult,
@@ -38,6 +38,24 @@ class SourceJobRecord(ContractModel):
     # The search the host ran when it found this posting, verbatim. It is not part of
     # the job; it is kept apart so later outcomes can be traced to the search.
     search_term: str | None = None
+    capture_kind: Literal["detail", "panel", "manual"] = "detail"
+    panel_locator: NonEmptyString | None = None
+    panel_source_job_id: NonEmptyString | None = None
+    read_attempt_id: NonEmptyString | None = None
+    completeness: Literal["full", "partial", "unknown"] = "unknown"
+    access_state: Literal[
+        "public", "authenticated", "login_required", "loading", "verification",
+        "risk_control", "unknown",
+    ] = "unknown"
+
+
+class StoredJobObservation(ContractModel):
+    observation_id: NonEmptyString
+    job_id: JobId
+    content_digest: Digest | None = None
+    record: SourceJobRecord | None = None
+    normalized: NormalizedJob
+    kind: Literal["captured", "normalized_only", "legacy_normalized"]
 
 
 class JobSearchHit(ContractModel):

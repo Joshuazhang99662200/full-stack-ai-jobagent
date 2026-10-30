@@ -33,7 +33,10 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | `ingest_jd` | 已落地 | `jobagent jobs ingest-jd`(人工补 JD 正文,门控平台的唯一路径) |
 | `add_jd` | 已落地 | `jobagent jobs add-jd`(用户自带的 JD 直接落库为 `JOB_*`,不需要 listing;来源默认 `manual`) |
 | `import_observations` | 已落地 | `jobagent jobs import-observations`(宿主在用户自己的浏览器里抓回的职位,按来源清单的 `host_browser` 校验后入库;浏览器操作本身是宿主能力) |
-| `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`（查询尝试、列表观察、详情尝试与旧观测估算分别报告；来源默认每日50详情，显式muse-expanded-v1政策允许每日240） |
+| 读取尝试门禁 | 已落地 | `jobagent jobs reserve-read` · `jobagent jobs record-read`：显式 standard profile 与期望上限，原子预留和回执；重放 allowed=false，受限停站；浏览器由宿主执行 |
+| 观察历史 | 已落地 | `jobagent jobs observation-history`：只回显追加观察的版本、摘要与类型；完整面板可按真实平台 ID 与面板身份采集，历史未验证记录不追认全文 |
+| 整轮处理对账 | 已落地 | `jobagent jobs check-coverage`：每条输入恰有一个去向；完整采集须有可访问/已加载声明，部分采集保留检查点；不负责翻页或调度 |
+| `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`（查询尝试、列表观察、详情尝试与旧观测估算分别报告；来源默认每日50详情，显式muse-expanded-v1政策允许每日240；两种读取入口共用已消耗额度与停站记录，动态额度仍受来源清单约束） |
 | 寻源轮次 | 已落地 | `jobagent jobs sourcing-start`（每站默认3查询/20详情尝试，固定轮次额度） |
 | 读取预占 | 已落地 | `jobagent jobs sourcing-reserve`（原子预占；仅新 allowed=true 可执行；失败/重复读取不退额） |
 | 读取结果 | 已落地 | `jobagent jobs sourcing-result`（追加结果；gate 停该站当天预占；不授予发送权） |
@@ -72,6 +75,7 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | `verify` | 已落地 | `jobagent optimizer review`(独立复核交接) · `verify_draft` 与 `ClaimVerifier`(覆盖、摘要、指标门禁);不采信生成自评 |
 | `diff` | 已落地 | `ResumeDiffBuilder`,在 `assemble` 内由基础简历与变体机械推导 |
 | `render` | 委托外部技能 | 无本项目 schema;默认路由到 resume-builder(MIT)出 PDF,约束与边界见 [rendering-ats.md](rendering-ats.md) |
+| 固定 Word 母版正文修改 | 已落地（Python 适配器） | `TemplatePatch` / `patch_template`：源摘要、原文、允许段落及文字预算校验；保留其他包成员。混合非粗体样式采用明确逐run修改；事实复核和同环境分页/位置核对仍单独必需。技能入口 `skills/jd-grounded-template-tailoring/SKILL.md` |
 
 优化器索引中的八个 `repo.*` capability 条目指向的 Python 代码**确实已经存在**,但它们的 Phase 2 adapter 尚未落地,因此优化器路由器无法执行它们。索引条目是可发现的元数据,不是可调用的入口。
 
@@ -163,14 +167,17 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | 推送更新 | 已落地 | `jobagent notify feishu`(`--dry-run` 只打印不发、不记)。`patrol finish`(可带 `--report <文件>`，把巡检汇报原文一并推送，超过 6000 字截断)与 `outreach ask` 结束后在配置存在时自动推送，结果写到 stderr，失败不影响原命令 |
-| 飞书卡片审批 | 已落地 | 应用 bot 配置下，`outreach ask` 后自动给每个待批问题发一张审批卡片(勾选 + 可改原文 + 提交)，`jobagent notify feishu` 也会补发。`jobagent notify feishu-listen`(`--hours 8`)在本机监听提交：只认 `user_id`/`owner` 本人、只认本机发出且未处理的卡片、每张卡只登记一次；勾选且未改的条目以提交内容为原话登记批准；改过的条目生成本人改写的新批次与新问题，另发确认卡，确认后才登记。卡片不触发发送，发送仍由浏览器会话按租约和节奏执行 |
+| 飞书卡片审批 | 已落地 | 应用 bot 配置下，`outreach ask` 后自动给每个待批问题发一张审批卡片(勾选 + 可改原文 + 提交)，`jobagent notify feishu` 也会补发。`jobagent notify feishu-listen`(`--hours 8`)在本机监听提交：只认 `user_id`/`owner` 本人、只认本机发出且未处理的卡片、每张卡只登记一次；勾选即批准、没有第二轮：未改的条目以提交内容为原话登记；改过的条目按本人改写生成新批次，并以卡片里的原文为原话当场登记(仍须过首条招呼规则，不过则卡片写明原因、可改后重交)。卡片不触发发送，发送仍由浏览器会话按租约和节奏执行 |
 
 ## 消息与投递(Message / Application / Cluster)
 
+原生逐岗位首条招呼卡片已支持上一条/下一条、编辑草稿留存、单项批准与显式回绝，宿主入口为 `feishu_approval.send_question_card`；旧卡兼容。回绝反馈可由 `bridge.sourcing_feedback.next_fetch_strategy` 在下一次显式采集前消费，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。`demo_mode=True` 仅用于合成 UI 验证，不产生真实审批或偏好。详见 `docs/feishu-paged-approval-2026-10-26.md`。此能力不包含定向简历的原生卡片审批桥或通用自进化编排。
+
 | 能力 | 状态 | 入口 |
 |---|---|---|
-| `generate`(消息) | 未开始 | 无 schema;策略见 [message-generation.md](message-generation.md) |
-| `prepare` / `preview` | 已落地 | `jobagent applications preview` · `ApplicationPreviewService.prepare`(校验未通过的简历变体会被拒绝) |
+| 首条招呼全文 AI 生成 | 已落地（通用稿与两类历史完整 JD 的真实模型验收通过） | `jobagent greetings generate`：默认稿、完整 JD 定向稿及反馈重写；`GreetingRequest` → `GreetingDraft` → 独立 `GreetingReview` → `GreetingReport`，使用 [greeting-ai.md](greeting-ai.md)，不读取句库、不授予审批；通过的定向稿保留来源绑定，再进入既有首招门禁 |
+| 其他消息自动生成编排 | 未开始 | 求职信与后续回复的统一自动生成仍无独立入口；策略见 [message-generation.md](message-generation.md) |
+| `prepare` / `preview` | 已落地 | `jobagent applications preview` · `ApplicationPreviewService.prepare`：非 mock CLI 须提供 `--artifact` 最终 PDF/Word，可选 `--header`；结构检查、文件字节与摘要绑定，不授予发送权 |
 | `ask` | 已落地 | `jobagent applications ask`(把决定摆给人,**本身不是审批**) · `ApplicationApprovalService.ask` |
 | `approve` | 已落地 | `jobagent applications approve`(终端通道:`--confirm` + 可交互终端 + 回填确认码;中继通道:`--request` + `--answer`,问必须先于答) · `ApplicationApprovalService.approve` |
 | `send` | 已落地 | `jobagent applications send`(一次一份;`--dry-run` 走同样门禁但不触达平台) · `DeliveryGate.send` |
@@ -189,6 +196,22 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 - **登录、CAPTCHA、验证、风控与限流不是重试理由。** 它们一律翻译为 `USER_INTERVENTION_REQUIRED`(限流按 `RISK_CONTROL` 上报),记入审计后交还控制权,按 [stop-conditions.md](stop-conditions.md) 停下。
 - **审计写在失败路径上。** 成功、失败、中止与审批过期都会各写一条记录;从未发生的尝试不写记录。
 
+## 动态变量与版本治理
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 变量定义与消费状态 | 已落地 | `jobagent rules definitions`：类型、用户参数/平台参考/不变量及实际消费者；不带个人默认值 |
+| 单变量修改提问 | 已落地 | `jobagent rules propose`：绑定候选人、来源、旧版本与一项新值；只保存提问，不生效 |
+| 参数确认与激活 | 已落地 | `jobagent rules approve`：原提问摘要与本人明确答复；旧版本冲突拒绝，事务内只更新指定变量；不授予外部动作权限 |
+| 生效值与待公告变更 | 已落地 | `jobagent rules effective`：读取/导出私有快照与待公告变更；读取不算通知完成 |
+| 参数历史 | 已落地 | `jobagent rules history`：追加版本及来源；不追溯重算旧终态 |
+| 公告回执 | 已落地 | `jobagent rules acknowledge`：宿主提供实际通知参考后记账；不发送消息 |
+| 动态条件判断 | 已落地 | `jobagent rules evaluate`：对齐轮询、放弃阈值、比例提案与积压选择的纯计算；不持久化队列、不调度、不自动优化 |
+| 既有入口绑定 | 已落地 | `jobs` 的薪资筛选、查询计划、详情预算及 `greetings generate` 支持显式 `--rules-file`；校验摘要与候选人，冲突报错，不静默回落 |
+| 宿主专属变量执行 | 委托外部技能 | 面板同步、MCP 只读并发、发送随机节律等按变量定义的 host 绑定交给宿主；登记参数不等于执行器已实现 |
+
+详细协议见 [dynamic-variables.md](dynamic-variables.md)。平台额度和凭证期限只作带日期的参考，不能由用户调参改写；队列快照与单岗 HOLD 不进入参数表。
+
 ## Harness 运行支持
 
 | 能力 | 状态 | 入口 |
@@ -203,6 +226,29 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 实际结果汇总 | 已落地 | `jobagent harness report`(当前运行绑定的投递包；无审计 unknown，mock 为 simulated) |
 | 浏览器/安全凭证/调度 | 委托外部技能 | 使用实际宿主能力，先探测；缺能力交人，不提供云 VM 或 OS 服务 |
 
+## 本地执行 Worker
+
+接口与运行示例见 [worker.md](worker.md)。这里只接收结构化观察、释放一条获批招呼及校验回读，不内置浏览器控制、批准入口或发送循环；读取能力不授予平台写入权限。
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 观察入库与完成回执 | 已落地 | `jobagent worker ingest`（复用来源校验；职位、请求回执与完成事件在同一事务提交，同号同输入幂等） |
+| 单项获批任务领取 | 已落地 | `jobagent worker claim-greeting`（复核审批原问题、当前正文与职位、站点租约及节奏；并发领取去重） |
+| 发送前一次性授权 | 已落地 | `jobagent worker authorize-greeting`（重新核对门禁；授权消费后不能再次领取发送权限，异常须核验） |
+| 回读记账 | 已落地 | `jobagent worker record-greeting`（准确正文和 URL 才可登记 sent；不明确或门禁改变登记 intervention，审计与完成事件同事务） |
+| 任务状态 | 已落地 | `jobagent worker show`（读取持久化回执；父代理的 SUCCESS 不能替代任务完成证据） |
+| 完成事件与确认 | 已落地 | `jobagent worker events` · `jobagent worker ack`（按次读取和幂等确认，不启动轮询或监听） |
+| Antigravity 浏览器与模型运行 | 委托外部技能 | 调用受允许的宿主工具；本地页面已验证，真实平台执行、事件唤醒与评测进化闭环不因此视为落地 |
+
+## Codex 文本协调器
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 本机文本模型执行器 | 已落地 | 内部 `CodexTextRunner.run`，固定 `gpt-6.1-sol`，结构化文字输入和契约输出；只读临时目录，不加载用户 MCP 配置，逐次关闭图像、浏览器、shell、应用和插件；超时/配置错误/工具活动拒绝结果，不自动重试。已用本机现有登录完成一次合成文本调用；不授予审批或发送权限 |
+| 本机职位推理适配 | 已落地（内部接口，真实质量联调未通过） | `CodexJobReasoningProvider.generate` 连接现有需求提取和证据映射契约，使用同一文字执行器；需求提取只向模型传职位编号和 JD 正文。现有源文、证据与确定性计分继续生效。单元测试通过；历史 JD 实际调用的汇总字段、元数据引文曾被门禁拒绝，尚无真实匹配通过证据，不能据此计入三站本轮结果 |
+| 事件 webhook 与模型任务持久化 | 未开始 | 当前 `worker_events` 可按次读取和确认，尚无自动转发、webhook 接收器或持久化模型任务 |
+| 搜索计划与 Gemini 轮询队列 | 未开始 | 浏览器、截图与采集均归 Gemini；当前 Worker 入口不包含自动搜索调度 |
+| 选择/改写反馈与策略版本闭环 | 未开始 | 需要连接本人选择、最终批准原文、实际执行结果及后续策略版本；不得修改已批准内容或候选人事实 |
 
 ## JD 与已发送观察补充
 

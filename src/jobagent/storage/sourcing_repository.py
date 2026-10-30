@@ -31,6 +31,15 @@ def _bounds(now: datetime) -> tuple[str, str]:
     return start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()
 
 
+def _read_attempt_ids(connection: sqlite3.Connection, source: str, now: datetime) -> set[str]:
+    return {
+        row[0] for row in connection.execute(
+            "SELECT attempt_id FROM sourcing_read_attempts WHERE source = ? AND platform_day = ?",
+            (source, now.astimezone(SOURCING_DAY).date().isoformat()),
+        )
+    }
+
+
 def _same_request(
     request: SourcingRunRequest | SourcingAttemptRequest | SourcingResultRequest,
     stored: SourcingRun | SourcingAttempt | SourcingResult,
@@ -110,6 +119,7 @@ class SqliteSourcingRepository:
             ).fetchall()
         ]
         details = [item for item in attempts if item.kind == "detail"]
+        read_attempts = _read_attempt_ids(connection, source, now)
         first_reads: dict[str, datetime] = {}
         for item in details:
             if item.source_job_id is not None:
@@ -129,6 +139,7 @@ class SqliteSourcingRepository:
             job = NormalizedJob.model_validate_json(row["job_json"])
             if (
                 job.source == source
+                and job.read_attempt_id not in read_attempts
                 and job.collected_at.astimezone(SOURCING_DAY).date()
                 == now.astimezone(SOURCING_DAY).date()
                 and (
@@ -147,7 +158,11 @@ class SqliteSourcingRepository:
             ).fetchall()
         ]
         legacy = len(legacy_keys)
-        used = len(details) + legacy
+        used = len(details) + len(read_attempts) + legacy
+        halted = connection.execute(
+            "SELECT 1 FROM sourcing_read_halts WHERE source = ? AND platform_day = ?",
+            (source, now.astimezone(SOURCING_DAY).date().isoformat()),
+        ).fetchone() is not None
         return SourcingBudget(
             source=source,
             daily_cap=daily_cap,
@@ -156,7 +171,7 @@ class SqliteSourcingRepository:
             legacy_unmetered=legacy,
             query_attempts_today=sum(item.kind == "query" for item in attempts),
             listing_observations_today=sum(item.listing_count or 0 for item in results),
-            halted=any(item.outcome == "gate" for item in results),
+            halted=halted or any(item.outcome == "gate" for item in results),
         )
 
     @staticmethod
@@ -175,11 +190,13 @@ class SqliteSourcingRepository:
                 key = " ".join(item.source_job_id.split()).casefold()
                 first_reads[key] = min(first_reads.get(key, item.occurred_at), item.occurred_at)
         day = now.astimezone(SOURCING_DAY).date()
+        read_attempts = _read_attempt_ids(connection, source, now)
         for row in connection.execute("SELECT job_json FROM normalized_jobs").fetchall():
             job = NormalizedJob.model_validate_json(row["job_json"])
             key = " ".join(job.source_job_id.split()).casefold()
             if (
                 job.source == source
+                and job.read_attempt_id not in read_attempts
                 and job.collected_at.astimezone(SOURCING_DAY).date() == day
                 and (key not in first_reads or job.collected_at < first_reads[key])
             ):
@@ -199,6 +216,10 @@ class SqliteSourcingRepository:
     def reserve(self, request: SourcingAttemptRequest, *, now: datetime) -> SourcingPermit:
         _bounds(now)
         with self._write() as connection:
+            if connection.execute(
+                "SELECT 1 FROM sourcing_read_attempts WHERE attempt_id = ?", (request.attempt_id,),
+            ).fetchone():
+                raise ContractValidationError("Attempt ID belongs to another sourcing entry point.")
             run = self._get_run(connection, request.run_id)
             self._capture_legacy(connection, run.source, now)
             budget = self._budget(connection, run.source, run.daily_detail_limit, now)
@@ -325,4 +346,14 @@ class SqliteSourcingRepository:
                     result.model_dump_json(),
                 ),
             )
+            if result.outcome == "gate":
+                days = {
+                    attempt.occurred_at.astimezone(SOURCING_DAY).date().isoformat(),
+                    now.astimezone(SOURCING_DAY).date().isoformat(),
+                }
+                for day in days:
+                    connection.execute(
+                        "INSERT OR IGNORE INTO sourcing_read_halts VALUES (?, ?, ?)",
+                        (attempt.source, day, "gate"),
+                    )
             return result

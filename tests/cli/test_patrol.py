@@ -3,6 +3,8 @@ from pathlib import Path
 
 from tests.cli.test_outreach import invoke
 
+DECLARED = ("--access-state", "authenticated", "--coverage", "full", "--load-state", "loaded")
+
 
 def test_next_is_due_until_a_check_is_recorded(tmp_path: Path) -> None:
     db = ("--database", str(tmp_path / "jobagent.sqlite3"))
@@ -85,9 +87,9 @@ def test_snapshots_are_kept_per_board_and_diffed_against_the_last_one(tmp_path: 
          "preview": "方便发简历吗", "time_label": "09:10", "unread": 1, "last_from": "them"},
     ], ensure_ascii=False), encoding="utf-8")
 
-    code, one = invoke("patrol", "snapshot", str(first), "--platform", "boss", *db)
+    code, one = invoke("patrol", "snapshot", str(first), "--platform", "boss", *DECLARED, *db)
     assert code == 0 and isinstance(one, dict) and len(one["diff"]["new"]) == 1
-    code, two = invoke("patrol", "snapshot", str(second), "--platform", "boss", *db)
+    code, two = invoke("patrol", "snapshot", str(second), "--platform", "boss", *DECLARED, *db)
     assert code == 0 and isinstance(two, dict)
     assert [i["key"] for i in two["diff"]["their_new_messages"]] == ["赵先生|腾讯"]
 
@@ -112,7 +114,7 @@ def test_a_snapshot_records_read_receipts_for_known_conversations(tmp_path: Path
          "preview": "[送达]您好，我是Joshua", "last_from": "us"},
     ], ensure_ascii=False), encoding="utf-8")
 
-    code, result = invoke("patrol", "snapshot", str(rows), "--platform", "boss", *db)
+    code, result = invoke("patrol", "snapshot", str(rows), "--platform", "boss", *DECLARED, *db)
 
     assert code == 0 and isinstance(result, dict)
     assert result["receipts"]["recorded"] == 1
@@ -137,9 +139,9 @@ def test_stored_snapshots_can_be_replayed_into_receipts(tmp_path: Path) -> None:
     ], ensure_ascii=False), encoding="utf-8")
     # The snapshots were kept before the conversation was logged.
     invoke("patrol", "snapshot", str(rows), "--platform", "boss",
-           "--now", "2026-10-19T09:00:00+08:00", *db)
+           "--now", "2026-10-19T09:00:00+08:00", *DECLARED, *db)
     invoke("patrol", "snapshot", str(later), "--platform", "boss",
-           "--now", "2026-10-19T15:00:00+08:00", *db)
+           "--now", "2026-10-19T15:00:00+08:00", *DECLARED, *db)
     invoke(
         "conversations", "adopt", "--platform", "boss", "--company", "腾讯",
         "--title", "AI 产品经理", *db,
@@ -151,3 +153,44 @@ def test_stored_snapshots_can_be_replayed_into_receipts(tmp_path: Path) -> None:
     # Replaying again changes nothing: the first sighting already stands.
     code, again = invoke("patrol", "receipts", *db)
     assert code == 0 and isinstance(again, dict) and again["recorded"] == 0
+
+
+def test_undeclared_or_login_snapshot_is_kept_without_claiming_zero_results(tmp_path: Path) -> None:
+    import json
+
+    db = ("--database", str(tmp_path / "jobagent.sqlite3"))
+    rows = tmp_path / "empty.json"
+    rows.write_text("[]", encoding="utf-8")
+    for flags in ((), ("--access-state", "login_required", "--load-state", "loaded",
+                      "--coverage", "full")):
+        code, result = invoke("patrol", "snapshot", str(rows), "--platform", "boss", *flags, *db)
+        assert code == 1 and isinstance(result, dict)
+        assert result["status"] == "intervention" and not result["baseline_eligible"]
+        assert result["diff"]["gone"] == result["diff"]["their_new_messages"] == []
+    code, history = invoke("patrol", "snapshots", "--platform", "boss", *db)
+    assert code == 0 and isinstance(history, list) and len(history) == 2
+    assert all(not row["baseline_eligible"] for row in history)
+    assert json.loads(rows.read_text()) == []
+
+
+def test_partial_or_blocked_snapshot_does_not_replace_last_complete_baseline(
+    tmp_path: Path,
+) -> None:
+    import json
+
+    db = ("--database", str(tmp_path / "jobagent.sqlite3"))
+    rows = tmp_path / "rows.json"
+    rows.write_text(json.dumps([{"key": "A", "preview": "Existing", "last_from": "them"}]))
+    _, first = invoke("patrol", "snapshot", str(rows), "--platform", "boss", *DECLARED,
+                      "--now", "2026-10-21T10:00:00+08:00", *db)
+    rows.write_text("[]")
+    _, partial = invoke("patrol", "snapshot", str(rows), "--platform", "boss",
+                        "--access-state", "authenticated", "--coverage", "partial",
+                        "--load-state", "loaded", "--now", "2026-10-21T10:01:00+08:00", *db)
+    assert isinstance(partial, dict) and partial["status"] == "partial"
+    rows.write_text(json.dumps([{"key": "A", "preview": "Existing", "last_from": "them"}]))
+    code, final = invoke("patrol", "snapshot", str(rows), "--platform", "boss", *DECLARED,
+                         "--now", "2026-10-21T10:02:00+08:00", *db)
+    assert code == 0 and isinstance(final, dict) and isinstance(first, dict)
+    assert final["diff"]["previous_snapshot_id"] == first["snapshot_id"]
+    assert final["diff"]["new"] == final["diff"]["their_new_messages"] == []

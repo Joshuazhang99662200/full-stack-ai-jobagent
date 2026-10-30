@@ -14,6 +14,7 @@ host_browser:
   search_url: "https://www.zhaopin.com/jobs/?jl={city}&kw={query}"
   city_codes: {上海: "538", 北京: "530", 杭州: "653", 深圳: "765"}
   detail_url_prefixes: ["https://www.zhaopin.com/jobdetail/", "https://jobs.zhaopin.com/"]
+  panel_url_prefixes: ["https://www.zhaopin.com/jobs/"]
   stop_markers: ["passport.zhaopin.com", "安全验证", "Security Verification", "滑块", "验证码"]
   max_pages_per_session: 3
   min_seconds_between_pages: 15

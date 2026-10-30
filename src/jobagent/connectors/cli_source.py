@@ -11,6 +11,7 @@ express delivery — there is no code path here that could run one.
 import json
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
 
@@ -121,6 +122,8 @@ class CliListingSource:
         stderr = _decode(completed.stderr or b"").strip()
 
         if completed.returncode != 0:
+            with suppress(json.JSONDecodeError):
+                self._check_business_result(json.loads(stdout))
             self._raise_for_platform_state(stderr or stdout, completed.returncode)
             # Exit codes other than 1 conventionally mean the tool never ran its
             # request; upstreams often print nothing when stderr is not a terminal.
@@ -144,13 +147,72 @@ class CliListingSource:
                 details={"source": source},
             )
         try:
-            return json.loads(stdout)
+            payload = json.loads(stdout)
         except json.JSONDecodeError as error:
             self._raise_for_platform_state(stdout, completed.returncode)
             raise InvalidProviderOutputError(
                 f"{command[0]} returned output that is not valid JSON.",
                 details={"source": source, "stdout": stdout[:500]},
             ) from error
+        self._check_business_result(payload)
+        return payload
+
+    def _check_business_result(self, payload: object) -> None:
+        """Validate result envelopes before accepting even an empty job list.
+
+        A successful process exit is transport evidence only. Inspect envelope
+        mappings, never individual job records: a JD may legitimately mention
+        login, rate limits or an error code without being a failed search.
+        """
+        if not isinstance(payload, Mapping):
+            return
+        code = next(
+            (payload[key] for key in ("code", "errorCode", "error_code")
+             if payload.get(key) is not None),
+            None,
+        )
+        bad_code = code is not None and str(code).casefold() not in {"0", "200", "ok", "success"}
+        failed = (
+            bad_code or payload.get("success") is False or payload.get("isError") is True
+            or str(payload.get("status", "")).casefold() in {"error", "failed", "failure"}
+            or bool(payload.get("error"))
+        )
+        error = payload.get("error")
+        if failed:
+            # Preserve the outer error signal even when a nested error code is
+            # unfamiliar; either layer may carry the useful intervention reason.
+            contexts = [payload, error] if isinstance(error, Mapping) else [payload]
+            codes = {str(context.get(key)) for context in contexts
+                     for key in ("code", "errorCode", "error_code")}
+            message = " ".join(
+                str(context.get(key, "")) for context in contexts
+                for key in ("message", "msg", "error_description")
+            ).casefold()
+            reason = None
+            if codes & {"403", "429", "429001"} or any(
+                word in message for word in ("rate limit", "too many", "风控", "频繁")
+            ):
+                reason = "risk_control"
+            elif "401" in codes or any(
+                word in message for word in ("unauthorized", "token", "登录", "未授权")
+            ):
+                reason = "login_required"
+            elif any(word in message for word in ("captcha", "verification", "验证码", "验证")):
+                reason = "verification_required"
+            details = {"source": self._manifest.id}
+            if reason:
+                details["intervention_reason"] = reason
+                raise UserInterventionRequiredError(
+                    "The provider requires user intervention; no search results were accepted.",
+                    details=details,
+                )
+            raise InvalidProviderOutputError(
+                "The provider reported an unsuccessful business result.", details=details,
+            )
+        for key in self._spec.envelope_keys:
+            nested = payload.get(key)
+            if isinstance(nested, Mapping):
+                self._check_business_result(nested)
 
     def _raise_for_platform_state(self, text: str, returncode: int) -> None:
         lowered = text.casefold()

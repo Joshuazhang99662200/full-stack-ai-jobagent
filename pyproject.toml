@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "full-stack-ai-jobagent"
-version = "0.1.0"
+version = "0.3.0"
 description = "Evidence-grounded, human-approved AI job hunting capabilities"
 readme = "README.md"
 requires-python = ">=3.11"

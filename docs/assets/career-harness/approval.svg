@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="570" viewBox="0 0 1280 570" role="img" aria-labelledby="title desc">
+  <title id="title">本人审批绑定具体版本，内容变化后重新评审</title>
+  <desc id="desc">审批门禁流程示意。本人批准版本 A，发送前核验岗位、简历、消息和策略四份摘要。摘要一致时继续宿主执行或人工交接；任何内容改变都会以 STALE_APPROVAL 停止并要求重新评审。</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M1 1 6 4 1 7" fill="none" stroke="#7c927d" stroke-width="1.5"/></marker></defs>
+  <rect width="1280" height="570" rx="28" fill="#f1f5ef"/>
+  <g font-family="Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+    <text x="48" y="44" font-size="12" letter-spacing="2" font-weight="700" fill="#5a7a66">02 / APPROVAL IS VERSION-BOUND</text>
+    <text x="48" y="93" font-size="34" font-weight="700" fill="#163d33">内容一变，重新评审。</text>
+    <text x="1232" y="44" text-anchor="end" font-size="13" fill="#657c69">审批门禁流程示意</text>
+
+    <rect x="48" y="160" width="326" height="220" rx="20" fill="#fff" stroke="#d6e1d3"/>
+    <rect x="76" y="185" width="96" height="28" rx="14" fill="#e9f1e4"/>
+    <text x="124" y="204" text-anchor="middle" font-size="13" fill="#3c694e">版本 A</text>
+    <text x="76" y="254" font-size="25" font-weight="650" fill="#163d33">本人逐项批准</text>
+    <text x="76" y="292" font-size="18" fill="#5a735f">具体岗位 · 准确全文</text>
+    <text x="76" y="322" font-size="18" fill="#5a735f">实际简历成品与附件</text>
+    <text x="76" y="356" font-size="13" fill="#6b8170">审批记录保留原话与版本摘要</text>
+
+    <path d="M386 270h63" stroke="#7c927d" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+    <rect x="468" y="160" width="326" height="220" rx="20" fill="#17493d"/>
+    <text x="496" y="204" font-size="12" letter-spacing="1.5" font-weight="700" fill="#daf589">CHECK BEFORE SEND</text>
+    <text x="496" y="254" font-size="25" font-weight="650" fill="#fff">发送前再核验</text>
+    <text x="496" y="292" font-size="18" fill="#d1e2d4">岗位 / 简历 / 消息 / 策略</text>
+    <text x="496" y="322" font-size="18" fill="#d1e2d4">摘要与获批版本是否一致？</text>
+    <text x="496" y="356" font-size="13" fill="#b5d0be">还要满足对应租约与执行规则</text>
+
+    <path d="M806 270h37m0 0v-75h44m-44 75v76h44" stroke="#7c927d" stroke-width="2" fill="none"/>
+    <g stroke="#7c927d" stroke-width="2" fill="none" marker-end="url(#arrow)"><path d="M878 195h9"/><path d="M878 346h9"/></g>
+    <rect x="908" y="138" width="324" height="120" rx="18" fill="#e4efda"/>
+    <text x="932" y="174" font-size="13" font-weight="700" fill="#4b7547">摘要一致 · 继续既有流程</text>
+    <text x="932" y="211" font-size="21" font-weight="650" fill="#244a30">宿主执行 / 人工交接</text>
+    <text x="932" y="240" font-size="15" fill="#5a7351">核对真实结果，再记账</text>
+
+    <rect x="908" y="286" width="324" height="120" rx="18" fill="#f6e7dc"/>
+    <text x="932" y="322" font-size="13" font-weight="700" fill="#945e3c">正文或其他绑定内容改变</text>
+    <text x="932" y="359" font-size="22" font-weight="700" fill="#75412b">STALE_APPROVAL</text>
+    <text x="932" y="388" font-size="15" fill="#945e3c">停止放行，返回预览与本人审批</text>
+
+    <line x1="48" y1="453" x2="1232" y2="453" stroke="#d3decf"/>
+    <text x="48" y="493" font-size="19" font-weight="600" fill="#365847">预览 → 本人批准 → 发送前复核 → 执行或交接 → 结果核对</text>
+    <text x="48" y="533" font-size="14" fill="#6b8170">流程图不代表真实平台已完成发送。验证码、风控、限流或结果不明时，暂停并交人处理。</text>
+  </g>
+</svg>

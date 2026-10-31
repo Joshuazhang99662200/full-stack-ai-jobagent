@@ -37,7 +37,7 @@ function App() {
         !Array.isArray(values[0].jobs) ||
         !Array.isArray(values[0].sources)
       )
-        throw new Error("契约版本或形状不兼容");
+        throw new Error("收到的数据格式与当前页面不匹配");
       if (request.signal.aborted) return;
       setData(values[0]);
       setDefinitions(values[1]);
@@ -56,15 +56,17 @@ function App() {
   if (error)
     return (
       <main className="load-state">
-        <h1>岗位任务队列</h1>
-        <p role="alert">读取失败：{error}。请检查本地查询服务与候选人配置。</p>
+        <h1>岗位进展</h1>
+        <p role="alert">
+          读取失败：{error}。请检查本地服务是否已启动，以及候选人编号是否正确。
+        </p>
         <button onClick={() => void load()}>重新读取</button>
       </main>
     );
   if (!data)
     return (
       <main className="load-state">
-        <h1>岗位任务队列</h1>
+        <h1>岗位进展</h1>
         <p role="status">正在读取本地任务记录…</p>
         <div className="skeleton" aria-hidden="true" />
       </main>

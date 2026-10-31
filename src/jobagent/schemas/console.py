@@ -33,6 +33,8 @@ class ConsoleActivityInput(ContractModel):
     artifact_reference: str | None = None
     checkpoint_reference: str | None = None
     message: str | None = None
+    # The host's own declared plan; the console never infers a next step.
+    next_step: str | None = None
 
 
 class ConsoleActivity(ConsoleActivityInput):

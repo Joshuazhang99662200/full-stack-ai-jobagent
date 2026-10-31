@@ -26,25 +26,25 @@ const labels: Record<string, string> = {
   greeting_sent: "招呼已发",
   greeting_read: "招呼已读",
   initial_contact: "初步沟通",
-  resume_requested: "索取简历",
+  resume_requested: "对方索要简历",
   resume_sent: "简历已发",
   interview_pending: "待面试",
   interviewed: "已面试",
   abandoned: "放弃 / 关闭",
-  fetch: "采集",
-  detail: "读取详情",
-  match: "匹配",
-  draft_greeting: "起草招呼",
-  review: "复核",
+  fetch: "获取信息",
+  detail: "查看详情",
+  match: "评估匹配度",
+  draft_greeting: "写招呼语",
+  review: "检查材料",
   approval: "待审批",
-  readback: "回读",
-  report: "汇总",
+  readback: "核对结果",
+  report: "整理结果",
   running: "执行中",
   waiting_for_approval: "等待审批",
   waiting_for_login: "等待登录",
-  waiting_for_fact_confirmation: "等待事实确认",
-  waiting_for_job_selection: "等待岗位选择",
-  waiting_for_review: "等待复核",
+  waiting_for_fact_confirmation: "待你确认信息",
+  waiting_for_job_selection: "待你选择岗位",
+  waiting_for_review: "等待检查材料",
   delivery_outcome_unknown: "投递结果未知",
   completed: "已结束",
   failed: "失败",
@@ -108,11 +108,11 @@ function ActivityDetail({
       <p>{text(event.message)}</p>
       <dl className="facts">
         <div>
-          <dt>最近事件</dt>
+          <dt>最近更新</dt>
           <dd>{when(event.occurred_at)}</dd>
         </div>
         <div>
-          <dt>事件状态</dt>
+          <dt>当前状态</dt>
           <dd>
             {stale && !["completed", "failed"].includes(event.status)
               ? "状态未确认"
@@ -124,13 +124,15 @@ function ActivityDetail({
           <dd>{event.owner}</dd>
         </div>
         <div>
-          <dt>恢复点</dt>
+          <dt>继续任务时参考</dt>
           <dd>{text(event.checkpoint_reference)}</dd>
         </div>
       </dl>
-      <p className="note">宿主活动上报，不代表审批或发送事实。</p>
+      <p className="note">
+        这里显示助手记录的工作过程；是否已批准或发送，请查看对应记录。
+      </p>
       <details>
-        <summary>完整活动字段</summary>
+        <summary>查看任务原始数据</summary>
         <FieldsView value={event} />
       </details>
     </section>
@@ -155,7 +157,7 @@ function RunPanel({
   if (!items.length)
     return (
       <p className="empty">
-        {emptyConfirmed ? "当前候选人尚无运行记录。" : "运行记录暂不可确认。"}
+        {emptyConfirmed ? "还没有运行记录。" : "暂时无法读取运行记录。"}
       </p>
     );
   const current =
@@ -178,12 +180,12 @@ function RunPanel({
   return (
     <>
       <div className="section-head">
-        <h2>运行轨迹</h2>
-        <span>各轮开始后的分钟数</span>
+        <h2>每次运行做了什么</h2>
+        <span>从各次运行开始计时，单位：分钟</span>
       </div>
       <div className="timeline" aria-label="轮次活动时间轴">
         <div className="axis">
-          <span>轮次 / 运行状态</span>
+          <span>运行记录 / 状态</span>
           <div>
             {[0, 0.25, 0.5, 0.75, 1].map((n) => (
               <span key={n}>{Math.round(extent * n)}</span>
@@ -273,7 +275,7 @@ function RunPanel({
                   );
                 })}
                 {!grouped.length && (
-                  <span className="track-empty">阶段时间未记录</span>
+                  <span className="track-empty">还没有记录各步骤的时间</span>
                 )}
               </div>
             </div>
@@ -281,9 +283,9 @@ function RunPanel({
         })}
       </div>
       <div className="legend">
-        <span>淡蓝：当前阶段</span>
+        <span>淡蓝：正在进行</span>
         <span>浅灰：已完成</span>
-        <span>琥珀：等待处理</span>
+        <span>浅黄：等待处理</span>
         <span>短线：缺少开始时间</span>
       </div>
       <div className="phase-picks" aria-label="本轮阶段选择">
@@ -304,13 +306,13 @@ function RunPanel({
       </div>
       <section className="selection">
         <div className="section-head">
-          <h2>本轮详情</h2>
+          <h2>本次运行详情</h2>
           <span>{label(current.run.phase)}</span>
         </div>
         {current.freshness !== "current" &&
           current.freshness !== "terminal" && (
             <p role="status" className="notice">
-              状态未确认：最近心跳已过期，请先核验。
+              缺少近期更新，暂时无法确认任务是否仍在进行。
             </p>
           )}
         {chosen ? (
@@ -319,10 +321,10 @@ function RunPanel({
             stale={current.freshness !== "current"}
           />
         ) : (
-          <p>尚无活动事件；不推断内部阶段。</p>
+          <p>还没有具体步骤的记录，暂时无法显示任务进度。</p>
         )}
         <details>
-          <summary>完整运行字段</summary>
+          <summary>查看本次运行的原始数据</summary>
           <FieldsView value={current.run} />
         </details>
       </section>
@@ -354,7 +356,7 @@ function JobPanel({
   if (!items.length)
     return (
       <p className="empty">
-        {emptyConfirmed ? "当前候选人尚无岗位记录。" : "岗位记录暂不可确认。"}
+        {emptyConfirmed ? "还没有岗位记录。" : "暂时无法读取岗位记录。"}
       </p>
     );
   const item =
@@ -366,8 +368,8 @@ function JobPanel({
       {!embedded && (
         <>
           <div className="section-head">
-            <h2>岗位业务进度</h2>
-            <span>审批材料与九态分别记录</span>
+            <h2>与招聘方的沟通进展</h2>
+            <span>查看已发招呼、简历和面试等进展</span>
           </div>
           <div className="job-list">
             {orderedItems.map((entry, index) => (
@@ -391,7 +393,7 @@ function JobPanel({
       )}
       <section className="selection">
         {!embedded && <h2>{text(item.job.title)}</h2>}
-        <div className="states" aria-label="岗位九态">
+        <div className="states" aria-label="沟通进展">
           {stateNames.map((state) => (
             <div
               key={state}
@@ -412,7 +414,7 @@ function JobPanel({
             </div>
           ))}
         </div>
-        <h3>实际状态转移</h3>
+        <h3>进展记录</h3>
         <ol className="history">
           {item.history.map((entry, index) => (
             <li key={text(entry.history_id) || index}>
@@ -423,12 +425,12 @@ function JobPanel({
           ))}
         </ol>
         <details>
-          <summary>完整业务字段</summary>
-          <h3>岗位字段</h3>
+          <summary>查看岗位原始数据</summary>
+          <h3>岗位信息</h3>
           <FieldsView value={item.job} />
-          <h3>元数据</h3>
+          <h3>来源与版本</h3>
           <FieldsView value={item.meta} />
-          <h3>原始转移记录</h3>
+          <h3>进展原始记录</h3>
           <pre>{JSON.stringify(item.history, null, 2)}</pre>
         </details>
       </section>
@@ -458,8 +460,8 @@ export function Console({
     <main className="ja-console">
       <header className="masthead">
         <div>
-          <h1>岗位任务队列</h1>
-          <p>按岗位查看并行阶段、等待处理与业务进度。</p>
+          <h1>岗位进展</h1>
+          <p>查看每个岗位正在做什么，以及哪些事项需要你处理。</p>
         </div>
         <div className="header-actions">
           {demo && <span className="demo">合成示例</span>}
@@ -469,22 +471,22 @@ export function Console({
               onClick={onRefresh}
               disabled={refreshing}
             >
-              {refreshing ? "读取中" : "刷新记录"}
+              {refreshing ? "刷新中" : "刷新"}
             </button>
           )}
         </div>
       </header>
       <div className="context">
-        <span>候选人 {snapshot.candidate_id}</span>
-        <span>快照 {when(snapshot.generated_at)}</span>
-        <span>只读视图</span>
+        <span>候选人编号 {snapshot.candidate_id}</span>
+        <span>本页读取于 {when(snapshot.generated_at)}</span>
+        <span>仅供查看</span>
       </div>
       <nav role="tablist" aria-label="控制台视图">
         {[
-          ["queue", "岗位任务"],
-          ["runs", "轮次追溯"],
-          ["jobs", "岗位九态"],
-          ["fields", "字段契约"],
+          ["queue", "任务进度"],
+          ["runs", "运行记录"],
+          ["jobs", "沟通进展"],
+          ["fields", "数据说明"],
         ].map(([key, name]) => (
           <button
             key={key}
@@ -539,14 +541,13 @@ export function Console({
           />
         ) : (
           <section className="contracts">
-            <h2>宿主可读取的完整契约</h2>
+            <h2>接入时可用的数据</h2>
             <p>
-              业务字段来自 Python
-              权威模型，空值保留；定义包含类型、枚举和引用关系。
+              供接入工具或排查问题时查看。下面列出可读取的数据项、格式和可选值；没有记录的内容保持为空。
             </p>
             <pre>{JSON.stringify(definitions, null, 2)}</pre>
             <details>
-              <summary>完整当前快照 JSON</summary>
+              <summary>查看本页完整数据（JSON）</summary>
               <pre>{JSON.stringify(snapshot, null, 2)}</pre>
             </details>
           </section>
@@ -561,10 +562,10 @@ export function Console({
               <span>
                 {(
                   {
-                    complete: "完整读取",
-                    missing: "来源缺失",
-                    invalid: "来源无效",
-                    unsupported: "尚未支持",
+                    complete: "已读取",
+                    missing: "未找到数据",
+                    invalid: "数据无法读取",
+                    unsupported: "暂未接入",
                   } as Record<string, string>
                 )[source.status] || source.status}
               </span>
@@ -572,7 +573,7 @@ export function Console({
             </li>
           ))}
         </ul>
-        <p>缺失时间不补造。审批与发送仍通过原有逐项门禁完成。</p>
+        <p>发送招呼语或简历前，仍需你逐项确认。</p>
       </footer>
     </main>
   );

@@ -230,8 +230,8 @@
   border: 0;
   padding: 0;
   min-width: 5px;
-  background: var(--ja-color-accent);
-  color: var(--ja-color-accent-ink);
+  background: var(--ja-color-active);
+  color: var(--ja-color-accent);
   border-radius: var(--ja-radius);
 }
 .ja-console .span span {
@@ -567,42 +567,139 @@
   margin-top: var(--ja-space-xl);
   padding-top: var(--ja-space-lg);
 }
-.ja-console .jq-axis,
-.ja-console .jq-row {
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  gap: var(--ja-space-xl);
-  align-items: center;
+.ja-console .jq-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ja-space-sm);
+  margin-bottom: var(--ja-space-lg);
 }
-.ja-console .jq-axis {
-  padding: var(--ja-space-md) 0;
-  font-size: var(--ja-text-sm);
+.ja-console .jq-summary button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ja-space-sm);
+  border-color: transparent;
+  background: var(--ja-color-track);
+}
+.ja-console .jq-summary button strong {
+  font-variant-numeric: tabular-nums;
+}
+.ja-console .jq-summary button[data-lane="active"] strong {
+  color: var(--ja-color-accent);
+}
+.ja-console .jq-summary button[data-lane="needs"] strong {
+  color: var(--ja-color-wait-ink);
+}
+.ja-console .jq-summary button[aria-pressed="true"] {
+  background: var(--ja-color-soft);
+  color: var(--ja-color-accent);
+}
+.ja-console .jq-summary .jq-clear {
+  background: transparent;
   color: var(--ja-color-ink-2);
 }
-.ja-console .jq-clock {
-  display: flex;
-  justify-content: space-between;
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
+.ja-console .jq-head,
+.ja-console .jq-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 240px;
+  gap: var(--ja-space-xl);
+  align-items: start;
+}
+.ja-console .jq-head {
+  padding: var(--ja-space-sm) 0;
+  font-size: var(--ja-text-sm);
+  color: var(--ja-color-ink-2);
 }
 .ja-console .jq-row {
   padding: var(--ja-space-md) 0;
   border-top: 1px solid var(--ja-color-rule);
 }
-.ja-console .jq-job-info {
+.ja-console .jq-job-info,
+.ja-console .jq-progress,
+.ja-console .jq-needs {
   min-width: 0;
 }
-.ja-console .jq-window {
+.ja-console .jq-milestone {
   display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ja-space-sm);
+  font-weight: 500;
+  padding-top: var(--ja-space-sm);
+}
+.ja-console .jq-milestone time {
+  font-size: var(--ja-text-sm);
+  font-weight: 400;
+  color: var(--ja-color-ink-2);
+}
+.ja-console .jq-flow {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--ja-space-xs);
+  list-style: none;
+  margin: var(--ja-space-sm) 0 0;
+  padding: 0;
+  font-size: var(--ja-text-sm);
 }
-.ja-console .jq-window button {
-  padding: var(--ja-space-xs) var(--ja-space-md);
-  border-color: transparent;
+.ja-console .jq-flow li {
+  padding: 2px var(--ja-space-sm);
+  border-radius: var(--ja-radius);
+  background: var(--ja-color-track);
+  color: var(--ja-color-ink-2);
 }
-.ja-console .jq-window button[aria-pressed="true"] {
+.ja-console .jq-flow li + li::before {
+  content: "→ ";
+  color: var(--ja-color-ink-2);
+}
+.ja-console .jq-flow .current {
+  background: var(--ja-color-active);
   color: var(--ja-color-accent);
-  background: var(--ja-color-soft);
+  font-weight: 600;
+}
+.ja-console .jq-flow .failed {
+  background: var(--ja-color-error-soft);
+  color: var(--ja-color-error);
+}
+.ja-console .jq-flow .next {
+  background: transparent;
+}
+.ja-console .jq-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ja-space-xs) var(--ja-space-sm);
+  padding-top: var(--ja-space-sm);
+  font-size: var(--ja-text-label);
+}
+.ja-console .jq-ask span {
+  font-size: var(--ja-text-sm);
+  padding: 0 var(--ja-space-sm);
+  border-radius: var(--ja-radius);
+  background: var(--ja-color-wait);
+  color: var(--ja-color-wait-ink);
+}
+.ja-console .jq-none {
+  display: block;
+  padding-top: var(--ja-space-sm);
+  color: var(--ja-color-ink-2);
+}
+.ja-console .jq-row[data-closed="true"] .jq-milestone {
+  color: var(--ja-color-ink-2);
+  font-weight: 400;
+}
+.ja-console .jq-report {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ja-space-lg) var(--ja-space-xl);
+  margin: var(--ja-space-md) 0 0;
+}
+.ja-console .jq-report ul {
+  margin: 0;
+  padding-left: var(--ja-space-lg);
+}
+.ja-console .jq-report li span {
+  display: block;
+  font-size: var(--ja-text-sm);
+  color: var(--ja-color-ink-2);
 }
 .ja-console .jq-job {
   display: block;
@@ -628,49 +725,6 @@
   font-size: var(--ja-text-sm);
   color: var(--ja-color-ink-2);
 }
-.ja-console .jq-lanes {
-  position: relative;
-  min-width: 0;
-  background-image: repeating-linear-gradient(
-    to right,
-    var(--ja-color-rule) 0,
-    var(--ja-color-rule) 1px,
-    transparent 1px,
-    transparent 25%
-  );
-  background-size: 100% 32px;
-}
-.ja-console .jq-track-group {
-  min-width: 0;
-}
-.ja-console .jq-mark {
-  position: absolute;
-  height: 32px;
-  border-radius: var(--ja-radius);
-  background: var(--ja-color-active);
-  color: var(--ja-color-accent);
-  font-size: var(--ja-text-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--ja-space-xs);
-  overflow: hidden;
-  white-space: nowrap;
-}
-.ja-console .jq-mark.completed,
-.ja-console .jq-mark.unconfirmed,
-.ja-console .jq-mark.stale {
-  background: var(--ja-color-track);
-  color: var(--ja-color-ink-2);
-}
-.ja-console .jq-mark.waiting {
-  background: var(--ja-color-wait);
-  color: var(--ja-color-wait-ink);
-}
-.ja-console .jq-mark.failed {
-  background: var(--ja-color-error-soft);
-  color: var(--ja-color-error);
-}
 .ja-console .jq-phase-controls {
   display: flex;
   flex-wrap: wrap;
@@ -680,6 +734,8 @@
 .ja-console .jq-phase-controls button {
   border-color: transparent;
   background: transparent;
+  white-space: normal;
+  text-align: left;
 }
 .ja-console .jq-phase-controls button[aria-pressed="true"] {
   background: var(--ja-color-soft);
@@ -699,33 +755,17 @@
   font-size: var(--ja-text-sm);
   color: var(--ja-color-ink-2);
 }
-.ja-console .jq-stage-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ja-space-xs) var(--ja-space-sm);
-  color: var(--ja-color-ink-2);
-  font-size: var(--ja-text-sm);
-  margin-top: var(--ja-space-xs);
-}
 .ja-console .jq-row[data-closed="true"] .jq-job {
   color: var(--ja-color-ink-2);
 }
-.ja-console .jq-mark {
-  container-type: inline-size;
-}
-@container (max-width:72px) {
-  .ja-console .jq-mark-label {
+@media (max-width: 700px) {
+  .ja-console .jq-head {
     display: none;
   }
-}
-@media (max-width: 700px) {
-  .ja-console .jq-axis,
-  .ja-console .jq-row {
+  .ja-console .jq-row,
+  .ja-console .jq-report {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--ja-space-sm);
-  }
-  .ja-console .jq-axis > span {
-    display: none;
   }
   .ja-console .jq-details,
   .ja-console .detail {

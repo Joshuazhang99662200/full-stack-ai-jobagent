@@ -1,68 +1,116 @@
 import { test, expect } from "@playwright/test";
 import demo from "../src/demo.json" with { type: "json" };
 
-test("mobile queue phase key remains readable and embedded history avoids duplicate pickers", async ({
+test("queue and history retain the approved white, gray and pale-blue palette", async ({
+  page,
+}) => {
+  await page.goto("/?demo=1");
+  await expect(page.locator(".ja-console")).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)",
+  );
+  await expect(page.locator(".jq-flow .current").first()).toHaveCSS(
+    "background-color",
+    "rgb(228, 240, 255)",
+  );
+  await expect(page.locator(".jq-flow .done").first()).toHaveCSS(
+    "background-color",
+    "rgb(244, 246, 249)",
+  );
+  await page.getByRole("tab", { name: "运行记录" }).click();
+  await expect(page.locator(".span.heartbeat").first()).toHaveCSS(
+    "background-color",
+    "rgb(228, 240, 255)",
+  );
+  await page.getByRole("tab", { name: "沟通进展" }).click();
+  await expect(page.locator('.states [aria-current="step"]')).toHaveCSS(
+    "background-color",
+    "rgb(228, 240, 255)",
+  );
+});
+
+test("each job reads as an agent report without a clock axis", async ({
+  page,
+}) => {
+  await page.goto("/?demo=1");
+  await expect(page.locator(".jq-axis, .jq-clock, .jq-window")).toHaveCount(0);
+  await expect(page.getByText("最近30分钟")).toHaveCount(0);
+  const a = page.locator('.jq-row[data-job="DEMO_A"]');
+  await expect(a).toHaveAttribute("data-lane", "active");
+  await expect(a.locator(".jq-flow .current")).toContainText("正在查看详情");
+  await expect(a.locator(".jq-flow .next")).toContainText(
+    "接下来：读完详情后评估匹配度。",
+  );
+  const b = page.locator('.jq-row[data-job="DEMO_B"]');
+  await expect(b).toHaveAttribute("data-lane", "needs");
+  await expect(b.locator(".jq-milestone")).toContainText("待面试");
+  await expect(b.locator(".jq-ask").first()).toContainText(
+    "审阅准确正文与附件，逐项批准",
+  );
+  const c = page.locator('.jq-row[data-job="DEMO_C"]');
+  await expect(c.locator(".jq-flow .next")).toContainText("下一步尚未安排");
+  await expect(c.locator(".jq-none")).toBeVisible();
+});
+
+test("summary counts filter jobs that need you", async ({ page }) => {
+  await page.goto("/?demo=1");
+  const needs = page.locator('.jq-summary button[data-lane="needs"]');
+  await expect(needs).toContainText("需要你");
+  const count = Number(await needs.locator("strong").textContent());
+  expect(count).toBeGreaterThan(0);
+  await needs.click();
+  await expect(page.locator(".jq-row")).toHaveCount(count);
+  for (const row of await page.locator(".jq-row").all())
+    await expect(row).toHaveAttribute("data-lane", "needs");
+  await page.getByRole("button", { name: "显示全部" }).click();
+  await expect(page.locator(".jq-row")).toHaveCount(demo.jobs.length);
+});
+
+test("mobile queue stays readable and embedded history avoids duplicate pickers", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 1000 });
   await page.goto("/?demo=1");
-  await expect(page.locator(".jq-stage-key").first()).toContainText("采集");
+  await expect(page.locator(".jq-flow").first()).toBeVisible();
   await expect(page.locator(".jq-details .job-list")).toHaveCount(0);
-  await expect(
-    page.locator(".jq-details h2").filter({ hasText: "数据工程师" }),
-  ).toHaveCount(1);
-  await page.getByRole("tab", { name: "岗位九态" }).click();
+  await page.getByRole("tab", { name: "沟通进展" }).click();
   await expect(page.locator(".job-list button").last()).toContainText(
     "放弃 / 关闭",
   );
 });
 
-test("paused jobs are explicit and parallel detail controls identify their start time", async ({
+test("paused jobs ask for a decision and parallel work controls identify their run", async ({
   page,
 }) => {
   await page.goto("/?demo=1");
   await expect(page.locator('.jq-row[data-job="DEMO_E"]')).toContainText(
     "已暂停",
   );
+  await expect(
+    page
+      .locator('.jq-row[data-job="DEMO_E"] .jq-ask')
+      .filter({ hasText: "岗位已暂停，决定是否继续" }),
+  ).toContainText("岗位已暂停，决定是否继续");
+  await page.locator(".jq-job").filter({ hasText: "数据工程师" }).click();
   const controls = page
     .locator(".jq-phase-controls button")
-    .filter({ hasText: "读取详情" });
+    .filter({ hasText: "查看详情" });
   await expect(controls).toHaveCount(2);
-  const names = await controls.allTextContents();
-  expect(new Set(names).size).toBe(2);
   for (const button of await controls.all())
     await expect(button).toHaveAttribute("aria-label", /RUN_/);
 });
 
 async function fixture(page: import("@playwright/test").Page) {
   const snapshot: any = structuredClone(demo);
+  snapshot.runs = [];
   snapshot.jobs.forEach((job: any, index: number) => {
     job.job.pipeline_state = "draft_pending";
+    job.meta.paused = false;
     job.hard_filter_result = { decision: "pass", reasons: [] };
     job.match_result = { overall: [0.8, 0.95, 0.6, 0.5][index] || 0.5 };
   });
   snapshot.jobs[2].job.pipeline_state = "abandoned";
   snapshot.jobs[2].match_result.overall = 0.99;
-  const run = snapshot.runs[0];
-  run.activities.forEach((e: any) => (e.job_id = snapshot.jobs[0].job.job_id));
-  const first = run.activities.slice(0, 2).map((e: any) => ({
-    ...e,
-    event_id: e.event_id + "_SECOND",
-    activity_id: e.activity_id + "_SECOND",
-    job_id: snapshot.jobs[1].job.job_id,
-  }));
-  const overlap = run.activities.slice(0, 2).map((e: any) => ({
-    ...e,
-    event_id: e.event_id + "_OVERLAP",
-    activity_id: e.activity_id + "_OVERLAP",
-    activity: "review",
-  }));
-  run.activities.push(...first, ...overlap, {
-    ...run.activities.at(-1),
-    event_id: "UNBOUND_TEST",
-    activity_id: "UNBOUND_TEST",
-    job_id: null,
-  });
   await page.route("**/api/snapshot", (route) =>
     route.fulfill({ json: snapshot }),
   );
@@ -71,13 +119,13 @@ async function fixture(page: import("@playwright/test").Page) {
   );
   return snapshot;
 }
-test("primary queue ranks stored pass and match while abandoned stays last", async ({
+test("within a lane stored pass and match rank jobs while abandoned stays last", async ({
   page,
 }) => {
   const snapshot = await fixture(page);
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "岗位任务队列", exact: true }),
+    page.getByRole("heading", { name: "岗位进展", exact: true }),
   ).toBeVisible();
   const rows = page.locator(".jq-row");
   await expect(rows.first()).toHaveAttribute(
@@ -89,46 +137,15 @@ test("primary queue ranks stored pass and match while abandoned stays last", asy
     snapshot.jobs[2].job.job_id,
   );
 });
-test("jobs share absolute time positions and concurrent activities get separate sublanes", async ({
+
+test("unbound work is counted but never assigned to a job", async ({
   page,
 }) => {
-  const snapshot = await fixture(page);
-  await page.goto("/");
-  const a = page.locator(`.jq-row[data-job="${snapshot.jobs[0].job.job_id}"]`);
-  const b = page.locator(`.jq-row[data-job="${snapshot.jobs[1].job.job_id}"]`);
-  await expect(a).toBeVisible();
-  await expect(b).toBeVisible();
-  const startsA = await a.locator(".jq-mark").evaluateAll((items) =>
-    items.map((el) => ({
-      start: el.getAttribute("data-start"),
-      left: (el as HTMLElement).style.left,
-      top: (el as HTMLElement).style.top,
-    })),
+  await page.goto("/?demo=1");
+  await expect(page.locator(".jq-unbound")).toContainText("没有注明所属岗位");
+  await expect(page.locator(".jq-flow", { hasText: "整理结果" })).toHaveCount(
+    0,
   );
-  const startsB = await b.locator(".jq-mark").evaluateAll((items) =>
-    items.map((el) => ({
-      start: el.getAttribute("data-start"),
-      left: (el as HTMLElement).style.left,
-    })),
-  );
-  expect(startsA.length).toBeGreaterThan(1);
-  expect(startsB.length).toBeGreaterThan(0);
-  expect(startsA[0].left).toBe(
-    startsB.find((e) => e.start === startsA[0].start)!.left,
-  );
-  expect(
-    startsA.filter((e) => e.start === startsA[0].start).map((e) => e.top)
-      .length,
-  ).toBeGreaterThan(1);
-  expect(
-    new Set(
-      startsA.filter((e) => e.start === startsA[0].start).map((e) => e.top),
-    ).size,
-  ).toBeGreaterThan(1);
-  await expect(page.locator(".jq-unbound")).toContainText("未绑定岗位");
-  await expect(
-    page.locator('.jq-mark[data-activity="UNBOUND_TEST"]'),
-  ).toHaveCount(0);
 });
 
 test("canonical job keeps one row and preserves distinct contact rounds", async ({
@@ -163,11 +180,11 @@ test("canonical job keeps one row and preserves distinct contact rounds", async 
   await expect(
     page.locator(`.jq-row[data-job="${active.job.job_id}"]`),
   ).toHaveAttribute("data-closed", "false");
-  await page.getByText("全部联系轮次（2）", { exact: true }).click();
+  await page.getByText("历次联系记录（2）", { exact: true }).click();
   await expect(page.getByText(/OLD_CONTACT_HISTORY/)).toBeVisible();
 });
 
-test("ambiguous active rounds remain above closed jobs and do not claim a current state", async ({
+test("ambiguous active rounds need you and do not claim a current state", async ({
   page,
 }) => {
   const snapshot: any = structuredClone(demo);
@@ -185,12 +202,13 @@ test("ambiguous active rounds remain above closed jobs and do not claim a curren
     "data-closed",
     "true",
   );
-  await page
-    .locator(".jq-job")
-    .filter({ hasText: snapshot.jobs[0].job.title })
-    .click();
+  const row = page.locator(
+    `.jq-row[data-job="${snapshot.jobs[0].job.job_id}"]`,
+  );
+  await expect(row).toHaveAttribute("data-lane", "needs");
+  await row.locator(".jq-job").click();
   await expect(page.locator(".jq-details").getByRole("status")).toContainText(
-    "存在多个未关闭联系轮次",
+    "这个岗位有多条尚未结束的联系记录",
   );
   await expect(page.locator(".jq-details [data-state]")).toHaveCount(0);
 });

@@ -1,0 +1,42 @@
+/* Hallmark · check: modern-minimal · shape: app screen · built: the project · standalone base */
+html {
+  overflow-x: clip;
+  color-scheme: light;
+  background: var(--ja-color-paper);
+}
+body {
+  overflow-x: clip;
+  margin: 0;
+  color: var(--ja-color-ink);
+  font: 400 var(--ja-text-md)/1.6 var(--ja-font-body);
+}
+.load-state {
+  max-width: 1360px;
+  padding: var(--ja-space-2xl);
+  margin: 0 auto;
+}
+.load-state button {
+  padding: var(--ja-space-sm) var(--ja-space-lg);
+  color: var(--ja-color-ink);
+  font: inherit;
+  border: 1px solid var(--ja-color-rule);
+  background: var(--ja-color-panel);
+  min-height: 44px;
+}
+.load-state button:focus-visible {
+  outline: 2px solid var(--ja-color-focus);
+  outline-offset: 2px;
+}
+.load-state button:active {
+  background: var(--ja-color-soft);
+}
+.load-state p {
+  margin: var(--ja-space-xl) 0;
+}
+.load-state [role="alert"] {
+  color: var(--ja-color-error);
+}
+.skeleton {
+  height: 200px;
+  background: var(--ja-color-track);
+}

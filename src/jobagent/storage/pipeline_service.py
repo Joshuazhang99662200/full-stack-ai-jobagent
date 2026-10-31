@@ -210,6 +210,7 @@ class PipelineService:
             event_id=request.event_id,
             evidence_reference=request.recontact_owner_reference or request.evidence_reference,
             input_digest=digest,
+            now=now,
         )
 
     def transition(self, data: dict[str, object], *, now: datetime) -> Pair:

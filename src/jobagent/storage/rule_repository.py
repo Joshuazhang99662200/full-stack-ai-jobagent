@@ -37,8 +37,11 @@ class SqliteRuleRepository:
             return self._current(connection, candidate_id)
 
     def save_proposal(self, proposal: RuleProposal) -> None:
+        from jobagent.storage.configuration_repository import require_owner_change_request
+
         with self.database.connect() as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
+            require_owner_change_request(connection, proposal)
             current = self._current(connection, proposal.candidate_id)
             expected = make_proposal(proposal.request, current, now=proposal.proposed_at)
             if proposal != expected:
@@ -69,6 +72,11 @@ class SqliteRuleRepository:
         *,
         candidate_id: str,
     ) -> DynamicRuleSet:
+        from jobagent.storage.configuration_repository import (
+            consume_owner_change_request,
+            require_owner_change_request,
+        )
+
         confirmation = RuleConfirmation.model_validate(confirmation.model_dump(mode="json"))
         with self.database.connect() as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -89,9 +97,11 @@ class SqliteRuleRepository:
                     raise ContractValidationError("Proposal already has a different confirmation.")
                 return validate_snapshot(DynamicRuleSet.model_validate_json(previous[1]))
             proposal = RuleProposal.model_validate_json(row[0])
+            require_owner_change_request(connection, proposal, permanent=True)
             snapshot = activate_proposal(
                 proposal, confirmation, self._current(connection, candidate_id)
             )
+            consume_owner_change_request(connection, proposal, event_id=proposal.proposal_id)
             notice = change_notice(proposal, snapshot)
             connection.execute(
                 "INSERT INTO dynamic_rule_versions VALUES (?, ?, ?, ?, ?)",

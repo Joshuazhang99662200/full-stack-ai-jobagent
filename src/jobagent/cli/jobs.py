@@ -27,10 +27,11 @@ from jobagent.errors import (
     InvalidProviderOutputError,
     JobAgentError,
     JobNotFoundError,
+    UserInterventionRequiredError,
 )
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
-from jobagent.jobs.jd_snapshot import capture_from_record
+from jobagent.jobs.jd_snapshot import canonical_digest, capture_from_record
 from jobagent.jobs.matching import MatchAggregator
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
@@ -43,7 +44,7 @@ from jobagent.outreach.preference_memory import PreferenceLearner
 from jobagent.outreach.service import contacted_job_ids
 from jobagent.reasoning.job_matcher import ReasoningJobMatcher, is_admissible
 from jobagent.reasoning.job_requirements import ReasoningJobRequirementExtractor
-from jobagent.rules.bindings import bind_filter_context, bind_query_count, bind_read_cap
+from jobagent.rules.bindings import bind_filter_context, bind_query_count
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.job_intelligence import (
     CandidateFilterContext,
@@ -68,14 +69,22 @@ from jobagent.schemas.jobs import (
     NormalizedJob,
 )
 from jobagent.schemas.search_learning import SearchLearningRequest
-from jobagent.schemas.sourcing import ReadOutcome, ReadReservation, SourcingCompletion
+from jobagent.schemas.sourcing import (
+    ReadOutcome,
+    ReadReservation,
+    SourcingCompletion,
+    SourcingQueryCapture,
+    SourcingResultRequest,
+)
 from jobagent.sources import SourceRegistry
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
 from jobagent.storage.jd_snapshot_repository import SqliteJDSnapshotRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
+from jobagent.storage.query_repository import SqliteQueryRepository
 from jobagent.storage.read_repository import SqliteReadRepository
+from jobagent.storage.sourcing_repository import SqliteSourcingRepository
 
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 DEFAULT_FIXTURE = Path(__file__).parents[1] / "connectors" / "fixtures" / "jobs.json"
@@ -312,16 +321,45 @@ def listings(
     source: SourceOption = DEFAULT_LISTING_SOURCE,
     location: Annotated[str | None, typer.Option("--location")] = None,
     company: Annotated[str | None, typer.Option("--company")] = None,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    run_id: Annotated[str | None, typer.Option("--run-id")] = None,
+    attempt_id: Annotated[str | None, typer.Option("--attempt-id")] = None,
 ) -> None:
     """Search a listing source that publishes no JD text.
 
     Listings drive discovery and hard filters only. Tailoring still needs the JD.
     """
     try:
-        results = _listing_source(source).search_listings(
-            JobSearchQuery(query=query, company=company, location=location)
+        if bool(run_id) != bool(attempt_id):
+            raise ContractValidationError("A configured query needs both run and attempt IDs.")
+        search = JobSearchQuery(query=query, company=company, location=location)
+        if run_id is None:
+            load_effective_rule_snapshot(None, None, database)
+            _emit_models(list(_listing_source(source).search_listings(search)))
+            return
+        assert attempt_id is not None
+        meter = SqliteSourcingRepository(Database(database))
+        captures = SqliteQueryRepository(meter.database)
+        previous = captures.claim(
+            attempt_id, run_id=run_id, source=source, query=query,
+            request_digest=canonical_digest({"run_id": run_id, "source": source,
+                                             "query": search.model_dump(mode="json")}),
+            now=datetime.now(UTC),
         )
-        _emit_models(list(results))
+        if previous is not None:
+            _emit_model(previous)
+            return
+        try:
+            results = _listing_source(source).search_listings(search)
+        except JobAgentError as error:
+            meter.complete(SourcingResultRequest(
+                attempt_id=attempt_id,
+                outcome="gate" if isinstance(error, UserInterventionRequiredError) else "failed",
+            ), now=datetime.now(UTC))
+            raise
+        _emit_model(captures.take(SourcingQueryCapture(
+            attempt_id=attempt_id, items=list(results), loaded=True, access_state="public",
+        ), now=datetime.now(UTC)))
     except JobAgentError as error:
         _fail(error)
 
@@ -567,9 +605,20 @@ def reserve_read(
             raise ContractValidationError("Source has no host read route.")
         if rules_file is not None and candidate is None:
             raise ContractValidationError("Dynamic read budget requires an explicit candidate.")
-        rules = load_effective_rule_snapshot(rules_file, candidate, database)
-        cap = bind_read_cap(rules, source_ceiling=spec.max_detail_reads_per_day) if rules \
-            else spec.max_detail_reads_per_day
+        if request.run_id is not None:
+            run = SqliteSourcingRepository(Database(database)).get_run(request.run_id)
+            if candidate not in {None, run.candidate_id}:
+                raise ContractValidationError("Read candidate conflicts with its source round.")
+            rules = load_effective_rule_snapshot(rules_file, run.candidate_id, database) \
+                if rules_file else None
+            cap = run.daily_detail_limit
+        else:
+            rules = load_effective_rule_snapshot(rules_file, candidate, database)
+            if rules is not None:
+                raise ContractValidationError(
+                    "Configured detail reading requires a bound round/run.",
+                )
+            cap = spec.max_detail_reads_per_day
         target = urlsplit(str(request.target_url))
         origins = [urlsplit(prefix) for prefix in (
             *spec.detail_url_prefixes, *spec.panel_url_prefixes,

@@ -10,16 +10,19 @@ from pydantic import ValidationError
 
 from jobagent.bridge.dynamic_rules import load_effective_rule_snapshot
 from jobagent.errors import ContractValidationError, JobAgentError
-from jobagent.rules.bindings import bind_read_cap
+from jobagent.rules.bindings import bind_read_cap, bind_sourcing_run
+from jobagent.rules.rounds import apply_round_overrides
 from jobagent.schemas.common import ContractModel
 from jobagent.schemas.sources import HostBrowserSpec
 from jobagent.schemas.sourcing import (
     SourcingAttemptRequest,
+    SourcingQueryCapture,
     SourcingResultRequest,
     SourcingRunRequest,
 )
 from jobagent.sources import SourceRegistry
 from jobagent.storage.database import Database
+from jobagent.storage.query_repository import SqliteQueryRepository
 from jobagent.storage.sourcing_repository import SqliteSourcingRepository
 
 DatabaseOption = Annotated[Path, typer.Option("--database")]
@@ -66,10 +69,40 @@ def _spec(source: str) -> HostBrowserSpec:
     return manifest.host_browser
 
 
-def start(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3")) -> None:
+def start(
+    path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3"),
+    rules_file: Annotated[Path | None, typer.Option("--rules-file")] = None,
+) -> None:
     """Freeze one board's round limits; this does not search."""
     try:
-        request = _load(path, SourcingRunRequest)
+        if rules_file is not None:
+            try:
+                body = json.loads(path.read_bytes())
+                if not isinstance(body, dict) or not isinstance(body.get("candidate_id"), str):
+                    raise ValueError("Candidate scope required")
+                rules = load_effective_rule_snapshot(rules_file, body["candidate_id"], database)
+                assert rules is not None
+                body.setdefault("rules_version", rules.version)
+                request = SourcingRunRequest.model_validate(body)
+            except (OSError, ValueError) as error:
+                raise ContractValidationError(
+                    "Sourcing request or candidate scope is invalid.",
+                ) from error
+            if request.round_overrides:
+                base_version = rules.version
+                rules = apply_round_overrides(
+                    rules, request.round_overrides, run_id=request.run_id, now=datetime.now(UTC),
+                )
+                request = request.model_copy(update={
+                    "rules_version": rules.version, "base_rules_version": base_version,
+                })
+            request = bind_sourcing_run(
+                rules, request, source_ceiling=_spec(request.source).max_detail_reads_per_day,
+            )
+        else:
+            request = _load(path, SourcingRunRequest)
+            if request.rules_version is None:
+                load_effective_rule_snapshot(None, request.candidate_id, database)
         default_cap = _spec(request.source).max_detail_reads_per_day
         cap = (
             request.daily_detail_cap
@@ -106,6 +139,18 @@ def complete(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sql
         result = _repository(database).complete(
             _load(path, SourcingResultRequest),
             now=datetime.now(UTC),
+        )
+        typer.echo(result.model_dump_json(indent=2))
+    except JobAgentError as error:
+        _fail(error)
+
+
+def take(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3")) -> None:
+    """Take confirmed front rows from an actual accessible host query result."""
+    try:
+        repo = _repository(database)
+        result = SqliteQueryRepository(repo.database).take(
+            _load(path, SourcingQueryCapture), now=datetime.now(UTC),
         )
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
@@ -173,3 +218,4 @@ def register_sourcing_commands(app: typer.Typer) -> None:
     app.command("sourcing-reserve")(reserve)
     app.command("sourcing-result")(complete)
     app.command("sourcing-budget")(budget)
+    app.command("sourcing-take")(take)

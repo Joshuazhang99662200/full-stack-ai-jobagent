@@ -13,6 +13,7 @@ from jobagent.cli.host import host_app
 from jobagent.cli.job_intake import intake_app
 from jobagent.cli.jobs import jobs_app
 from jobagent.cli.mailbox import mailbox_app
+from jobagent.cli.mcp_calls import mcp_app
 from jobagent.cli.notify import notify_app
 from jobagent.cli.optimizer import optimizer_app
 from jobagent.cli.outreach import outreach_app
@@ -61,6 +62,7 @@ app.add_typer(mailbox_app, name="mailbox")
 app.add_typer(notify_app, name="notify")
 app.add_typer(worker_app, name="worker")
 app.add_typer(rules_app, name="rules")
+app.add_typer(mcp_app, name="mcp")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,12 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, time, timedelta
 
 from jobagent.errors import ContractValidationError, StorageError
+from jobagent.harness.runtime import runtime_fingerprint
 from jobagent.jobs.sourcing import SOURCING_DAY, refusal_reason
+from jobagent.rules.bindings import bind_sourcing_run
+from jobagent.rules.rounds import apply_round_overrides
+from jobagent.rules.service import validate_snapshot
+from jobagent.schemas.dynamic_rules import RuleProposal
 from jobagent.schemas.jobs import NormalizedJob
 from jobagent.schemas.sourcing import (
     SourcingAttempt,
@@ -20,6 +25,7 @@ from jobagent.schemas.sourcing import (
     SourcingRunRequest,
 )
 from jobagent.storage.database import Database
+from jobagent.storage.rule_repository import SqliteRuleRepository
 
 
 def _bounds(now: datetime) -> tuple[str, str]:
@@ -78,9 +84,18 @@ class SqliteSourcingRepository:
         self, request: SourcingRunRequest, *, now: datetime, daily_cap: int
     ) -> SourcingRun:
         _bounds(now)
+        with self._write() as connection:
+            request = self._configured_request(connection, request, now=now)
+            return self._start_in(connection, request, now=now, daily_cap=daily_cap)
+
+    def _start_in(
+        self, connection: sqlite3.Connection, request: SourcingRunRequest,
+        *, now: datetime, daily_cap: int,
+    ) -> SourcingRun:
         expected_cap = request.daily_detail_cap or 50
         if not 1 <= daily_cap <= expected_cap or (
-            request.budget_profile == "muse-expanded-v1" and daily_cap != expected_cap
+            (request.budget_profile == "muse-expanded-v1" or request.rules_version is not None)
+            and daily_cap != expected_cap
         ):
             raise ContractValidationError("Program daily cap does not match the explicit policy.")
         run = SourcingRun(
@@ -88,22 +103,100 @@ class SqliteSourcingRepository:
             opened_at=now.astimezone(UTC),
             daily_detail_limit=daily_cap,
         )
-        with self._write() as connection:
-            self._capture_legacy(connection, request.source, now)
-            row = connection.execute(
-                "SELECT run_json FROM sourcing_runs WHERE run_id = ?",
-                (request.run_id,),
-            ).fetchone()
-            if row is not None:
-                old = SourcingRun.model_validate_json(row["run_json"])
-                if not _same_request(request, old) or old.daily_detail_limit != daily_cap:
-                    raise ContractValidationError("A run ID cannot change its frozen budget.")
-                return old
-            connection.execute(
-                "INSERT INTO sourcing_runs (run_id, source, run_json) VALUES (?, ?, ?)",
-                (run.run_id, run.source, run.model_dump_json()),
-            )
+        self._capture_legacy(connection, request.source, now)
+        row = connection.execute(
+            "SELECT run_json FROM sourcing_runs WHERE run_id = ?", (request.run_id,),
+        ).fetchone()
+        if row is not None:
+            old = SourcingRun.model_validate_json(row["run_json"])
+            if not _same_request(request, old) or old.daily_detail_limit != daily_cap:
+                raise ContractValidationError("A run ID cannot change its frozen budget.")
+            return old
+        connection.execute(
+            "INSERT INTO sourcing_runs (run_id, source, run_json) VALUES (?, ?, ?)",
+            (run.run_id, run.source, run.model_dump_json()),
+        )
+        if request.round_overrides:
+            from jobagent.storage.configuration_repository import consume_owner_change_request
+
+            for override in request.round_overrides:
+                consume_owner_change_request(connection, override.proposal, event_id=run.run_id)
         return run
+
+    @staticmethod
+    def _configured_request(
+        connection: sqlite3.Connection, request: SourcingRunRequest,
+        *, now: datetime,
+    ) -> SourcingRunRequest:
+        from jobagent.storage.configuration_repository import (
+            configuration_initialized,
+            require_owner_change_request,
+        )
+
+        snapshot = SqliteRuleRepository._current(connection, request.candidate_id)
+        if snapshot is None:
+            if (request.rules_version is not None or request.top_per_query is not None
+                    or request.round_overrides):
+                raise ContractValidationError("No confirmed configuration exists for this round.")
+            return request
+        validate_snapshot(snapshot)
+        if not configuration_initialized(connection, request.candidate_id):
+            raise ContractValidationError(
+                "Configuration initialization is incomplete; no round started.",
+            )
+        if request.rules_version is None:
+            raise ContractValidationError(
+                "Configured round requires the current rules snapshot version.",
+            )
+        if snapshot.effective_at > now:
+            raise ContractValidationError("Configured round cannot use future owner decisions.")
+        actual_code = runtime_fingerprint()
+        if request.code_revision is not None and request.code_revision != actual_code:
+            raise ContractValidationError(
+                "Prepared source round uses a different code/runtime revision.",
+            )
+        request = request.model_copy(update={"code_revision": actual_code})
+        if request.round_overrides:
+            base_version = snapshot.version
+            if request.base_rules_version not in {None, base_version}:
+                raise ContractValidationError("Round override base version is stale.")
+            for override in request.round_overrides:
+                row = connection.execute(
+                    "SELECT proposal_json FROM dynamic_rule_proposals WHERE proposal_id = ?",
+                    (override.proposal.proposal_id,),
+                ).fetchone()
+                if row is None or RuleProposal.model_validate_json(row[0]) != override.proposal:
+                    raise ContractValidationError(
+                        "Round override has no exact saved original question.",
+                    )
+                require_owner_change_request(
+                    connection, override.proposal, allow_consumed_by=request.run_id,
+                )
+            snapshot = apply_round_overrides(
+                snapshot, request.round_overrides, run_id=request.run_id, now=now,
+            )
+            if request.rules_version not in {base_version, snapshot.version}:
+                raise ContractValidationError(
+                    "Round override rules version is stale or conflicting.",
+                )
+            request = request.model_copy(update={
+                "rules_version": snapshot.version, "base_rules_version": base_version,
+            })
+        elif request.base_rules_version is not None:
+            raise ContractValidationError("Round override receipt is missing or unsupported.")
+        return bind_sourcing_run(snapshot, request, source_ceiling=50)
+
+    @staticmethod
+    def _round_counts(connection: sqlite3.Connection, run_id: str) -> tuple[int, int]:
+        counts = dict(connection.execute(
+            "SELECT kind, count(*) FROM sourcing_attempts WHERE run_id = ? GROUP BY kind",
+            (run_id,),
+        ).fetchall())
+        captures = connection.execute(
+            "SELECT count(*) FROM sourcing_read_attempts "
+            "WHERE json_extract(request_json, '$.run_id') = ?", (run_id,),
+        ).fetchone()[0]
+        return counts.get("query", 0), counts.get("detail", 0) + int(captures)
 
     @staticmethod
     def _budget(
@@ -221,15 +314,10 @@ class SqliteSourcingRepository:
             ).fetchone():
                 raise ContractValidationError("Attempt ID belongs to another sourcing entry point.")
             run = self._get_run(connection, request.run_id)
+            self._configured_request(connection, run, now=now)
             self._capture_legacy(connection, run.source, now)
             budget = self._budget(connection, run.source, run.daily_detail_limit, now)
-            rows = connection.execute(
-                "SELECT kind, count(*) AS used FROM sourcing_attempts "
-                "WHERE run_id = ? GROUP BY kind",
-                (run.run_id,),
-            ).fetchall()
-            counts = {row["kind"]: row["used"] for row in rows}
-            queries, details = counts.get("query", 0), counts.get("detail", 0)
+            queries, details = self._round_counts(connection, run.run_id)
             old = connection.execute(
                 "SELECT attempt_json FROM sourcing_attempts WHERE attempt_id = ?",
                 (request.attempt_id,),
@@ -313,11 +401,21 @@ class SqliteSourcingRepository:
                     "Completed queries must record observed listing count."
                 )
             run = self._get_run(connection, attempt.run_id)
+            if (attempt.kind == "query" and request.outcome == "complete"
+                    and run.rules_version is not None):
+                captured = connection.execute(
+                    "SELECT 1 FROM sourcing_query_selections WHERE attempt_id = ?",
+                    (request.attempt_id,),
+                ).fetchone()
+                if not captured:
+                    raise ContractValidationError(
+                        "Configured query success requires the actual result capture/selection.",
+                    )
             if (
-                run.budget_profile == "muse-expanded-v1"
+                (run.budget_profile == "muse-expanded-v1" or run.top_per_query is not None)
                 and attempt.kind == "query"
                 and request.listing_count is not None
-                and request.listing_count > 10
+                and request.listing_count > (run.top_per_query or 10)
             ):
                 raise ContractValidationError(
                     "Expanded queries observe at most the first ten rows."

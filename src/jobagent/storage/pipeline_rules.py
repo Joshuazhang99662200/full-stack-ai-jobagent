@@ -19,6 +19,7 @@ from jobagent.schemas.pipeline_rules import (
 )
 from jobagent.storage.database import Database
 from jobagent.storage.message_diff_repository import MessageDiffRepository
+from jobagent.storage.pipeline_policy import require_pipeline_policy
 
 
 class PipelineRuleService:
@@ -97,6 +98,16 @@ class PipelineRuleService:
         now: datetime,
         restore_id: str | None = None,
     ) -> dict[str, object]:
+        if not connection.in_transaction:
+            connection.execute("BEGIN IMMEDIATE")
+        stored_diagnosis = connection.execute(
+            "SELECT candidate_id FROM pipeline_diagnoses WHERE diagnosis_id=?",
+            (diagnosis.diagnosis_id,),
+        ).fetchone()
+        if (diagnosis.candidate_id != candidate_id or stored_diagnosis is None
+                or stored_diagnosis[0] != candidate_id):
+            reject("A pipeline rule proposal must retain its stored diagnosis candidate.")
+        require_pipeline_policy(connection, candidate_id, "diagnosis", now=now)
         scope = self.scope(diagnosis)
         effect = dict(
             scope=scope,
@@ -139,6 +150,7 @@ class PipelineRuleService:
             old = self.existing(connection, request.proposal_id, request.candidate_id, digest)
             if old:
                 return old
+            require_pipeline_policy(connection, request.candidate_id, "diagnosis", now=now)
             diagnosis = self.diagnosis(request.diagnosis_id, request.candidate_id)
             if (
                 request.diagnosis_digest != diagnosis.source_digest
@@ -196,6 +208,16 @@ class PipelineRuleService:
         baseline: object = None,
         owner_accepted_effect: bool | None = None,
     ) -> dict[str, object]:
+        if not connection.in_transaction:
+            connection.execute("BEGIN IMMEDIATE")
+        stored_proposal = connection.execute(
+            "SELECT candidate_id, proposal_json FROM message_rule_proposals WHERE proposal_id=?",
+            (proposal.get("proposal_id"),),
+        ).fetchone()
+        if (stored_proposal is None or stored_proposal[0] != candidate_id
+                or json.loads(stored_proposal[1]) != proposal):
+            reject("A pipeline decision must bind the exact stored candidate-scoped proposal.")
+        require_pipeline_policy(connection, candidate_id, "diagnosis", now=now)
         result: dict[str, object] = dict(
             confirmation_id=confirmation_id,
             proposal_id=proposal["proposal_id"],
@@ -240,6 +262,7 @@ class PipelineRuleService:
                     reject("Owner decision ID cannot change its exact original decision.")
                 replay: dict[str, object] = json.loads(old["confirmation_json"])
                 return replay
+            require_pipeline_policy(connection, request.candidate_id, "diagnosis", now=now)
             proposal = self.proposal(request.proposal_id, request.candidate_id)
             if (
                 request.rule_hash != proposal["rule_hash"]
@@ -347,6 +370,7 @@ class PipelineRuleService:
                     reject("Optimization review ID has different original evidence.")
                 result: dict[str, object] = json.loads(old["report_json"])
                 return result
+            require_pipeline_policy(connection, request.candidate_id, "diagnosis", now=now)
             active = self.metric_rule(request.rule_id, request.candidate_id)
             diagnosis = self.diagnosis(request.diagnosis_id, request.candidate_id)
             if (

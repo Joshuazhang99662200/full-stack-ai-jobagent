@@ -174,7 +174,7 @@ def test_migration_creates_the_audit_table(tmp_path: Path) -> None:
             ).fetchall()
         }
 
-    assert version == 30
+    assert version == 33
     assert "application_audits" in tables
 
 

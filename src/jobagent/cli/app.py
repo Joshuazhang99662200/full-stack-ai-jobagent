@@ -6,6 +6,7 @@ import typer
 
 from jobagent.cli.applications import applications_app
 from jobagent.cli.candidate import candidate_app
+from jobagent.cli.console import console_app
 from jobagent.cli.conversations import conversations_app
 from jobagent.cli.greetings import greetings_app
 from jobagent.cli.harness import harness_app
@@ -45,6 +46,7 @@ def main() -> None:
 
 
 app.add_typer(candidate_app, name="candidate")
+app.add_typer(console_app, name="console")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(intake_app, name="intake")
 app.add_typer(optimizer_app, name="optimizer")

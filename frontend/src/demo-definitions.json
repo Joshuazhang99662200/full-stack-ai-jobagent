@@ -1,0 +1,1741 @@
+{
+  "snapshot": {
+    "$defs": {
+      "ConsoleActivity": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "event_id": {
+            "minLength": 1,
+            "title": "Event Id",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^RUN_[A-F0-9]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^CAND_[A-Z0-9_]+$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "activity_id": {
+            "minLength": 1,
+            "title": "Activity Id",
+            "type": "string"
+          },
+          "activity": {
+            "enum": [
+              "fetch",
+              "detail",
+              "match",
+              "draft_greeting",
+              "review",
+              "approval",
+              "readback",
+              "report"
+            ],
+            "title": "Activity",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "heartbeat",
+              "waiting",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "owner": {
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Job Id"
+          },
+          "evidence_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evidence Reference"
+          },
+          "artifact_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Artifact Reference"
+          },
+          "checkpoint_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkpoint Reference"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "run_id",
+          "candidate_id",
+          "activity_id",
+          "activity",
+          "status",
+          "occurred_at",
+          "owner",
+          "recorded_at"
+        ],
+        "title": "ConsoleActivity",
+        "type": "object"
+      },
+      "ConsoleFilterContext": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "job_id": {
+            "minLength": 1,
+            "title": "Job Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "policy_digest": {
+            "minLength": 1,
+            "title": "Policy Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "updated_at",
+          "policy_digest"
+        ],
+        "title": "ConsoleFilterContext",
+        "type": "object"
+      },
+      "ConsoleJob": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "job": {
+            "$ref": "#/$defs/PipelineJob"
+          },
+          "meta": {
+            "$ref": "#/$defs/PipelineMeta"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/$defs/PipelineHistory"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "match_result": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/MatchResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "match_context": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConsoleMatchContext"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "hard_filter_result": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HardFilterResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "hard_filter_context": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConsoleFilterContext"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "job",
+          "meta",
+          "history"
+        ],
+        "title": "ConsoleJob",
+        "type": "object"
+      },
+      "ConsoleMatchContext": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "job_id": {
+            "minLength": 1,
+            "title": "Job Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "policy_digest": {
+            "minLength": 1,
+            "title": "Policy Digest",
+            "type": "string"
+          },
+          "evidence_digest": {
+            "minLength": 1,
+            "title": "Evidence Digest",
+            "type": "string"
+          },
+          "requirements_digest": {
+            "minLength": 1,
+            "title": "Requirements Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "updated_at",
+          "policy_digest",
+          "evidence_digest",
+          "requirements_digest"
+        ],
+        "title": "ConsoleMatchContext",
+        "type": "object"
+      },
+      "ConsoleRun": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "run": {
+            "$ref": "#/$defs/HarnessRun"
+          },
+          "activities": {
+            "items": {
+              "$ref": "#/$defs/ConsoleActivity"
+            },
+            "title": "Activities",
+            "type": "array"
+          },
+          "freshness": {
+            "enum": [
+              "current",
+              "stale",
+              "terminal",
+              "unknown"
+            ],
+            "title": "Freshness",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run",
+          "activities",
+          "freshness"
+        ],
+        "title": "ConsoleRun",
+        "type": "object"
+      },
+      "ConsoleSource": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "missing",
+              "invalid",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "name",
+          "status"
+        ],
+        "title": "ConsoleSource",
+        "type": "object"
+      },
+      "DimensionScore": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "dimension": {
+            "minLength": 1,
+            "title": "Dimension",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Score",
+            "type": "number"
+          },
+          "explanation": {
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "pattern": "^EVID_[A-Z0-9_]+$",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dimension",
+          "score",
+          "explanation"
+        ],
+        "title": "DimensionScore",
+        "type": "object"
+      },
+      "FilterDecision": {
+        "enum": [
+          "pass",
+          "review",
+          "reject"
+        ],
+        "title": "FilterDecision",
+        "type": "string"
+      },
+      "FilterReason": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "rule_id": {
+            "minLength": 1,
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "observed_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Observed Value"
+          },
+          "required_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Required Value"
+          }
+        },
+        "required": [
+          "rule_id",
+          "message"
+        ],
+        "title": "FilterReason",
+        "type": "object"
+      },
+      "HardFilterResult": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/$defs/FilterDecision"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/$defs/FilterReason"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "HardFilterResult",
+        "type": "object"
+      },
+      "HarnessRun": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "run_id": {
+            "pattern": "^RUN_[A-F0-9]{32}$",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^CAND_[A-Z0-9_]+$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "runtime_digest": {
+            "pattern": "^sha256:.+",
+            "title": "Runtime Digest",
+            "type": "string"
+          },
+          "host": {
+            "enum": [
+              "codex",
+              "claude-code"
+            ],
+            "title": "Host",
+            "type": "string"
+          },
+          "phase": {
+            "$ref": "#/$defs/RunPhase",
+            "default": "new"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Id"
+          },
+          "lease_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lease Until"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/$defs/RunArtifact"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "candidate_id",
+          "runtime_digest",
+          "host",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "HarnessRun",
+        "type": "object"
+      },
+      "MatchDecision": {
+        "enum": [
+          "strong_match",
+          "possible_match",
+          "weak_match",
+          "not_a_match"
+        ],
+        "title": "MatchDecision",
+        "type": "string"
+      },
+      "MatchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "overall": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Overall",
+            "type": "number"
+          },
+          "decision": {
+            "$ref": "#/$defs/MatchDecision"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/$defs/DimensionScore"
+            },
+            "title": "Dimensions",
+            "type": "array"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strengths",
+            "type": "array"
+          },
+          "partial_matches": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Partial Matches",
+            "type": "array"
+          },
+          "hard_gaps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hard Gaps",
+            "type": "array"
+          },
+          "uncertainties": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncertainties",
+            "type": "array"
+          },
+          "evidence_ids": {
+            "items": {
+              "pattern": "^EVID_[A-Z0-9_]+$",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "overall",
+          "decision"
+        ],
+        "title": "MatchResult",
+        "type": "object"
+      },
+      "PipelineHistory": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "history_id": {
+            "minLength": 1,
+            "title": "History Id",
+            "type": "string"
+          },
+          "pipeline_id": {
+            "title": "Pipeline Id",
+            "type": "string"
+          },
+          "from_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "draft_pending",
+                  "greeting_sent",
+                  "greeting_read",
+                  "initial_contact",
+                  "resume_requested",
+                  "resume_sent",
+                  "interview_pending",
+                  "interviewed",
+                  "abandoned"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From State"
+          },
+          "to_state": {
+            "enum": [
+              "draft_pending",
+              "greeting_sent",
+              "greeting_read",
+              "initial_contact",
+              "resume_requested",
+              "resume_sent",
+              "interview_pending",
+              "interviewed",
+              "abandoned"
+            ],
+            "title": "To State",
+            "type": "string"
+          },
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          },
+          "evidence_kind": {
+            "enum": [
+              "conversation_message",
+              "list_message",
+              "detail_page",
+              "list_status",
+              "platform_state",
+              "send_audit",
+              "owner_message",
+              "unread_count"
+            ],
+            "title": "Evidence Kind",
+            "type": "string"
+          },
+          "evidence_reference": {
+            "minLength": 1,
+            "title": "Evidence Reference",
+            "type": "string"
+          },
+          "reason_code": {
+            "enum": [
+              "normal",
+              "read_no_reply_2d",
+              "no_reply_2d",
+              "employer_rejected",
+              "job_closed",
+              "user_abandoned"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "history_id",
+          "pipeline_id",
+          "from_state",
+          "to_state",
+          "changed_at",
+          "evidence_kind",
+          "evidence_reference",
+          "reason_code"
+        ],
+        "title": "PipelineHistory",
+        "type": "object"
+      },
+      "PipelineJob": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "pipeline_id": {
+            "pattern": "^PIPE_[A-F0-9]{16}(?:_R[1-9][0-9]*)?$",
+            "title": "Pipeline Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "pattern": "^CAND_[A-Z0-9_]+$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "job_id": {
+            "minLength": 1,
+            "title": "Job Id",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "boss",
+              "zhaopin"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "job_url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Job Url",
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "company": {
+            "minLength": 1,
+            "title": "Company",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location"
+          },
+          "salary_raw": {
+            "title": "Salary Raw",
+            "type": "string"
+          },
+          "salary_min_k": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Salary Min K"
+          },
+          "salary_max_k": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Salary Max K"
+          },
+          "salary_verified": {
+            "enum": [
+              "pass",
+              "fail",
+              "review"
+            ],
+            "title": "Salary Verified",
+            "type": "string"
+          },
+          "jd_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Jd Text"
+          },
+          "jd_text_hash": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:.+",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Jd Text Hash"
+          },
+          "jd_points": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Jd Points"
+          },
+          "draft_greeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Draft Greeting"
+          },
+          "draft_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Draft Version"
+          },
+          "draft_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:.+",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Draft Digest"
+          },
+          "sent_greeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sent Greeting"
+          },
+          "sent_text_hash": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:.+",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sent Text Hash"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sent At"
+          },
+          "send_readback": {
+            "anyOf": [
+              {
+                "enum": [
+                  "exact",
+                  "mismatch"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Send Readback"
+          },
+          "resume_requested": {
+            "default": false,
+            "title": "Resume Requested",
+            "type": "boolean"
+          },
+          "resume_requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Requested At"
+          },
+          "resume_request_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Request Evidence"
+          },
+          "resume_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Version"
+          },
+          "resume_file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume File Id"
+          },
+          "resume_sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Sent At"
+          },
+          "pipeline_state": {
+            "enum": [
+              "draft_pending",
+              "greeting_sent",
+              "greeting_read",
+              "initial_contact",
+              "resume_requested",
+              "resume_sent",
+              "interview_pending",
+              "interviewed",
+              "abandoned"
+            ],
+            "title": "Pipeline State",
+            "type": "string"
+          },
+          "state_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "normal",
+                  "read_no_reply_2d",
+                  "no_reply_2d",
+                  "employer_rejected",
+                  "job_closed",
+                  "user_abandoned"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State Reason"
+          },
+          "state_changed_at": {
+            "format": "date-time",
+            "title": "State Changed At",
+            "type": "string"
+          },
+          "entered_at": {
+            "format": "date-time",
+            "title": "Entered At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pipeline_id",
+          "candidate_id",
+          "job_id",
+          "platform",
+          "job_url",
+          "title",
+          "company",
+          "salary_raw",
+          "salary_verified",
+          "pipeline_state",
+          "state_changed_at",
+          "entered_at",
+          "updated_at"
+        ],
+        "title": "PipelineJob",
+        "type": "object"
+      },
+      "PipelineMeta": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "pipeline_id": {
+            "title": "Pipeline Id",
+            "type": "string"
+          },
+          "version": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "contact_round": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Contact Round",
+            "type": "integer"
+          },
+          "normalized_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Normalized Job Id"
+          },
+          "source_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Job Id"
+          },
+          "intake_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Intake Id"
+          },
+          "source_intake_version": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Intake Version"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Domain"
+          },
+          "salary_minimum_k": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Salary Minimum K"
+          },
+          "salary_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Salary Currency"
+          },
+          "scenario": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scenario",
+            "type": "array"
+          },
+          "tech": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tech",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Snapshot Id"
+          },
+          "feature_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Feature Set Id"
+          },
+          "proof_status": {
+            "default": "not_sent",
+            "enum": [
+              "not_sent",
+              "proof_pending",
+              "verified"
+            ],
+            "title": "Proof Status",
+            "type": "string"
+          },
+          "entered_time_basis": {
+            "default": "observed",
+            "enum": [
+              "observed",
+              "derived",
+              "unknown_legacy"
+            ],
+            "title": "Entered Time Basis",
+            "type": "string"
+          },
+          "entered_evidence_reference": {
+            "title": "Entered Evidence Reference",
+            "type": "string"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Read At"
+          },
+          "last_substantive_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Substantive At"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Checked At"
+          },
+          "abandoned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Abandoned At"
+          },
+          "last_evidence_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Evidence Reference"
+          },
+          "sent_greeting_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sent Greeting Version"
+          },
+          "recontact_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recontact Conversation Id"
+          },
+          "recontact_approval_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recontact Approval Event Id"
+          },
+          "recontact_reply_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:.+",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recontact Reply Digest"
+          },
+          "recontact_ask_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recontact Ask Id"
+          },
+          "recontact_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recontact Snapshot Id"
+          },
+          "recontact_jd_text_hash": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:.+",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recontact Jd Text Hash"
+          },
+          "paused": {
+            "default": false,
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "pause_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pause Reason"
+          }
+        },
+        "required": [
+          "pipeline_id",
+          "entered_evidence_reference"
+        ],
+        "title": "PipelineMeta",
+        "type": "object"
+      },
+      "RunArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "1.0",
+            "default": "1.0",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "contract": {
+            "minLength": 1,
+            "title": "Contract",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^sha256:.+",
+            "title": "Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "contract",
+          "digest"
+        ],
+        "title": "RunArtifact",
+        "type": "object"
+      },
+      "RunPhase": {
+        "enum": [
+          "new",
+          "running",
+          "waiting_for_fact_confirmation",
+          "waiting_for_job_selection",
+          "waiting_for_review",
+          "waiting_for_approval",
+          "waiting_for_login",
+          "delivery_outcome_unknown",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "RunPhase",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": "1.0",
+        "default": "1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "candidate_id": {
+        "pattern": "^CAND_[A-Z0-9_]+$",
+        "title": "Candidate Id",
+        "type": "string"
+      },
+      "generated_at": {
+        "format": "date-time",
+        "title": "Generated At",
+        "type": "string"
+      },
+      "sources": {
+        "items": {
+          "$ref": "#/$defs/ConsoleSource"
+        },
+        "title": "Sources",
+        "type": "array"
+      },
+      "jobs": {
+        "items": {
+          "$ref": "#/$defs/ConsoleJob"
+        },
+        "title": "Jobs",
+        "type": "array"
+      },
+      "runs": {
+        "items": {
+          "$ref": "#/$defs/ConsoleRun"
+        },
+        "title": "Runs",
+        "type": "array"
+      },
+      "approvals": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "title": "Approvals",
+        "type": "array"
+      }
+    },
+    "required": [
+      "candidate_id",
+      "generated_at"
+    ],
+    "title": "ConsoleSnapshot",
+    "type": "object"
+  },
+  "activity": {
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {
+        "const": "1.0",
+        "default": "1.0",
+        "title": "Schema Version",
+        "type": "string"
+      },
+      "event_id": {
+        "minLength": 1,
+        "title": "Event Id",
+        "type": "string"
+      },
+      "run_id": {
+        "pattern": "^RUN_[A-F0-9]{32}$",
+        "title": "Run Id",
+        "type": "string"
+      },
+      "candidate_id": {
+        "pattern": "^CAND_[A-Z0-9_]+$",
+        "title": "Candidate Id",
+        "type": "string"
+      },
+      "activity_id": {
+        "minLength": 1,
+        "title": "Activity Id",
+        "type": "string"
+      },
+      "activity": {
+        "enum": [
+          "fetch",
+          "detail",
+          "match",
+          "draft_greeting",
+          "review",
+          "approval",
+          "readback",
+          "report"
+        ],
+        "title": "Activity",
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "started",
+          "heartbeat",
+          "waiting",
+          "completed",
+          "failed"
+        ],
+        "title": "Status",
+        "type": "string"
+      },
+      "occurred_at": {
+        "format": "date-time",
+        "title": "Occurred At",
+        "type": "string"
+      },
+      "owner": {
+        "minLength": 1,
+        "title": "Owner",
+        "type": "string"
+      },
+      "job_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Job Id"
+      },
+      "evidence_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Evidence Reference"
+      },
+      "artifact_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Artifact Reference"
+      },
+      "checkpoint_reference": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Checkpoint Reference"
+      },
+      "message": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Message"
+      }
+    },
+    "required": [
+      "event_id",
+      "run_id",
+      "candidate_id",
+      "activity_id",
+      "activity",
+      "status",
+      "occurred_at",
+      "owner"
+    ],
+    "title": "ConsoleActivityInput",
+    "type": "object"
+  }
+}

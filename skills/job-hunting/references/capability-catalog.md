@@ -363,3 +363,12 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 已确认流程规则 | 已落地 | `jobagent pipeline confirmed-rules` | 只读取当前候选人有效规则 |
 | 优化效果复核 | 已落地 | `jobagent pipeline rule-review` | 优化后累计比率与基线比较，回滚仍提案 |
 | 流程规则提案详情 | 已落地 | `jobagent pipeline rule-show` | required candidate，具体规则可审阅 |
+
+## 只读轮询控制台
+
+| 能力 | 状态 | 入口 | 边界 |
+|---|---|---|---|
+| 控制台字段定义 | 已落地 | `jobagent console definitions` | 从权威契约生成完整 JSON Schema；MCP console_definitions 同源 |
+| 控制台统一清单 | 已落地 | `jobagent console list` | 候选人隔离，完整 job/meta/history 与运行及来源诊断；不迁移数据库 |
+| 宿主阶段观察 | 已落地 | `jobagent console event` | 仅私有宿主观察，关联已有运行；不授予审批、发送或修改岗位状态权限 |
+| 本地 React 控制台 | 已落地 | `jobagent console serve` | 仅本机 GET，显式加载前端构建；缺阶段时间不补造，旧审批缺候选人归属时标 unsupported |

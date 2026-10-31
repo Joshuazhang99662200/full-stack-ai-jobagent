@@ -30,3 +30,9 @@ candidate/variants/
 # Agent worktrees
 .claude/worktrees/
 .hallmark/
+
+# React console dependencies and generated outputs
+frontend/node_modules/
+frontend/lib/
+frontend/test-results/
+frontend/playwright-report/

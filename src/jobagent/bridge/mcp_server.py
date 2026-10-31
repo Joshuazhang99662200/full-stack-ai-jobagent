@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from jobagent.bridge import mailbox, status
+from jobagent.console.projection import definitions as console_definitions
+from jobagent.console.projection import snapshot as console_snapshot
 
 PROTOCOL_VERSION = "2025-06-18"
 
@@ -24,6 +26,20 @@ Tool = tuple[str, dict[str, Any], Callable[["McpServer", dict[str, Any]], Any]]
 TEXT = {"type": "string"}
 
 TOOLS: list[Tool] = [
+    (
+        "console_definitions",
+        {"description": "Read complete authoritative console JSON schemas; no private data."},
+        lambda srv, args: console_definitions(),
+    ),
+    (
+        "console_list",
+        {"description": "Read candidate-scoped console snapshot with complete business fields, "
+         "history and source diagnostics. Does not approve, send or alter run state.",
+         "candidate_id": TEXT},
+        lambda srv, args: console_snapshot(
+            srv.database, srv.workspace, str(args.get("candidate_id", "")),
+        ).model_dump(mode="json"),
+    ),
     (
         "status_today",
         {"description": "Today's state per board (Boss, 猎聘, 智联): sends, approved queue, "
@@ -95,9 +111,13 @@ def _schema(spec: dict[str, Any]) -> dict[str, Any]:
 class McpServer:
     database: Path
     mailbox_folder: Path
+    workspace: Path
 
-    def __init__(self, database: Path, mailbox_folder: Path | None = None) -> None:
+    def __init__(
+        self, database: Path, mailbox_folder: Path | None = None, *, workspace: Path | None = None,
+    ) -> None:
         self.database = database
+        self.workspace = workspace or database.resolve().parent.parent
         # The ledger sits in <repo>/.jobagent/, the private folder in <repo>/candidate/.
         self.mailbox_folder = mailbox_folder or database.parent.parent / "candidate" / "private"
         self.tools = {name: (spec, run) for name, spec, run in TOOLS}
@@ -146,8 +166,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--database", default=".jobagent/jobagent.sqlite3")
     parser.add_argument("--mailbox", default=None, help="Defaults to <repo>/candidate/private.")
+    parser.add_argument("--workspace", default=None,
+                        help="Run workspace; defaults to the database parent's parent.")
     args = parser.parse_args()
-    server = McpServer(Path(args.database), Path(args.mailbox) if args.mailbox else None)
+    server = McpServer(
+        Path(args.database), Path(args.mailbox) if args.mailbox else None,
+        workspace=Path(args.workspace) if args.workspace else None,
+    )
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
     for line in stdin:

@@ -1,9 +1,10 @@
 # 开源复用评审
 
-核验于 2026-08-26。变更复用方式之前,重新核对上游许可证、notice 文件与锁定的源清单。
+清单最近更新于 2026-10-31；各来源的核验时间见对应条目。变更复用方式之前,重新核对上游许可证、notice 文件与锁定的源清单。
 
 | 项目 | 核验 commit | 许可证 | 复用方式 | 预期学习或复用点 | 主要风险 |
 |---|---|---|---|---|---|
+| [React 控制台依赖](../skills/job-hunting/references/oss/react-console.md) | npm 锁文件，核验于 2026-10-31 | React/Vite MIT；TypeScript Apache-2.0 | 包依赖，界面原创 | 公共组件与本地构建；保留运行时 notices | 完整字段含私有正文，真实数据不得进入公共构建或示例 |
 | [AgentMesh-JobAgent](https://github.com/jiyangnan/AgentMesh-JobAgent) | `291d9dcee29455990ec51935ee15cd911440a297` | Apache-2.0 | Adapter 或子进程 | 平台隔离、连接器工作流、预览/投递/审计分离、可恢复性 | 云端契约与浏览器适配可能变动;必须保留许可证与 notice |
 | [open-boss](https://github.com/yinren112/open-boss) | `f1e92275340007ebb460417e5e0d1be14ce1566a` | MIT | Adapter 或参考 | 真实 JD 需求、dry-run、显式审批、隐私、浏览器配置隔离、停止条件 | 平台 DOM 不稳定;复制兼容素材时保留 MIT notice |
 | [Auto-JobHunter](https://github.com/jolie-z/Auto-JobHunter) | `4f9dec38978035a87d34cab5b15914dc8688e6f0` | 个人、教育、非商业 | 仅参考 | 高层的 SQLite → 规则 → LLM 评估 → RPA 观察 | 许可证与无限制复用不兼容;不得复制源码、提示词或实现结构 |

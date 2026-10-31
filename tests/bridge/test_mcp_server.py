@@ -23,6 +23,7 @@ def test_initialize_and_list_read_only_tools(tmp_path: Path) -> None:
     assert tools == {
         "status_today", "pending_approvals", "patrol_history", "new_jobs",
         "post_to_claude_code", "receipts", "notes_from_claude_code", "peer_sessions",
+        "console_list", "console_definitions",
     }
 
 

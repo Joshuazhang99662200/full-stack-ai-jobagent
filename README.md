@@ -145,6 +145,7 @@ AI 助手 / job-hunting Skill / CLI / MCP
 | [架构](docs/architecture.md) · [领域模型](docs/domain-model.md) | 依赖方向、核心模型与不变式 |
 | [Harness 协议](skills/job-hunting/references/harness.md) · [宿主对比](docs/harness-comparison.md) | 恢复、交接、产物检查和宿主分工 |
 | [开源复用评审](docs/oss-review.md) | 上游来源、许可证与复用方式 |
+| [岗位任务队列](docs/polling-console.md) | React 公共组件、岗位并行时间轴、宿主完整字段查询与九态历史 |
 
 ## 隐私与参与
 

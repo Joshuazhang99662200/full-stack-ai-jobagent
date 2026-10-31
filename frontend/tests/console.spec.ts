@@ -6,10 +6,10 @@ test("run selection reveals recorded activity; URL remembers view and selection"
 }) => {
   await page.goto("/?demo=1&view=runs");
   await expect(
-    page.getByRole("heading", { name: "岗位任务队列", exact: true }),
+    page.getByRole("heading", { name: "岗位进展", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: /RUN_AAAAAAAA/ }).click();
-  await page.getByRole("button", { name: "读取详情", exact: true }).click();
+  await page.getByRole("button", { name: "查看详情", exact: true }).click();
   await expect(page.locator(".detail > p").first()).toHaveText(
     "正在读取岗位详情，恢复点已保存。",
   );
@@ -18,10 +18,10 @@ test("run selection reveals recorded activity; URL remembers view and selection"
   await expect(page.locator(".detail > p").first()).toHaveText(
     "等待本人逐项审批。",
   );
-  await page.getByRole("tab", { name: "岗位九态" }).click();
+  await page.getByRole("tab", { name: "沟通进展" }).click();
   await expect(page).toHaveURL(/view=jobs/);
   await page.reload();
-  await expect(page.getByRole("tab", { name: "岗位九态" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "沟通进展" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -40,7 +40,7 @@ test("nine states highlight only recorded history and preserve full private cont
   await expect(
     page.locator('[data-state="interview_pending"]'),
   ).toHaveAttribute("aria-current", "step");
-  await page.getByText("完整业务字段", { exact: true }).click();
+  await page.getByText("查看岗位原始数据", { exact: true }).click();
   await expect(
     page.getByText("这是完整的合成 JD 正文。最后一行也必须保留。", {
       exact: true,
@@ -88,7 +88,7 @@ test("loading and verified empty snapshot are distinct", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText("正在读取");
   release();
   await expect(
-    page.getByText("当前候选人尚无运行记录。", { exact: true }),
+    page.getByText("还没有运行记录。", { exact: true }),
   ).toBeVisible();
 });
 
@@ -113,11 +113,11 @@ test("missing sources never masquerade as a verified empty result", async ({
   );
   await page.goto("/?view=runs");
   await expect(
-    page.getByText("运行记录暂不可确认。", { exact: true }),
+    page.getByText("暂时无法读取运行记录。", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "岗位九态" }).click();
+  await page.getByRole("tab", { name: "沟通进展" }).click();
   await expect(
-    page.getByText("岗位记录暂不可确认。", { exact: true }),
+    page.getByText("暂时无法读取岗位记录。", { exact: true }),
   ).toBeVisible();
 });
 
@@ -153,13 +153,13 @@ test("mobile phases use full-label touch controls instead of narrow interactive 
   await page.setViewportSize({ width: 320, height: 1000 });
   await page.goto("/?demo=1&view=runs");
   await expect(page.locator(".track button")).toHaveCount(0);
-  const phase = page.getByRole("button", { name: "采集", exact: true });
+  const phase = page.getByRole("button", { name: "获取信息", exact: true });
   await expect(phase).toBeVisible();
   const bounds = await phase.boundingBox();
   expect(bounds!.height).toBeGreaterThanOrEqual(44);
   expect(bounds!.width).toBeGreaterThanOrEqual(44);
   await phase.click();
-  await expect(page.locator(".detail h3")).toHaveText("采集");
+  await expect(page.locator(".detail h3")).toHaveText("获取信息");
 });
 
 for (const width of [320, 375, 768, 1440, 1920]) {
@@ -168,7 +168,7 @@ for (const width of [320, 375, 768, 1440, 1920]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/?demo=1&view=runs");
-    for (const view of ["岗位任务", "轮次追溯", "岗位九态", "字段契约"]) {
+    for (const view of ["任务进度", "运行记录", "沟通进展", "数据说明"]) {
       await page.getByRole("tab", { name: view }).click();
       expect(
         await page.evaluate(

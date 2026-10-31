@@ -114,6 +114,29 @@ def test_activity_is_idempotent_owned_and_does_not_mutate_run(tmp_path):
     assert snapshot(tmp_path / "missing.sqlite3", tmp_path, "CAND_OTHER", now=NOW).runs == []
 
 
+def test_activity_next_step_is_optional_and_preserved_verbatim(tmp_path):
+    from jobagent.console.activities import record_activity
+    from jobagent.console.projection import snapshot
+
+    setup_run(tmp_path)
+    plain = record_activity(tmp_path, event(), now=NOW)
+    assert plain.next_step is None
+    planned = record_activity(
+        tmp_path,
+        event(event_id="PLANNED", status="heartbeat", next_step="Synthetic next step"),
+        now=NOW,
+    )
+    with pytest.raises(ContractValidationError):
+        record_activity(
+            tmp_path,
+            event(event_id="PLANNED", status="heartbeat", next_step="Changed plan"),
+            now=NOW,
+        )
+    result = snapshot(tmp_path / "missing.sqlite3", tmp_path, "CAND_DEMO", now=NOW)
+    assert result.runs[0].activities == [plain, planned]
+    assert result.runs[0].activities[1].next_step == "Synthetic next step"
+
+
 def test_activity_rejects_missing_start_time_reversal_and_terminal_resume(tmp_path):
     from jobagent.console.activities import record_activity
 

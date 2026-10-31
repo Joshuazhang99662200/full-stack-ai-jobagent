@@ -11,9 +11,9 @@ const snapshot = JSON.parse(
 const rendered = renderToString(
   createElement(Console, { snapshot, initialView: "runs" }),
 );
-assert.ok(rendered.includes("岗位任务队列"));
+assert.ok(rendered.includes("岗位进展"));
 assert.ok(rendered.includes("RUN_AAAAAAAA"));
-assert.ok(rendered.includes("宿主活动上报"));
+assert.ok(rendered.includes("这里显示助手记录的工作过程"));
 const empty = renderToString(
   createElement(Console, {
     initialView: "runs",
@@ -24,7 +24,7 @@ const empty = renderToString(
     },
   }),
 );
-assert.ok(empty.includes("当前候选人尚无运行记录"));
+assert.ok(empty.includes("还没有运行记录"));
 console.log(
   "SSR embedding and empty-state smoke passed without browser globals.",
 );

@@ -42,6 +42,7 @@ def activity(
     minute: int,
     message: str,
     job_id: str | None = None,
+    next_step: str | None = None,
 ) -> ConsoleActivity:
     return ConsoleActivity(
         event_id=f"DEMO_{run_id}_{stage}_{status}_{minute}",
@@ -56,6 +57,7 @@ def activity(
         job_id=job_id,
         checkpoint_reference="DEMO_CHECKPOINT",
         message=message,
+        next_step=next_step,
     )
 
 
@@ -190,7 +192,12 @@ def build_demo() -> ConsoleSnapshot:
                 activity(current.run_id, "fetch", "completed", 54, "采集完成。"),
                 activity(current.run_id, "detail", "started", 54, "开始读取详情。"),
                 activity(
-                    current.run_id, "detail", "heartbeat", 59, "正在读取岗位详情，恢复点已保存。"
+                    current.run_id,
+                    "detail",
+                    "heartbeat",
+                    59,
+                    "正在读取岗位详情，恢复点已保存。",
+                    next_step="读完详情后评估匹配度。",
                 ),
             ],
         ),
@@ -207,7 +214,14 @@ def build_demo() -> ConsoleSnapshot:
                 activity(waiting.run_id, "review", "started", 32, "开始复核。"),
                 activity(waiting.run_id, "review", "completed", 35, "复核完成。"),
                 activity(waiting.run_id, "approval", "started", 35, "准备审批。"),
-                activity(waiting.run_id, "approval", "waiting", 59, "等待本人逐项审批。"),
+                activity(
+                    waiting.run_id,
+                    "approval",
+                    "waiting",
+                    59,
+                    "等待本人逐项审批。",
+                    next_step="获批后按准确正文发送，并回读核对。",
+                ),
             ],
         ),
         ConsoleRun(run=ended, freshness="terminal", activities=[]),

@@ -1,6 +1,8 @@
 """Reviewable dynamic-variable governance; no scheduling or external actions."""
 
 import json
+import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Never
@@ -19,9 +21,16 @@ from jobagent.rules.evaluation import (
 from jobagent.rules.registry import definitions
 from jobagent.rules.service import make_proposal
 from jobagent.schemas.common import ContractModel
+from jobagent.schemas.configuration import ConfigurationPreparationRequest
 from jobagent.schemas.dynamic_rules import RuleChangeRequest, RuleConfirmation
-from jobagent.schemas.rule_evaluation import AbandonmentObservation, RatioObservation
+from jobagent.schemas.rule_evaluation import (
+    AbandonmentObservation,
+    RatioObservation,
+    RuleEvaluation,
+)
+from jobagent.storage.configuration_repository import SqliteConfigurationRepository
 from jobagent.storage.database import Database
+from jobagent.storage.pipeline_policy import current_rule_snapshot
 from jobagent.storage.rule_repository import SqliteRuleRepository
 
 rules_app = typer.Typer(help="Explicit, versioned owner workflow parameters.", no_args_is_help=True)
@@ -67,6 +76,34 @@ def _repository(path: Path) -> SqliteRuleRepository:
 def show_definitions() -> None:
     """Show supported names, types and actual consumer bindings; no personal defaults."""
     _emit([item.model_dump(mode="json") for item in definitions()])
+
+
+@rules_app.command("prepare")
+def prepare(request_path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
+    """Read an initial form or ordinary-run plan without creating state or spending quota."""
+    try:
+        request = ConfigurationPreparationRequest.model_validate_json(
+            _private(request_path).read_bytes(),
+        )
+        _emit(SqliteConfigurationRepository(Database(_private(database))).prepare(request))
+    except (JobAgentError, ValidationError, OSError, ValueError) as error:
+        _fail(error)
+
+
+@rules_app.command("initialize")
+def initialize(
+    candidate_id: str,
+    expected_version: Annotated[str, typer.Option("--expected-version")],
+    database: DatabaseOption = DEFAULT_DATABASE,
+) -> None:
+    """Mark an already confirmed complete profile initialized without asking again."""
+    try:
+        repository = _repository(database)
+        _emit(SqliteConfigurationRepository(repository.database).initialize(
+            candidate_id, expected_version, now=datetime.now(UTC),
+        ))
+    except (JobAgentError, ValidationError, OSError, ValueError) as error:
+        _fail(error)
 
 
 @rules_app.command("propose")
@@ -180,34 +217,56 @@ def evaluate(
     now: Annotated[str | None, typer.Option("--now")] = None,
     last_check_at: Annotated[str | None, typer.Option("--last-check-at")] = None,
     pending_review: Annotated[int | None, typer.Option("--pending-review", min=0)] = None,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    historical: Annotated[bool, typer.Option("--historical")] = False,
 ) -> None:
-    """Evaluate polling, abandonment, ratio or backlog without changing external state."""
+    """Verify the current head, or explicitly replay a historical non-persistent snapshot."""
     try:
         snapshot = load_rule_snapshot(rules_file, candidate)
         moment = datetime.fromisoformat(now) if now else datetime.now(UTC)
-        if kind == "poll":
-            _emit(
-                evaluate_poll(
-                    snapshot,
-                    moment,
-                    last_check_at=datetime.fromisoformat(last_check_at) if last_check_at else None,
+        if moment.tzinfo is None:
+            raise ContractValidationError("Evaluation time requires a timezone offset.")
+        if snapshot.effective_at > moment:
+            raise ContractValidationError("Dynamic rule snapshot is effective in the future.")
+        if not historical:
+            authority = _private(database)
+            if not authority.is_file():
+                raise ContractValidationError(
+                    "Current evaluation requires an authoritative database.",
                 )
+            with closing(sqlite3.connect(authority.as_uri() + "?mode=ro", uri=True)) as connection:
+                connection.execute("BEGIN")
+                current = current_rule_snapshot(connection, candidate)
+            if current is None:
+                raise ContractValidationError("Current evaluation requires an authoritative head.")
+            if current.version != snapshot.version:
+                raise ContractValidationError(
+                    "Dynamic rule export is stale; read the current head.",
+                )
+        result: RuleEvaluation
+        if kind == "poll":
+            result = evaluate_poll(
+                snapshot,
+                moment,
+                last_check_at=datetime.fromisoformat(last_check_at) if last_check_at else None,
             )
         elif kind == "backlog" and pending_review is not None:
-            _emit(evaluate_backlog(snapshot, pending_review))
+            result = evaluate_backlog(snapshot, pending_review)
         elif kind in {"abandonment", "ratio"} and observation is not None:
             body = _private(observation).read_bytes()
             if kind == "abandonment":
-                _emit(
-                    evaluate_abandonment(
-                        snapshot,
-                        AbandonmentObservation.model_validate_json(body),
-                        moment,
-                    )
+                result = evaluate_abandonment(
+                    snapshot,
+                    AbandonmentObservation.model_validate_json(body),
+                    moment,
                 )
             else:
-                _emit(evaluate_ratio(snapshot, RatioObservation.model_validate_json(body)))
+                result = evaluate_ratio(snapshot, RatioObservation.model_validate_json(body))
         else:
             raise ContractValidationError("Unsupported evaluation or missing observation/count.")
-    except (JobAgentError, ValidationError, OSError, ValueError) as error:
+        _emit(result.model_copy(update={
+            "snapshot_mode": "historical" if historical else "current",
+            "current_head_verified": not historical,
+        }))
+    except (JobAgentError, ValidationError, OSError, ValueError, sqlite3.Error) as error:
         _fail(error)

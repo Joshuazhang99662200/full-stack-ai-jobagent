@@ -24,6 +24,8 @@ _RUNTIME = {
     "RESUME_STAGE_IN_ABANDON_LINE": "boolean",
     "PENDING_BACKLOG_ASK_THRESHOLD": "positive_integer",
     "DETAIL_CAP_PER_DAY": "positive_integer",
+    "TOP_PER_QUERY": "positive_integer",
+    "DETAIL_ATTEMPTS_PER_SITE_PER_ROUND": "positive_integer",
     "QUERIES_PER_SITE_PER_ROUND": "count_range",
     "JD_POINTS_MAX": "positive_integer",
     "GREETING_LEN_SHORT": "count_range",
@@ -31,18 +33,16 @@ _RUNTIME = {
     "GREETING_LEN_EXPANDED": "count_range",
     "TECH_NOUN_BUDGET": "count_range",
     "GREETING_STRUCTURE": "greeting_structure",
+    "MCP_TOTAL": "positive_integer",
+    "MCP_BATCHSIZE": "positive_integer",
+    "MCP_MAX_PARALLEL": "positive_integer",
+    "LIEPIN_CALLS_PER_ROUND": "positive_integer",
+    "LIEPIN_DELIVERY_SPACING_SEC": "positive_number",
 }
 _HOST = {
     "FIRST_LAUNCH_MIN_JD": "positive_integer",
     "FIRST_LAUNCH_MAX_JD": "positive_integer",
     "BOSS_SEND_INTERVAL_SEC": "count_range",
-    "LIEPIN_DELIVERY_SPACING_SEC": "positive_number",
-    "TOP_PER_QUERY": "positive_integer",
-    "DETAIL_ATTEMPTS_PER_SITE_PER_ROUND": "positive_integer",
-    "LIEPIN_CALLS_PER_ROUND": "positive_integer",
-    "MCP_TOTAL": "positive_integer",
-    "MCP_BATCHSIZE": "positive_integer",
-    "MCP_MAX_PARALLEL": "positive_integer",
     "PANEL_ATTACH_TRIGGER": "after_poll_report",
     "PANEL_SYNC_ON_OPEN": "boolean",
     "PANEL_SYNC_MANUAL": "boolean",
@@ -113,14 +113,22 @@ def definitions() -> list[RuleDefinition]:
 
 
 def _consumer(name: str) -> str:
+    if name.startswith("MCP_") or name == "LIEPIN_CALLS_PER_ROUND":
+        return "mcp round-start/batch (actual dispatch, confirmed limits and shared ledger)"
+    if name == "LIEPIN_DELIVERY_SPACING_SEC":
+        return "mcp delivery-prepare (host handoff only; minimum five seconds; no send)"
     if name.startswith(("POLL_", "WEEKEND_")):
         return "rules evaluate poll (no scheduler)"
     if name.startswith(("ABANDON_", "RESUME_STAGE_")):
-        return "rules evaluate abandonment (no queue writes)"
+        return "rules evaluate abandonment; pipeline state-write compatibility guard"
     if name.startswith("SALARY_"):
         return "jobs filter/triage/pipeline --rules-file"
     if name == "DETAIL_CAP_PER_DAY":
-        return "jobs sourcing-budget/reserve-read --rules-file (source ceiling remains)"
+        return "jobs sourcing-start/sourcing-budget; bound reserve-read (explicit source policy)"
+    if name == "TOP_PER_QUERY":
+        return "jobs sourcing-start/sourcing-take; listings --run-id (frozen query results)"
+    if name == "DETAIL_ATTEMPTS_PER_SITE_PER_ROUND":
+        return "jobs sourcing-start/sourcing-reserve; reserve-read --run-id (shared round quota)"
     if name == "QUERIES_PER_SITE_PER_ROUND":
         return "jobs search-plan --rules-file"
     if name == "PENDING_BACKLOG_ASK_THRESHOLD":
@@ -236,6 +244,8 @@ def validate_change(request: RuleChangeRequest) -> None:
     if request.provenance.source_kind != "user":
         raise ContractValidationError("Only explicit user decisions may activate user parameters.")
     validate_value(request.name, request.value)
+    if request.name == "LIEPIN_DELIVERY_SPACING_SEC" and float(str(request.value)) < 5:
+        raise ContractValidationError("Delivery spacing has a minimum of five seconds.")
 
 
 def validate_values(values: dict[str, JsonValue]) -> None:

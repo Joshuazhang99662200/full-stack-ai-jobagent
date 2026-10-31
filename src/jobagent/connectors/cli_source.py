@@ -97,11 +97,15 @@ class CliListingSource:
                 command += [flag, str(value)]
 
         payload = self._invoke(command)
-        collected_at = datetime.now(UTC)
-        listings = [self._to_listing(item, collected_at) for item in self._iter_jobs(payload)]
+        listings = self.parse_listings(payload, collected_at=datetime.now(UTC))
         if query.source_job_id is not None:
             listings = [item for item in listings if item.source_job_id == query.source_job_id]
         return listings
+
+    def parse_listings(self, payload: object, *, collected_at: datetime) -> list[JobListing]:
+        """Normalize an already-observed response without another external invocation."""
+        self._check_business_result(payload)
+        return [self._to_listing(item, collected_at) for item in self._iter_jobs(payload)]
 
     def _invoke(self, command: Sequence[str]) -> Any:
         source = self._manifest.id
@@ -233,7 +237,12 @@ class CliListingSource:
 
     def _iter_jobs(self, payload: Any) -> list[Mapping[str, Any]]:
         candidates = _unwrap(payload, self._spec.envelope_keys, self._manifest.id)
-        return [item for item in candidates if isinstance(item, Mapping)]
+        if any(not isinstance(item, Mapping) for item in candidates):
+            raise InvalidProviderOutputError(
+                "A returned job row is not a mapping; the observation is incomplete.",
+                details={"source": self._manifest.id},
+            )
+        return list(candidates)
 
     def _to_listing(self, item: Mapping[str, Any], collected_at: datetime) -> JobListing:
         values = {

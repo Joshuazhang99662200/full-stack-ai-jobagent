@@ -406,7 +406,8 @@ class PipelineMigrator:
                         entered_evidence_reference=row.entry_evidence_reference,
                     )
                     repository.create(
-                        job, meta, event_id="ENTRY_" + event_key, evidence_reference=reference
+                        job, meta, event_id="ENTRY_" + event_key, evidence_reference=reference,
+                        now=now,
                     )
                     if row.row_id in config.sent_row_ids:
                         declared = PipelineJob.model_validate(
@@ -425,7 +426,7 @@ class PipelineMigrator:
                             }
                         )
                         with working.connect() as connection, connection:
-                            repository.write_job(connection, declared, metadata)
+                            repository.write_job(connection, declared, metadata, now=now)
                             repository.append_history(
                                 connection,
                                 PipelineHistory(
@@ -438,6 +439,7 @@ class PipelineMigrator:
                                     evidence_reference=reference,
                                     reason_code="normal",
                                 ),
+                                now=now,
                             )
                             repository.remember(
                                 connection,

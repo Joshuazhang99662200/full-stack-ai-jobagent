@@ -29,8 +29,9 @@ class SqliteReadRepository:
         day = platform_day(now)
         if legacy_reads < 0:
             raise ContractValidationError("Invalid negative legacy read estimate.")
-        if (request.profile != "standard" or request.expected_daily_cap != daily_cap
-                or not 1 <= daily_cap <= 50):
+        if (request.expected_daily_cap != daily_cap or not 1 <= daily_cap <= 240
+                or (request.run_id is None and
+                    (request.profile != "standard" or daily_cap > 50))):
             raise ContractValidationError("Requested profile/cap differs from effective budget.")
         body = json.dumps(request.model_dump(mode="json"), sort_keys=True)
         digest = "sha256:" + hashlib.sha256(body.encode()).hexdigest()
@@ -49,6 +50,31 @@ class SqliteReadRepository:
                 reserved_at = datetime.fromisoformat(previous["reserved_at"])
                 allowed = False
             else:
+                run = None
+                if request.run_id is not None:
+                    run = SqliteSourcingRepository._get_run(connection, request.run_id)
+                    SqliteSourcingRepository._configured_request(connection, run, now=now)
+                    if (run.source != request.source
+                            or request.candidate_id not in {None, run.candidate_id}
+                            or daily_cap != run.daily_detail_limit
+                            or platform_day(run.opened_at) != day):
+                        raise ContractValidationError(
+                            "Capture conflicts with its source round/cap/day.",
+                        )
+                    valid_profiles: set[str] = {run.budget_profile}
+                    if run.budget_profile == "conservative":
+                        valid_profiles.add("standard")
+                    if request.profile not in valid_profiles:
+                        raise ContractValidationError(
+                            "Capture profile conflicts with its source round.",
+                        )
+                    _, detail_count = SqliteSourcingRepository._round_counts(connection, run.run_id)
+                    if detail_count >= run.detail_limit:
+                        raise ContractValidationError("Source round detail budget is exhausted.")
+                elif connection.execute("SELECT 1 FROM dynamic_rule_heads LIMIT 1").fetchone():
+                    raise ContractValidationError(
+                        "Configured capture requires a bound source round/run.",
+                    )
                 SqliteSourcingRepository._capture_legacy(connection, request.source, now)
                 budget = SqliteSourcingRepository._budget(
                     connection, request.source, daily_cap, now,
@@ -68,6 +94,11 @@ class SqliteReadRepository:
             attempt_id=request.attempt_id, source=request.source, request_digest=digest,
             reserved_at=reserved_at, daily_cap=daily_cap, profile=request.profile,
             allowed=allowed,
+            run_id=request.run_id,
+            rules_version=(SqliteSourcingRepository(self.database).get_run(
+                request.run_id,
+            ).rules_version
+                           if request.run_id else None),
         )
 
     def record(self, outcome: ReadOutcome, *, now: datetime) -> None:

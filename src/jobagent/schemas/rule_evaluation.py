@@ -12,6 +12,8 @@ class RuleEvaluation(ContractModel):
     referenced_variables: list[str]
     reason: NonEmptyString
     persisted: Literal[False] = False
+    snapshot_mode: Literal["unverified", "current", "historical"] = "unverified"
+    current_head_verified: bool = False
 
 
 class PollEvaluation(RuleEvaluation):

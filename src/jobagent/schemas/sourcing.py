@@ -6,6 +6,8 @@ from pydantic import AwareDatetime, Field, HttpUrl, StringConstraints, model_val
 
 from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
+from jobagent.schemas.dynamic_rules import RuleConfirmation, RuleProposal
+from jobagent.schemas.job_intelligence import JobListing
 
 SourcingId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
@@ -21,9 +23,16 @@ class QueryBudget(ContractModel):
     def check_query_policy(self) -> "QueryBudget":
         if self.budget_profile == "conservative" and self.query_limit > 6:
             raise ValueError("Conservative query limit cannot exceed six.")
-        if self.budget_profile == "muse-expanded-v1" and "query_limit" not in self.model_fields_set:
+        if (self.budget_profile == "muse-expanded-v1"
+                and "query_limit" not in self.model_fields_set
+                and getattr(self, "rules_version", None) is None):
             raise ValueError("Expanded policy requires an explicit query limit.")
         return self
+
+
+class ConfirmedRoundOverride(ContractModel):
+    proposal: RuleProposal
+    confirmation: RuleConfirmation
 
 
 class SourcingRunRequest(QueryBudget):
@@ -34,13 +43,18 @@ class SourcingRunRequest(QueryBudget):
 
     budget_profile: BudgetProfile = "conservative"
     daily_detail_cap: int | None = Field(default=None, ge=1, le=240)
+    top_per_query: int | None = Field(default=None, ge=1)
+    rules_version: Digest | None = None
+    base_rules_version: Digest | None = None
+    code_revision: Digest | None = None
+    round_overrides: list[ConfirmedRoundOverride] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def check_detail_policy(self) -> "SourcingRunRequest":
         if self.budget_profile == "conservative":
             if self.detail_limit > 50 or (self.daily_detail_cap or 0) > 50:
                 raise ValueError("Expanded detail limits require the explicit expanded policy.")
-        elif (
+        elif self.rules_version is None and (
             self.daily_detail_cap is None
             or not {"detail_limit", "daily_detail_cap"} <= self.model_fields_set
         ):
@@ -123,7 +137,9 @@ class ReadReservation(ContractModel):
     source: NonEmptyString
     target_url: HttpUrl
     profile: NonEmptyString
-    expected_daily_cap: int = Field(ge=1, le=50)
+    expected_daily_cap: int = Field(ge=1, le=240)
+    run_id: SourcingId | None = None
+    candidate_id: CandidateId | None = None
 
 
 class ReadOutcome(ContractModel):
@@ -141,6 +157,34 @@ class ReadReceipt(ContractModel):
     daily_cap: int
     profile: NonEmptyString
     allowed: bool
+    run_id: SourcingId | None = None
+    rules_version: Digest | None = None
+
+
+class QuerySelection(ContractModel):
+    requested: int = Field(ge=1)
+    observed_count: int = Field(ge=0)
+    taken_count: int = Field(ge=0)
+    shortfall: int = Field(ge=0)
+    items: list[JobListing]
+    duplicate_ids: list[str]
+
+
+class SourcingQueryCapture(ContractModel):
+    attempt_id: SourcingId
+    items: list[JobListing]
+    loaded: bool = False
+    access_state: Literal["public", "authenticated", "unknown", "loading", "blocked"] = "unknown"
+    next_cursor: str | None = None
+
+
+class SourcingQuerySelection(QuerySelection):
+    attempt_id: SourcingId
+    run_id: SourcingId
+    source: NonEmptyString
+    rules_version: Digest
+    next_cursor: str | None = None
+    traversal_complete: Literal[False] = False
 
 
 class SourcingDisposition(ContractModel):

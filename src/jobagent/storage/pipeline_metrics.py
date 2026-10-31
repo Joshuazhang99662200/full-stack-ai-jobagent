@@ -31,6 +31,7 @@ from jobagent.schemas.pipeline_metrics import (
     PipelineStoredDiagnosisInput,
 )
 from jobagent.storage.database import Database
+from jobagent.storage.pipeline_policy import require_pipeline_policy
 from jobagent.storage.pipeline_repository import PipelineRepository
 
 
@@ -307,9 +308,16 @@ class PipelineMetricsService:
         return PipelineRuleService(self.database).metric_rule(rule_id, candidate_id)
 
     @staticmethod
-    def _insert(connection: sqlite3.Connection, table: str, model: ContractModel) -> None:
+    def _insert(
+        connection: sqlite3.Connection, table: str, model: ContractModel,
+        *, now: datetime | None = None,
+    ) -> None:
         if table not in {"pipeline_stage_metrics", "pipeline_diagnoses"}:
             reject("Unsupported immutable pipeline analysis table.")
+        if table == "pipeline_diagnoses":
+            if not isinstance(model, PipelineDiagnosis):
+                reject("A diagnosis write requires its authoritative contract.")
+            require_pipeline_policy(connection, model.candidate_id, "diagnosis", now=now)
         data = model.model_dump(mode="json", exclude={"schema_version"})
         values = [
             json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value
@@ -400,6 +408,7 @@ class PipelineMetricsService:
             raise ContractValidationError("Stored diagnosis request is invalid.") from error
         with self.database.connect() as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
+            require_pipeline_policy(connection, public.candidate_id, "diagnosis", now=now)
             current = [
                 self._metric(connection, key, public.candidate_id)
                 for key in public.current_metric_ids
@@ -435,7 +444,7 @@ class PipelineMetricsService:
                 result: dict[str, object] = json.loads(existing[0])
                 return result
             for item in decision.diagnoses:
-                self._insert(connection, "pipeline_diagnoses", item)
+                self._insert(connection, "pipeline_diagnoses", item, now=now)
                 original = self._metric(connection, item.metric_id, public.candidate_id)
                 old_evidence, old_request = self._context(
                     connection, item.metric_id, public.candidate_id

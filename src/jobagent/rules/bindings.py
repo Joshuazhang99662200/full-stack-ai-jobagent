@@ -9,6 +9,7 @@ from jobagent.rules.service import validate_snapshot
 from jobagent.schemas.common import MoneyRange
 from jobagent.schemas.dynamic_rules import DynamicRuleSet
 from jobagent.schemas.job_intelligence import CandidateFilterContext
+from jobagent.schemas.sourcing import SourcingRunRequest
 
 
 def bind_filter_context(
@@ -54,6 +55,46 @@ def bind_query_count(rules: DynamicRuleSet, *, explicit: int | None = None) -> i
     if explicit is not None and explicit != count:
         raise ContractValidationError("Explicit query count conflicts with dynamic rules.")
     return count
+
+
+def bind_sourcing_run(
+    rules: DynamicRuleSet, request: SourcingRunRequest, *, source_ceiling: int,
+) -> SourcingRunRequest:
+    values = required(rules, [
+        "QUERIES_PER_SITE_PER_ROUND", "TOP_PER_QUERY",
+        "DETAIL_ATTEMPTS_PER_SITE_PER_ROUND", "DETAIL_CAP_PER_DAY",
+    ])
+    if request.candidate_id != rules.candidate_id:
+        raise ContractValidationError("Sourcing rules belong to another candidate.")
+    if request.rules_version is not None and request.rules_version != rules.version:
+        raise ContractValidationError("Sourcing rule version conflicts with the current snapshot.")
+    expected = {
+        "query_limit": bind_query_count(rules),
+        "top_per_query": values["TOP_PER_QUERY"],
+        "detail_limit": values["DETAIL_ATTEMPTS_PER_SITE_PER_ROUND"],
+        "daily_detail_cap": values["DETAIL_CAP_PER_DAY"],
+    }
+    for field, value in expected.items():
+        if field in request.model_fields_set and getattr(request, field) != value:
+            raise ContractValidationError(
+                "Explicit sourcing quantity conflicts with confirmed configuration.",
+                details={"field": field},
+            )
+    cap = int(values["DETAIL_CAP_PER_DAY"])  # type: ignore[arg-type]
+    if request.budget_profile == "conservative" and cap > source_ceiling:
+        raise ContractValidationError("Confirmed daily cap exceeds the current source ceiling.")
+    top = int(values["TOP_PER_QUERY"])  # type: ignore[arg-type]
+    if request.budget_profile == "muse-expanded-v1" and top > 10:
+        raise ContractValidationError("Confirmed result count conflicts with the expanded policy.")
+    try:
+        return SourcingRunRequest.model_validate({
+            **request.model_dump(include=set(SourcingRunRequest.model_fields)),
+            **expected, "rules_version": rules.version,
+        })
+    except ValueError as error:
+        raise ContractValidationError(
+            "Confirmed quantities conflict with the selected policy.",
+        ) from error
 
 
 def greeting_guidance(rules: DynamicRuleSet) -> list[str]:

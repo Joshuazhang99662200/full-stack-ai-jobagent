@@ -22,6 +22,7 @@ from jobagent.schemas.pipeline import (
     PipelineVerifiedEvidence,
 )
 from jobagent.storage.database import Database
+from jobagent.storage.pipeline_policy import require_pipeline_policy
 
 Pair = tuple[PipelineJob, PipelineMeta]
 
@@ -83,7 +84,18 @@ class PipelineRepository:
         meta: PipelineMeta,
         *,
         create: bool = False,
+        now: datetime | None = None,
     ) -> None:
+        if not connection.in_transaction:
+            connection.execute("BEGIN IMMEDIATE")
+        existing = connection.execute(
+            "SELECT candidate_id FROM pipeline_jobs WHERE pipeline_id=?", (job.pipeline_id,),
+        ).fetchone()
+        if existing is not None and existing[0] != job.candidate_id:
+            reject("A pipeline write cannot change its original candidate identity.")
+        if meta.pipeline_id != job.pipeline_id:
+            reject("Pipeline metadata belongs to another contact round.")
+        require_pipeline_policy(connection, job.candidate_id, "state", now=now)
         values = job.model_dump(mode="json", exclude={"schema_version"})
         if create:
             fields = ", ".join(values)
@@ -107,7 +119,17 @@ class PipelineRepository:
             )
 
     @staticmethod
-    def append_history(connection: sqlite3.Connection, history: PipelineHistory) -> None:
+    def append_history(
+        connection: sqlite3.Connection, history: PipelineHistory, *, now: datetime | None = None,
+    ) -> None:
+        if not connection.in_transaction:
+            connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            "SELECT candidate_id FROM pipeline_jobs WHERE pipeline_id=?", (history.pipeline_id,),
+        ).fetchone()
+        if row is None:
+            reject("Pipeline history requires an existing candidate-scoped record.")
+        require_pipeline_policy(connection, row[0], "state", now=now)
         values = history.model_dump(mode="json", exclude={"schema_version"})
         connection.execute(
             "INSERT INTO pipeline_state_history VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -131,8 +153,23 @@ class PipelineRepository:
         return None
 
     @staticmethod
-    def remember(connection: sqlite3.Connection, event_id: str, digest: str, pair: Pair) -> None:
+    def remember(
+        connection: sqlite3.Connection, event_id: str, digest: str, pair: Pair,
+        *, now: datetime | None = None,
+    ) -> None:
         job, meta = pair
+        require_pipeline_policy(connection, job.candidate_id, "state", now=now)
+        stored_job = connection.execute(
+            "SELECT * FROM pipeline_jobs WHERE pipeline_id=? AND candidate_id=?",
+            (job.pipeline_id, job.candidate_id),
+        ).fetchone()
+        stored_meta = connection.execute(
+            "SELECT meta_json FROM pipeline_meta WHERE pipeline_id=?", (job.pipeline_id,),
+        ).fetchone()
+        if (stored_job is None or stored_meta is None
+                or PipelineJob.model_validate(dict(stored_job)) != job
+                or PipelineMeta.model_validate_json(stored_meta[0]) != meta):
+            reject("A pipeline response must describe the actual current stored state.")
         connection.execute(
             "INSERT INTO pipeline_requests VALUES (?, ?, ?, ?, ?)",
             (
@@ -183,6 +220,7 @@ class PipelineRepository:
         event_id: str,
         evidence_reference: str,
         input_digest: str | None = None,
+        now: datetime | None = None,
     ) -> Pair:
         digest = input_digest or canonical_digest(
             [job.model_dump(mode="json"), meta.model_dump(mode="json"), evidence_reference]
@@ -197,7 +235,7 @@ class PipelineRepository:
                     reject("New contacts begin pending; historical claims need offline adoption.")
                 if meta.pipeline_id != job.pipeline_id:
                     reject("Pipeline metadata belongs to another contact round.")
-                self.write_job(connection, job, meta, create=True)
+                self.write_job(connection, job, meta, create=True, now=now)
                 connection.execute(
                     "INSERT OR IGNORE INTO pipeline_authorities VALUES (?, ?, ?)",
                     (job.candidate_id, job.updated_at.isoformat(), evidence_reference),
@@ -214,8 +252,9 @@ class PipelineRepository:
                         evidence_reference=evidence_reference,
                         reason_code="normal",
                     ),
+                    now=now,
                 )
-                self.remember(connection, event_id, digest, (job, meta))
+                self.remember(connection, event_id, digest, (job, meta), now=now)
                 return job, meta
         except sqlite3.IntegrityError as error:
             raise ContractValidationError(
@@ -241,10 +280,11 @@ class PipelineRepository:
                 if old:
                     return old
                 job, meta = self.current(connection, event.pipeline_id, event.candidate_id)
+                require_pipeline_policy(connection, event.candidate_id, "state", now=now)
                 changed, metadata, history = operation(job, meta)
-                self.write_job(connection, changed, metadata)
+                self.write_job(connection, changed, metadata, now=now)
                 if history:
-                    self.append_history(connection, history)
+                    self.append_history(connection, history, now=now)
                 if isinstance(event, PipelineTransition) and event.to_state in {
                     "greeting_sent",
                     "resume_sent",
@@ -259,7 +299,7 @@ class PipelineRepository:
                         reject("Proof binding requires an actual send reference.")
                     connection.execute("INSERT INTO pipeline_used_sends VALUES (?, ?, ?)",
                                        (event.send_reference, job.pipeline_id, event.event_id))
-                self.remember(connection, event.event_id, digest, (changed, metadata))
+                self.remember(connection, event.event_id, digest, (changed, metadata), now=now)
                 at = (
                     event.changed_at if isinstance(event, PipelineTransition) else event.observed_at
                 )
@@ -311,19 +351,27 @@ class PipelineRepository:
 
     def due(self, candidate_id: str, *, now: datetime) -> list[dict[str, object]]:
         result = []
-        for job, meta in self.list_records(candidate_id):
-            deadline = silence_deadline(job, meta)
-            if deadline is not None and (
-                meta.last_checked_at is None or meta.last_checked_at < now
-            ):
-                result.append(
-                    {
-                        "pipeline_id": job.pipeline_id,
-                        "platform": job.platform,
-                        "pipeline_state": job.pipeline_state,
-                        "version": meta.version,
-                        "deadline_at": deadline.isoformat(),
-                        "expiry_due": deadline <= now,
-                    }
-                )
+        with self.database.connect() as connection:
+            connection.execute("BEGIN")
+            require_pipeline_policy(connection, candidate_id, "state", now=now, for_write=False)
+            rows = connection.execute(
+                "SELECT pipeline_id FROM pipeline_jobs WHERE candidate_id=? "
+                "ORDER BY entered_at, pipeline_id", (candidate_id,),
+            ).fetchall()
+            for row in rows:
+                job, meta = self.current(connection, row[0], candidate_id)
+                deadline = silence_deadline(job, meta)
+                if deadline is not None and (
+                    meta.last_checked_at is None or meta.last_checked_at < now
+                ):
+                    result.append(
+                        {
+                            "pipeline_id": job.pipeline_id,
+                            "platform": job.platform,
+                            "pipeline_state": job.pipeline_state,
+                            "version": meta.version,
+                            "deadline_at": deadline.isoformat(),
+                            "expiry_due": deadline <= now,
+                        }
+                    )
         return result

@@ -33,13 +33,14 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | `ingest_jd` | 已落地 | `jobagent jobs ingest-jd`(人工补 JD 正文,门控平台的唯一路径) |
 | `add_jd` | 已落地 | `jobagent jobs add-jd`(用户自带的 JD 直接落库为 `JOB_*`,不需要 listing;来源默认 `manual`) |
 | `import_observations` | 已落地 | `jobagent jobs import-observations`(宿主在用户自己的浏览器里抓回的职位,按来源清单的 `host_browser` 校验后入库;浏览器操作本身是宿主能力) |
-| 读取尝试门禁 | 已落地 | `jobagent jobs reserve-read` · `jobagent jobs record-read`：显式 standard profile 与期望上限，原子预留和回执；重放 allowed=false，受限停站；浏览器由宿主执行 |
+| 读取尝试门禁 | 已落地 | `jobagent jobs reserve-read` · `jobagent jobs record-read`：原子预留和回执；动态初始化流程绑定所属 run_id，共用轮次与日消耗；重放 allowed=false，受限停站；浏览器由宿主执行 |
 | 观察历史 | 已落地 | `jobagent jobs observation-history`：只回显追加观察的版本、摘要与类型；完整面板可按真实平台 ID 与面板身份采集，历史未验证记录不追认全文 |
 | 整轮处理对账 | 已落地 | `jobagent jobs check-coverage`：每条输入恰有一个去向；完整采集须有可访问/已加载声明，部分采集保留检查点；不负责翻页或调度 |
 | `sourcing_budget` | 已落地 | `jobagent jobs sourcing-budget`（查询尝试、列表观察、详情尝试与旧观测估算分别报告；来源默认每日50详情，显式muse-expanded-v1政策允许每日240；两种读取入口共用已消耗额度与停站记录，动态额度仍受来源清单约束） |
-| 寻源轮次 | 已落地 | `jobagent jobs sourcing-start`（每站默认3查询/20详情尝试，固定轮次额度） |
+| 寻源轮次 | 已落地 | `jobagent jobs sourcing-start`（动态流程以 --rules-file 固定已确认查询、每查询取数、轮次详情与日额度；参数或来源政策冲突拒绝，不自动扩档） |
 | 读取预占 | 已落地 | `jobagent jobs sourcing-reserve`（原子预占；仅新 allowed=true 可执行；失败/重复读取不退额） |
 | 读取结果 | 已落地 | `jobagent jobs sourcing-result`（追加结果；gate 停该站当天预占；不授予发送权） |
+| 每查询取数与精确去重 | 已落地 | `jobagent jobs sourcing-take`（绑定真实查询尝试与冻结 TOP_PER_QUERY，回显期望/实际/不足/重复，只按同来源平台 ID 跨查询去重；不证明已遍历全部页面） |
 | `search_log` | 已落地 | `jobagent jobs search-log`(每次搜索都记一笔:站、检索词、列出几条、其中新职位几条;零结果也记) |
 | `search_plan` | 已落地 | `jobagent jobs search-plan`(按站给出这一轮该用的检索词:多数名额轮换最久没搜过的词,一个名额给历史上带出强匹配/可能匹配最多的词;附每个词的搜索次数、新增、命中与匹配产出) |
 | `fetch_jd` | 已落地 | `jobagent jobs fetch-jd`(读公开详情页,把 `JobListing` 补齐为 `SourceJobRecord`) |
@@ -201,16 +202,36 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | 变量定义与消费状态 | 已落地 | `jobagent rules definitions`：类型、用户参数/平台参考/不变量及实际消费者；不带个人默认值 |
-| 单变量修改提问 | 已落地 | `jobagent rules propose`：绑定候选人、来源、旧版本与一项新值；只保存提问，不生效 |
+| 首次表单与普通运行准备 | 已落地 | `jobagent rules prepare`：首次或本人主动修改才返回配置问题；普通运行跨轮次/任务类型/会话只读复用，缺值与冲突只报阻塞，不重开交互、不占额度 |
+| 登记首次初始化 | 已落地 | `jobagent rules initialize`：核对当前版本及必需确认值后保存初始化身份，不再请求相同参数确认；已有确认档升级保留身份 |
+| 单变量修改提问 | 已落地 | `jobagent rules propose`：绑定候选人、来源、旧版本与一项新值；初始化后还需匹配的本人主动调整记录；只保存提问，不生效 |
 | 参数确认与激活 | 已落地 | `jobagent rules approve`：原提问摘要与本人明确答复；旧版本冲突拒绝，事务内只更新指定变量；不授予外部动作权限 |
 | 生效值与待公告变更 | 已落地 | `jobagent rules effective`：读取/导出私有快照与待公告变更；读取不算通知完成 |
 | 参数历史 | 已落地 | `jobagent rules history`：追加版本及来源；不追溯重算旧终态 |
 | 公告回执 | 已落地 | `jobagent rules acknowledge`：宿主提供实际通知参考后记账；不发送消息 |
-| 动态条件判断 | 已落地 | `jobagent rules evaluate`：对齐轮询、放弃阈值、比例提案与积压选择的纯计算；不持久化队列、不调度、不自动优化 |
+| 动态条件判断 | 已落地 | `jobagent rules evaluate`：默认核对权威私有库当前 head；显式 --historical 标明历史/未核验当前；纯计算，不持久化队列、不调度、不自动优化 |
 | 既有入口绑定 | 已落地 | `jobs` 的薪资筛选、查询计划、详情预算及 `greetings generate` 支持显式 `--rules-file`；校验摘要与候选人，冲突报错，不静默回落 |
-| 宿主专属变量执行 | 委托外部技能 | 面板同步、MCP 只读并发、发送随机节律等按变量定义的 host 绑定交给宿主；登记参数不等于执行器已实现 |
+| pipeline 策略兼容守卫 | 已落地 | 生产状态/历史及比例派生写入在事务内核对当前候选人策略；适用缺值或不兼容返回 not_integrated，相关业务记录不变；事实指标计数独立 |
+| 宿主专属变量执行 | 委托外部技能 | 面板同步、首次采集数量和 BOSS 发送随机节律等仍由 host 执行；MCP 已接入下表所列网关，交接和记录均不授予投递权 |
 
 详细协议见 [dynamic-variables.md](dynamic-variables.md)。平台额度和凭证期限只作带日期的参考，不能由用户调参改写；队列快照与单岗 HOLD 不进入参数表。
+
+## MCP 实际调用与交接
+
+只支持经网关的搜索/查看，绑定现有配置化寻源轮次、候选人、规则与代码版本。实际派发才计量，准备和连接初始化不扣额；宿主绕过网关直接调用的外部工具不受本地库拦截。详见 [mcp-runtime.md](mcp-runtime.md)。
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 有版本 MCP 轮次 | 已落地 | `jobagent mcp round-start`：冻结确认参数与所属寻源轮次，不发起业务调用、不预扣投递数 |
+| 实际调用预算与状态 | 已落地 | `jobagent mcp status`：读取真实计数、前轮扣额、版本及停站状态 |
+| 只读 MCP 批次 | 已落地 | `jobagent mcp batch`：私有 stdio 传输、只读工具核验、批内限并发/批间串行；搜索/查看共计，TOP/详情/日额共用，429001 持久停站 |
+| 未知调用结果核验 | 已落地 | `jobagent mcp reconcile`：追加 host_observed 来源及正向回读，保留原未知与消耗，不重试、不自动解除日停站 |
+| 关闭实际轮次 | 已落地 | `jobagent mcp round-close`：结果已解决才关闭，冻结前轮真实投递观察供后轮扣额 |
+| 单项投递交接检查 | 已落地 | `jobagent mcp delivery-prepare`：一项在途、间隔与前项回读检查；executable=false，不批准、不发送 |
+| 宿主投递结果观察 | 已落地 | `jobagent mcp delivery-record`：保存真实来源、外部身份与正向回读；executed_by_gateway=false，不执行 apply |
+| 未知投递结果核验 | 已落地 | `jobagent mcp delivery-reconcile`：追加真实核验，保留原未知观察与停止记录，不重发 |
+
+猎聘获批定制附件与消息传输仍不受支持；交接检查不能替代原逐项批准或连接器能力。未确认批大小只阻塞，不激活建议值，也不重开普通任务的配置对话。
 
 ## Harness 运行支持
 
@@ -320,21 +341,21 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 |---|---|---|---|
 | 九态流程入库 | 已落地 | `jobagent pipeline create` | 实际岗位或已解析intake，候选人隔离 |
 | 有据流程转移 | 已落地 | `jobagent pipeline transition` | 固定转移图与证据，非法输入写拒绝审计 |
-| 流程观察与到期废止 | 已落地 | `jobagent pipeline observe` | 真实观察、统一48小时，不从徽标推断 |
+| 流程观察与到期废止 | 已落地 | `jobagent pipeline observe` | 真实观察；动态策略须兼容生产语义，缺值/冲突拒绝相关写入，不从徽标推断 |
 | 历史发送补证绑定 | 已落地 | `jobagent pipeline bind-send` | 原审批及准确回读，不构造时间 |
 | 新联系轮次绑定原获批回复 | 已落地 | `jobagent pipeline bind-reply` | 仅后续轮次，读取既有ask与approval，不审批、不发送 |
 | 同步真实完整JD与草稿 | 已落地 | `jobagent pipeline sync` | 只消费绑定intake产物，变化保留历史 |
 | 流程当前记录 | 已落地 | `jobagent pipeline list` | 候选人显式指定，返回job与meta |
 | 统一岗位表单 | 已落地 | `jobagent pipeline form` | 标准pipeline_job_form视图 |
 | 流程转移历史 | 已落地 | `jobagent pipeline history` | 只追加历史，required candidate |
-| 流程到期只读清单 | 已落地 | `jobagent pipeline due` | 不发送、不自动浏览 |
+| 流程到期只读清单 | 已落地 | `jobagent pipeline due` | 核对当前动态策略兼容性，不把不兼容的固定截止点当当前结果；不发送、不自动浏览 |
 | 私有迁移字段检查 | 已落地 | `jobagent pipeline inspect` | 只输出形状与摘要，不输出原文 |
 | 离线流程迁移 | 已落地 | `jobagent pipeline migrate` | 显式私有映射、备份、临时验证、原子激活 |
 | 流程迁移校验 | 已落地 | `jobagent pipeline verify-migration` | required candidate与原ID/来源一致性 |
 | 流程队列投影 | 已落地 | `jobagent pipeline project` | required candidate，不覆盖原始输入和备份 |
 | 受保护流程回滚 | 已落地 | `jobagent pipeline rollback` | required candidate，后续事实存在则拒绝 |
 | 累计漏斗指标 | 已落地 | `jobagent pipeline metrics` | 真实历史与来源切片，窗口比率仅参考 |
-| 累计比率诊断 | 已落地 | `jobagent pipeline diagnose` | 持久指标引用，无绝对样本门槛 |
+| 累计比率诊断 | 已落地 | `jobagent pipeline diagnose` | 持久指标引用，确认因子须与生产消费者兼容，无绝对样本门槛 |
 | 指标及来源证据 | 已落地 | `jobagent pipeline metric-show` | required candidate，透明核对分子分母 |
 | 归因诊断详情 | 已落地 | `jobagent pipeline diagnosis-show` | required candidate，附排除和累计比率 |
 | 流程优化规则提案 | 已落地 | `jobagent pipeline rule-propose` | 当前诊断与准确规则，默认不生效 |

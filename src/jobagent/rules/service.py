@@ -87,11 +87,19 @@ def make_proposal(
         raise ContractValidationError("Dynamic variable and provenance are unchanged.")
     old_text = json.dumps(old_value, ensure_ascii=False)
     new_text = json.dumps(request.value, ensure_ascii=False)
+    scope_text = ""
+    if request.owner_request is not None:
+        scope_text = (
+            f"Scope: round {request.owner_request.run_id} only; reusable settings unchanged. "
+            if request.owner_request.scope == "round"
+            else "Scope: reusable configuration. "
+        )
     question = (
         f"Confirm one parameter change for {request.candidate_id}: {request.name}: "
         f"{old_text} -> {new_text}. "
         f"Base: {request.expected_version or 'initial'}. Source: "
-        f"{request.provenance.source_ref}. This grants no send or delivery permission."
+        f"{request.provenance.source_ref}. {scope_text}"
+        "This grants no send or delivery permission."
     )
     question_digest = digest({"question": question, "request": request.model_dump(mode="json")})
     identity = digest({"question_digest": question_digest, "proposed_at": now.isoformat()})

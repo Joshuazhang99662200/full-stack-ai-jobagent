@@ -188,6 +188,8 @@ class MessageDiffRepository:
             replay: dict[str, object] = json.loads(old["confirmation_json"])
             return replay
         proposal = self.proposal(request.proposal_id, request.candidate_id)
+        if proposal.get("source_kind") == "pipeline_diagnosis":
+            reject("Pipeline diagnosis decisions must use the guarded pipeline rule service.")
         if (
             request.rule_hash != proposal["rule_hash"]
             or not request.owner_text.strip()

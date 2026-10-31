@@ -113,7 +113,7 @@ def test_published_schema_26_upgrades_without_losing_existing_facts(tmp_path):
         connection.commit()
     db.migrate()
     with db.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 30
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 33
         assert connection.execute("SELECT count(*) FROM sourcing_runs").fetchone()[0] == 1
         assert connection.execute("SELECT count(*) FROM dynamic_rule_versions").fetchone()[0] == 0
 

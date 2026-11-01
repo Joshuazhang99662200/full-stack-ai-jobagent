@@ -125,6 +125,18 @@
             "default": null,
             "title": "Message"
           },
+          "next_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Step"
+          },
           "recorded_at": {
             "format": "date-time",
             "title": "Recorded At",
@@ -1723,6 +1735,18 @@
         ],
         "default": null,
         "title": "Message"
+      },
+      "next_step": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Next Step"
       }
     },
     "required": [

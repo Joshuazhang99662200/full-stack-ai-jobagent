@@ -729,6 +729,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "开始采集。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:50:00+08:00"
         },
         {
@@ -746,6 +747,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "采集完成。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:54:00+08:00"
         },
         {
@@ -763,6 +765,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "开始读取详情。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:54:00+08:00"
         },
         {
@@ -780,6 +783,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "正在读取岗位详情，恢复点已保存。",
+          "next_step": "读完详情后评估匹配度。",
           "recorded_at": "2026-10-31T09:59:00+08:00"
         },
         {
@@ -797,6 +801,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "生成轮次级进度汇总，未归属单个岗位。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:56:00+08:00"
         },
         {
@@ -814,6 +819,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "轮次级汇总仍在执行。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:59:00+08:00"
         }
       ],
@@ -850,6 +856,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "开始采集。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:20:00+08:00"
         },
         {
@@ -867,6 +874,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "采集完成。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:25:00+08:00"
         },
         {
@@ -884,6 +892,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "核对证据。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:25:00+08:00"
         },
         {
@@ -901,6 +910,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "匹配完成。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:28:00+08:00"
         },
         {
@@ -918,6 +928,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "开始起草。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:28:00+08:00"
         },
         {
@@ -935,6 +946,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "草稿已保存。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:32:00+08:00"
         },
         {
@@ -952,6 +964,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "开始复核。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:32:00+08:00"
         },
         {
@@ -969,6 +982,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "复核完成。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:35:00+08:00"
         },
         {
@@ -986,6 +1000,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "准备审批。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:35:00+08:00"
         },
         {
@@ -1003,6 +1018,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "等待本人逐项审批。",
+          "next_step": "获批后按准确正文发送，并回读核对。",
           "recorded_at": "2026-10-31T09:59:00+08:00"
         },
         {
@@ -1020,6 +1036,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "并行核对同一岗位详情。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:55:00+08:00"
         },
         {
@@ -1037,6 +1054,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "详情复核仍在执行。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:59:00+08:00"
         }
       ],
@@ -1091,6 +1109,7 @@
           "artifact_reference": null,
           "checkpoint_reference": "DEMO_CHECKPOINT",
           "message": "心跳已过期，请核验恢复点。",
+          "next_step": null,
           "recorded_at": "2026-10-31T09:10:00+08:00"
         }
       ],

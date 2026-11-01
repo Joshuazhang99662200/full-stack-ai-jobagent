@@ -7,6 +7,7 @@ export interface Activity extends Fields {
   status: string;
   occurred_at: string;
   owner: string;
+  next_step?: string | null;
 }
 export interface RunView {
   run: Fields;

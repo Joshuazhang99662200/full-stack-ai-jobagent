@@ -758,6 +758,136 @@
 .ja-console .jq-row[data-closed="true"] .jq-job {
   color: var(--ja-color-ink-2);
 }
+.ja-console .jq-channel {
+  min-height: 32px;
+  padding: var(--ja-space-xs) var(--ja-space-sm);
+  margin-bottom: var(--ja-space-xs);
+  background: var(--ja-color-soft);
+  color: var(--ja-color-accent);
+}
+.ja-console .jq-ask .jq-attention {
+  min-height: 44px;
+  padding: var(--ja-space-xs) var(--ja-space-sm);
+  background: var(--ja-color-wait);
+  color: var(--ja-color-wait-ink);
+  border-color: transparent;
+}
+.ja-console .jq-dialog {
+  width: min(1040px, calc(100% - 32px));
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  margin: auto;
+  padding: var(--ja-space-xl);
+  border: 1px solid var(--ja-color-rule);
+  border-radius: var(--ja-radius);
+  background: var(--ja-color-paper);
+  color: var(--ja-color-ink);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.ja-console .jq-dialog::backdrop {
+  background: color-mix(in srgb, var(--ja-color-ink) 24%, transparent);
+}
+.ja-console .jq-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--ja-space-md);
+  margin-bottom: var(--ja-space-sm);
+}
+.ja-console .jq-dialog-head h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ja-console .jq-dialog-head button {
+  flex-shrink: 0;
+}
+.ja-console .jq-dialog .jq-details {
+  margin: 0;
+  padding: 0;
+  background: var(--ja-color-paper);
+}
+.ja-console .jq-dialog-tabs {
+  flex-wrap: wrap;
+  gap: var(--ja-space-md);
+}
+.ja-console .jq-dialog-tabs button {
+  white-space: normal;
+}
+.ja-console .jq-exact {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ja-console .jq-dialog pre {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.ja-console .jq-workflow {
+  margin-top: var(--ja-space-xl);
+  padding-top: var(--ja-space-lg);
+  border-top: 1px solid var(--ja-color-rule);
+}
+.ja-console .jq-workflow header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ja-space-md);
+}
+.ja-console .jq-workflow header h3 {
+  margin: 0;
+}
+.ja-console .jq-workflow ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ja-space-sm);
+  padding: 0;
+  list-style: none;
+}
+.ja-console .jq-workflow li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ja-space-sm);
+  padding: var(--ja-space-md);
+  border: 1px solid var(--ja-color-rule);
+  border-radius: var(--ja-radius);
+  color: var(--ja-color-muted);
+  background: var(--ja-color-track);
+  overflow-wrap: anywhere;
+}
+.ja-console .jq-workflow li > div {
+  min-width: 0;
+}
+.ja-console .jq-workflow small {
+  display: block;
+  margin-top: var(--ja-space-xs);
+}
+.ja-console .jq-workflow-dot {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: var(--ja-text-sm);
+}
+.ja-console .jq-workflow li[data-work-state="completed"] {
+  color: var(--ja-color-accent);
+  background: var(--ja-color-soft);
+}
+.ja-console .jq-workflow li[aria-current="step"] {
+  color: var(--ja-color-ink);
+  border-color: var(--ja-color-accent);
+  background: var(--ja-color-paper);
+  box-shadow: inset 3px 0 var(--ja-color-accent);
+}
+.ja-console .jq-workflow li[data-work-state="waiting"] {
+  background: var(--ja-color-wait);
+}
+.ja-console .jq-workflow li[data-work-state="failed"] {
+  color: var(--ja-color-error);
+  background: var(--ja-color-error-soft);
+}
 @media (max-width: 700px) {
   .ja-console .jq-head {
     display: none;
@@ -770,5 +900,11 @@
   .ja-console .jq-details,
   .ja-console .detail {
     padding: var(--ja-space-lg);
+  }
+  .ja-console .jq-dialog {
+    padding: var(--ja-space-md);
+  }
+  .ja-console .jq-dialog .jq-details {
+    padding: 0;
   }
 }

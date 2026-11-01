@@ -180,6 +180,7 @@ test("canonical job keeps one row and preserves distinct contact rounds", async 
   await expect(
     page.locator(`.jq-row[data-job="${active.job.job_id}"]`),
   ).toHaveAttribute("data-closed", "false");
+  await page.getByRole("dialog").getByRole("tab", { name: "原始记录" }).click();
   await page.getByText("历次联系记录（2）", { exact: true }).click();
   await expect(page.getByText(/OLD_CONTACT_HISTORY/)).toBeVisible();
 });

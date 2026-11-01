@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { JobQueue } from "./JobQueue";
+import { channelOf } from "./channels";
 import type {
   Activity,
   Definitions,
@@ -369,7 +370,11 @@ function JobPanel({
         <>
           <div className="section-head">
             <h2>与招聘方的沟通进展</h2>
-            <span>查看已发招呼、简历和面试等进展</span>
+            <span>
+              {channelOf(item).greetings
+                ? "查看已发招呼、简历和面试等进展"
+                : "查看简历、投递和面试等进展"}
+            </span>
           </div>
           <div className="job-list">
             {orderedItems.map((entry, index) => (
@@ -394,32 +399,42 @@ function JobPanel({
       <section className="selection">
         {!embedded && <h2>{text(item.job.title)}</h2>}
         <div className="states" aria-label="沟通进展">
-          {stateNames.map((state) => (
-            <div
-              key={state}
-              data-state={state}
-              data-visited={visited.has(state)}
-              aria-current={
-                item.job.pipeline_state === state ? "step" : undefined
-              }
-            >
-              <span>
-                {item.job.pipeline_state === state
-                  ? "当前"
-                  : visited.has(state)
-                    ? "已记录"
-                    : "未记录"}
-              </span>
-              <strong>{label(state)}</strong>
-            </div>
-          ))}
+          {stateNames
+            .filter(
+              (state) =>
+                channelOf(item).greetings || !state.startsWith("greeting_"),
+            )
+            .map((state) => (
+              <div
+                key={state}
+                data-state={state}
+                data-visited={visited.has(state)}
+                aria-current={
+                  item.job.pipeline_state === state ? "step" : undefined
+                }
+              >
+                <span>
+                  {item.job.pipeline_state === state
+                    ? "当前"
+                    : visited.has(state)
+                      ? "已记录"
+                      : "未记录"}
+                </span>
+                <strong>{label(state)}</strong>
+              </div>
+            ))}
         </div>
         <h3>进展记录</h3>
         <ol className="history">
           {item.history.map((entry, index) => (
             <li key={text(entry.history_id) || index}>
               <time>{when(entry.changed_at)}</time>
-              <strong>{label(entry.to_state)}</strong>
+              <strong>
+                {!channelOf(item).greetings &&
+                text(entry.to_state).startsWith("greeting_")
+                  ? "历史状态待核对"
+                  : label(entry.to_state)}
+              </strong>
               <span>{text(entry.evidence_reference)}</span>
             </li>
           ))}

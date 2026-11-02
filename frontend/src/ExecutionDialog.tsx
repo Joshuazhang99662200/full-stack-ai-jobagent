@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { HostBatch } from "./hostContracts";
 import { useHost, useHostOperation } from "./hostContext";
 import { JobDialog } from "./JobDialog";
-import { MaterialView } from "./DecisionPanel";
+import { MaterialView } from "./MaterialView";
+import { hasVerifiedReadback } from "./hostService";
 
 const names = {
   queued: "尚未执行",
@@ -26,6 +27,27 @@ export function ExecutionDialog({
   const operation = useHostOperation(`batch:${batch.batch_id}`);
   const items = batch.items.filter((i) => selected.includes(i.item_id));
   const ready = batch.status === "ready";
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let active = true;
+    void host?.source
+      .getSnapshot()
+      .then((snapshot) => {
+        if (active && snapshot.candidate_id === host.state.candidate_id)
+          setTitles(
+            Object.fromEntries(
+              snapshot.jobs.map((j) => [
+                String(j.job.job_id),
+                String(j.job.title),
+              ]),
+            ),
+          );
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [host?.source, host?.state.candidate_id]);
   return (
     <JobDialog title="逐项核对执行清单" onClose={onClose}>
       <p>只执行你明确勾选并确认的项目。请核对以下全文、材料版本和实际附件。</p>
@@ -54,8 +76,12 @@ export function ExecutionDialog({
           <p>
             {!ready && !item.selected
               ? "未选择，本次没有执行"
-              : item.status === "verified" && host?.source.mode === "demo"
-                ? "合成回读已核验"
+              : item.status === "verified"
+                ? hasVerifiedReadback(item)
+                  ? host?.source.mode === "demo"
+                    ? "合成回读已核验"
+                    : names.verified
+                  : names.unknown
                 : names[item.status]}
           </p>
           {item.readback && <p>{item.readback.detail}</p>}
@@ -68,16 +94,32 @@ export function ExecutionDialog({
           <ul>
             {batch.excluded.map((item, i) => (
               <li key={i}>
-                {host?.state.jobs
-                  .find((j) => j.job_id === item.job_id)
-                  ?.materials.at(-1)?.label ?? "待核对岗位"}
-                ：{item.reason}
+                {titles[item.job_id] ?? "待核对岗位"}：{item.reason}
               </li>
             ))}
           </ul>
         </section>
       )}
       <p>本次已选择 {items.length} 项。</p>
+      <section className="host-selection-echo" aria-label="已选清单核对">
+        <h3>已选清单核对</h3>
+        {items.length ? (
+          items.map((item) => (
+            <article key={item.item_id}>
+              <h4>
+                {item.title} · {item.channel}
+              </h4>
+              <p>材料版本：{item.material.label}</p>
+              <MaterialView material={item.material} />
+              <p className="note">
+                正文与附件内容已绑定本次选择；变更后须重新核对。
+              </p>
+            </article>
+          ))
+        ) : (
+          <p>尚未选择项目，请逐项核对后勾选。</p>
+        )}
+      </section>
       <button
         disabled={
           !host?.source.confirmExecution ||

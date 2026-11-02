@@ -49,7 +49,8 @@ test("Liepin routes materials without greeting steps and preserves raw records",
   await expect(dialog).not.toContainText("PRIVATE_GREETING_FOR_AUDIT");
   await expect(dialog).not.toContainText("招呼");
   await expect(dialog.getByRole("region", { name: "工作流程" })).toBeVisible();
-  await dialog.getByRole("tab", { name: "原始记录" }).click();
+  await dialog.getByRole("button", { name: "更多", exact: true }).click();
+  await dialog.getByRole("tab", { name: "排查问题" }).click();
   await expect(dialog).toContainText("PRIVATE_GREETING_FOR_AUDIT");
   await dialog.getByRole("button", { name: "关闭详情" }).click();
   await page.getByRole("tab", { name: "沟通进展", exact: true }).click();
@@ -134,7 +135,11 @@ test("workflow shows recorded completion, concurrent current work and unknown st
   await expect(flow.locator('[data-step="next"]')).toContainText(
     "计划 · 检查材料",
   );
-  await page.getByRole("tab", { name: "原始记录" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "更多", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "排查问题" }).click();
   await expect(flow).toBeVisible();
 });
 
@@ -190,6 +195,7 @@ test("mobile dialog fits the viewport and missing sources stay explicit", async 
   await page.goto("/?demo=1");
   await page.locator(".jq-job").first().click();
   const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "更多", exact: true }).click();
   await dialog.getByRole("tab", { name: "Signal / Harness" }).click();
   await expect(dialog).toContainText("Signal 尚未接入");
   const box = await dialog.boundingBox();

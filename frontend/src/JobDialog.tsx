@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 
 export function JobDialog({
   title,
@@ -10,6 +10,7 @@ export function JobDialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
@@ -19,14 +20,14 @@ export function JobDialog({
     return () => {
       dialog?.close();
       document.body.style.overflow = overflow;
-      if (opener?.isConnected) opener.focus();
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
   }, []);
   return (
     <dialog
       ref={ref}
       className="jq-dialog"
-      aria-labelledby="job-dialog-title"
+      aria-labelledby={titleId}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const controls = [
@@ -50,7 +51,7 @@ export function JobDialog({
       }}
     >
       <header className="jq-dialog-head">
-        <h2 id="job-dialog-title">{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button onClick={onClose} aria-label="关闭详情">
           关闭
         </button>

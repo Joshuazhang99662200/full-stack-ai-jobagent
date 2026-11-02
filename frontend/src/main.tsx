@@ -1,86 +1,57 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Console } from "./Console";
-import type { Definitions, Snapshot } from "./contracts";
-import { demo } from "./demo";
-import demoDefinitions from "./demo-definitions.json";
+import { SourceConsole } from "./SourceConsole";
+import { createHttpSource, type ConsoleDataSource } from "./dataSource";
+import { createDemoSource } from "./demoHost";
 import "./app.css";
+
 function App() {
   const example = new URLSearchParams(location.search).get("demo") === "1";
-  const [data, setData] = useState<Snapshot | null>(example ? demo : null);
-  const [definitions, setDefinitions] = useState<Definitions>(
-    example ? demoDefinitions : {},
+  const [source, setSource] = useState<ConsoleDataSource | null>(() =>
+    example ? null : createHttpSource(),
   );
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!example);
-  const controller = useRef<AbortController | null>(null);
-  async function load() {
-    controller.current?.abort();
-    const request = new AbortController();
-    controller.current = request;
-    setLoading(true);
-    setError("");
-    try {
-      const values = await Promise.all(
-        ["/api/snapshot", "/api/definitions"].map(async (path) => {
-          const response = await fetch(path, {
-            cache: "no-store",
-            signal: request.signal,
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return response.json();
-        }),
-      );
-      if (
-        values[0].schema_version !== "1.0" ||
-        !Array.isArray(values[0].runs) ||
-        !Array.isArray(values[0].jobs) ||
-        !Array.isArray(values[0].sources)
-      )
-        throw new Error("收到的数据格式与当前页面不匹配");
-      if (request.signal.aborted) return;
-      setData(values[0]);
-      setDefinitions(values[1]);
-    } catch (reason) {
-      if (request.signal.aborted) return;
-      setData(null);
-      setError(reason instanceof Error ? reason.message : "未知错误");
-    } finally {
-      if (!request.signal.aborted) setLoading(false);
-    }
-  }
   useEffect(() => {
-    if (!example) void load();
-    return () => controller.current?.abort();
-  }, []);
+    if (!example) return;
+    let active = true;
+    void Promise.all([import("./demo"), import("./demo-definitions.json")])
+      .then(async ([{ demo }, definitions]) => {
+        const key = "ja-console.synthetic.v1.CAND_DEMO";
+        const next = await createDemoSource({
+          snapshot: demo,
+          definitions: definitions.default,
+          storage: {
+            load: () => localStorage.getItem(key),
+            save: (value) => localStorage.setItem(key, value),
+          },
+        });
+        if (active) setSource(next);
+      })
+      .catch(() => {
+        if (active)
+          setError(
+            "合成存储无法读取，请在排查时核对；未自动重置或接入真实数据。",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [example]);
   if (error)
     return (
       <main className="load-state">
         <h1>岗位进展</h1>
-        <p role="alert">
-          读取失败：{error}。请检查本地服务是否已启动，以及候选人编号是否正确。
-        </p>
-        <button onClick={() => void load()}>重新读取</button>
+        <p role="alert">{error}</p>
       </main>
     );
-  if (!data)
+  if (!source)
     return (
       <main className="load-state">
         <h1>岗位进展</h1>
         <p role="status">正在读取本地任务记录…</p>
-        <div className="skeleton" aria-hidden="true" />
       </main>
     );
-  return (
-    <Console
-      syncUrl
-      snapshot={data}
-      definitions={definitions}
-      demo={example}
-      onRefresh={example ? undefined : () => void load()}
-      refreshing={loading}
-    />
-  );
+  return <SourceConsole source={source} syncUrl />;
 }
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

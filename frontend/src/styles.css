@@ -600,7 +600,10 @@
 .ja-console .jq-head,
 .ja-console .jq-row {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(140px, 1fr) 80px minmax(150px, 1fr) minmax(
+      180px,
+      1.3fr
+    ) minmax(130px, 0.8fr);
   gap: var(--ja-space-xl);
   align-items: start;
 }
@@ -906,5 +909,147 @@
   }
   .ja-console .jq-dialog .jq-details {
     padding: 0;
+  }
+}
+
+/* Host interactions reuse the existing console palette. */
+.ja-console .host-toolbar {
+  margin: 16px 0;
+  padding: 12px 0;
+  border-block: 1px solid var(--ja-color-rule);
+}
+.ja-console .host-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.ja-console .host-toolbar p {
+  margin-top: 8px;
+}
+.ja-console label {
+  max-width: 100%;
+}
+.ja-console textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 8px 0 16px;
+  padding: 12px;
+  resize: vertical;
+  font: inherit;
+  color: inherit;
+  background: var(--ja-color-paper);
+  border: 1px solid var(--ja-color-rule);
+  border-radius: var(--ja-radius);
+}
+.ja-console select {
+  max-width: 100%;
+  padding: 10px;
+  font: inherit;
+  color: inherit;
+  background: var(--ja-color-paper);
+  border: 1px solid var(--ja-color-rule);
+  border-radius: var(--ja-radius);
+}
+.ja-console .host-material,
+.ja-console .host-todo,
+.ja-console .host-exec-item {
+  margin: 12px 0;
+  padding: 16px;
+  background: var(--ja-color-track);
+  border-radius: var(--ja-radius);
+  overflow-wrap: anywhere;
+}
+.ja-console .host-material h4,
+.ja-console .host-todo h4 {
+  margin: 0 0 12px;
+}
+.ja-console .jq-ask .host-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  padding: 0;
+  border-radius: 50%;
+  background: #b63c36;
+}
+.ja-console .jq-summary {
+  align-items: center;
+}
+.ja-console .jq-rank {
+  display: block;
+}
+.ja-console .jq-rank small {
+  display: block;
+  margin-top: 8px;
+}
+.ja-console .jq-row {
+  cursor: pointer;
+  border-radius: var(--ja-radius);
+}
+.ja-console .jq-row:hover {
+  background: var(--ja-color-track);
+}
+.ja-console .jq-row:focus-visible {
+  outline: 2px solid var(--ja-color-focus);
+  outline-offset: 3px;
+}
+.ja-console .jq-channel-cell {
+  min-width: 0;
+}
+.ja-console .jq-salary {
+  display: block;
+  margin: 8px 0;
+}
+.ja-console .jq-dialog-tabs {
+  flex-wrap: wrap;
+}
+.ja-console .host-decisions {
+  margin-top: 24px;
+}
+.ja-console .host-exec-item input {
+  min-width: 20px;
+  min-height: 20px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@media (max-width: 1100px) {
+  .ja-console .jq-head {
+    display: none;
+  }
+  .ja-console .jq-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px 8px;
+  }
+  .ja-console .jq-job-info,
+  .ja-console .jq-rank,
+  .ja-console .jq-progress,
+  .ja-console .jq-needs {
+    min-width: 0;
+  }
+  .ja-console .jq-progress {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 600px) {
+  .ja-console .jq-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ja-console .jq-summary button {
+    padding: 8px 10px;
+  }
+  .ja-console .host-buttons button,
+  .ja-console .jq-dialog-tabs button {
+    white-space: normal;
+  }
+  .ja-console .host-material,
+  .ja-console .host-todo,
+  .ja-console .host-exec-item {
+    padding: 12px;
+  }
+  .ja-console .jq-report {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

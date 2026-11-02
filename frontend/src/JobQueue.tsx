@@ -6,7 +6,6 @@ import { text, type JobView, type Snapshot } from "./contracts";
 import {
   closed,
   contactGroups,
-  filterOf,
   label,
   report,
   scoreOf,
@@ -16,51 +15,25 @@ import {
   type Report,
   type Stage,
 } from "./agentReport";
+import { useHost } from "./hostContext";
+import { personalTodos } from "./hostService";
 
-const laneOrder: Record<Lane, number> = {
-  needs: 0,
-  active: 1,
-  waiting: 2,
-  idle: 3,
-  closed: 4,
-};
-const laneNames: [Lane, string][] = [
-  ["active", "正在推进"],
-  ["needs", "需要你"],
-  ["waiting", "等待对方"],
-];
-const filterNames: Record<string, string> = {
-  pass: "通过",
-  review: "待核对",
-  reject: "不通过",
-};
-function rank(a: JobView, b: JobView) {
-  const ranks: Record<string, number> = { pass: 0, review: 1, reject: 3 };
-  return (
-    (ranks[text(filterOf(a)?.decision)] ?? 2) -
-      (ranks[text(filterOf(b)?.decision)] ?? 2) ||
-    (scoreOf(b) ?? -Infinity) - (scoreOf(a) ?? -Infinity) ||
-    0
-  );
-}
 const unique = (items: Stage[]) => [
-  ...new Set(items.map((stage) => label(stage.event.activity))),
+  ...new Set(items.map((s) => label(s.event.activity))),
 ];
 function Progress({ item }: { item: Report }) {
   const done = unique(item.done);
   return (
     <ol className="jq-flow" aria-label="工作进展">
-      {done.length > 0 && (
-        <li className="done">已{done.slice(-3).join("、")}</li>
-      )}
-      {item.failed.map((stage) => (
-        <li className="failed" key={stage.key}>
-          {label(stage.event.activity)}失败
+      {!!done.length && <li className="done">已{done.slice(-3).join("、")}</li>}
+      {item.failed.map((s) => (
+        <li className="failed" key={s.key}>
+          {label(s.event.activity)}失败
         </li>
       ))}
-      {item.unconfirmed.map((stage) => (
-        <li className="unconfirmed" key={stage.key}>
-          {label(stage.event.activity)}：状态未确认
+      {item.unconfirmed.map((s) => (
+        <li className="unconfirmed" key={s.key}>
+          {label(s.event.activity)}：状态未确认
         </li>
       ))}
       {unique(item.current).map((name) => (
@@ -76,6 +49,32 @@ function Progress({ item }: { item: Report }) {
     </ol>
   );
 }
+function reasons(job: JobView): string {
+  const match = job.match_result;
+  if (!match) return "尚未读取匹配结论";
+  const parts = [
+    match.strengths,
+    match.partial_matches,
+    match.hard_gaps,
+    match.uncertainties,
+  ].flatMap((value) =>
+    Array.isArray(value)
+      ? value.map((item) =>
+          typeof item === "string"
+            ? item
+            : item && typeof item === "object"
+              ? String(item.message ?? item.reason ?? item.requirement ?? "")
+              : "",
+        )
+      : [],
+  );
+  return parts.filter(Boolean).join("；") || "已保存匹配评估，具体理由尚未接入";
+}
+function stamp(value: unknown) {
+  const n = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(n) ? n : -Infinity;
+}
+
 export function JobQueue({
   snapshot,
   renderJobDetails,
@@ -85,56 +84,104 @@ export function JobQueue({
   renderJobDetails: (job: JobView) => ReactNode;
   onTrace: (runId: string) => void;
 }) {
+  const host = useHost();
+  const todos = host ? personalTodos(host.state) : [];
   const all = stages(snapshot);
+  const [sort, setSort] = useState("match");
   const rows = contactGroups(snapshot.jobs)
-    .map((group) => ({
-      group,
-      job: group.representative,
-      item: routedReport(
-        group.representative,
+    .map((group) => {
+      const job = group.representative;
+      const ownTodos = todos.filter((t) =>
+        group.rounds.some(
+          (r) =>
+            r.job.job_id === t.job_id && r.job.pipeline_id === t.contact_id,
+        ),
+      );
+      const item = routedReport(
+        job,
         report(
-          group.representative,
+          job,
           group,
           all.filter(
-            (stage) =>
-              channelOf(group.representative).greetings ||
-              stage.event.activity !== "draft_greeting",
+            (s) =>
+              channelOf(job).greetings || s.event.activity !== "draft_greeting",
           ),
         ),
-      ),
-    }))
+      );
+      // Explicit personal decisions only. Status reviews and missing host data do not create a red dot.
+      item.asks = ownTodos.map((t) => ({
+        text: t.question,
+        detail: t.basis.join("；"),
+      }));
+      item.lane = closed(job)
+        ? "closed"
+        : ownTodos.length
+          ? "needs"
+          : item.current.length
+            ? "active"
+            : [
+                  "greeting_sent",
+                  "greeting_read",
+                  "resume_sent",
+                  "interviewed",
+                ].includes(text(job.job.pipeline_state))
+              ? "waiting"
+              : "idle";
+      const intake =
+        host?.state.jobs.find((j) => j.contact_id === job.job.pipeline_id)
+          ?.intake_at ?? job.job.created_at;
+      return { group, job, item, intake };
+    })
     .sort(
       (a, b) =>
-        laneOrder[a.item.lane] - laneOrder[b.item.lane] || rank(a.job, b.job),
+        Number(closed(a.job)) - Number(closed(b.job)) ||
+        (sort === "intake"
+          ? stamp(b.intake) - stamp(a.intake)
+          : (scoreOf(b.job) ?? -Infinity) - (scoreOf(a.job) ?? -Infinity)) ||
+        0,
     );
-  const [selected, setSelected] = useState(text(rows[0]?.job.job.pipeline_id));
+  const [selected, setSelected] = useState("");
   const [opened, setOpened] = useState(false);
+  const [initialTab, setInitialTab] = useState("progress");
   const [stageKey, setStageKey] = useState("");
   const [lane, setLane] = useState<Lane | "all">("all");
+  const open = (job: JobView, tab = "progress") => {
+    setSelected(text(job.job.pipeline_id));
+    setStageKey("");
+    setInitialTab(tab);
+    setOpened(true);
+  };
   if (!rows.length)
     return (
       <p className="empty">
         {snapshot.sources.some(
-          (source) =>
-            source.name === "pipeline" && source.status === "complete",
+          (s) => s.name === "pipeline" && s.status === "complete",
         )
           ? "还没有岗位记录。"
           : "暂时无法读取岗位记录。"}
       </p>
     );
-  const shown = rows.filter((row) => lane === "all" || row.item.lane === lane);
+  const shown = rows.filter((r) => lane === "all" || r.item.lane === lane);
   const current =
-    rows.find((row) => row.job.job.pipeline_id === selected) || rows[0];
-  const unbound = all.filter(
-    (stage) => !rows.some((row) => row.item.stages.includes(stage)),
-  ).length;
+    rows.find((r) => r.job.job.pipeline_id === selected) || rows[0];
   const chosen =
-    current.item.stages.find((stage) => stage.key === stageKey) ||
+    current.item.stages.find((s) => s.key === stageKey) ||
     current.item.stages.at(-1);
+  const unbound = all.filter(
+    (s) => !rows.some((r) => r.item.stages.includes(s)),
+  ).length;
   return (
     <section className="job-queue" aria-label="岗位进展">
       <div className="jq-summary" aria-label="按进展筛选">
-        {laneNames.map(([key, name]) => (
+        {(
+          [
+            ["all", "全部"],
+            ["active", "正在推进"],
+            ["needs", "需要你"],
+            ["waiting", "等待对方"],
+            ["closed", "已结束"],
+          ] as const
+        ).map(([key, name]) => (
           <button
             key={key}
             data-lane={key}
@@ -143,7 +190,7 @@ export function JobQueue({
           >
             {name}
             <strong>
-              {rows.filter((row) => row.item.lane === key).length}
+              {rows.filter((r) => key === "all" || r.item.lane === key).length}
             </strong>
           </button>
         ))}
@@ -152,93 +199,122 @@ export function JobQueue({
             显示全部
           </button>
         )}
+        <label>
+          排序{" "}
+          <select
+            aria-label="岗位排序"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+          >
+            <option value="match">按匹配度</option>
+            <option value="intake">按入库时间</option>
+          </select>
+        </label>
       </div>
       <div className="jq-head" aria-hidden="true">
         <span>岗位</span>
-        <span>我的进展</span>
-        <span>需要你</span>
+        <span>渠道</span>
+        <span>匹配情况</span>
+        <span>进展</span>
+        <span>待处理</span>
       </div>
-      {shown.map(({ job, group, item }) => {
-        const fit = group.ambiguous ? null : scoreOf(job);
-        const decision = group.ambiguous ? "" : text(filterOf(job)?.decision);
-        return (
-          <div
-            className="jq-row"
-            data-job={text(job.job.job_id)}
-            data-closed={closed(job)}
-            data-lane={item.lane}
-            key={text(job.job.pipeline_id)}
-          >
-            <div className="jq-job-info">
-              <button
-                className="jq-job"
-                aria-pressed={
-                  current.job.job.pipeline_id === job.job.pipeline_id
-                }
-                title={text(job.job.title)}
-                onClick={() => {
-                  setSelected(text(job.job.pipeline_id));
-                  setStageKey("");
-                  setOpened(true);
-                }}
-              >
-                {text(job.job.title)}
-              </button>
-              <button
-                className="jq-channel"
-                aria-label={`${channelOf(job).name} 渠道详情`}
-                onClick={() => {
-                  setSelected(text(job.job.pipeline_id));
-                  setStageKey("");
-                  setOpened(true);
-                }}
-              >
-                {channelOf(job).name}
-              </button>
-              <div className="jq-company">
-                <span>{text(job.job.company)}</span>
-                {job.meta.paused === true && <span>已暂停</span>}
-              </div>
-              <div className="jq-rank">
-                <span>基本要求：{filterNames[decision] || "未评估"}</span>
-                <span>
-                  匹配度：{fit === null ? "未评估" : Math.round(fit * 100)}
-                </span>
-              </div>
+      {shown.map(({ job, group, item }) => (
+        <div
+          className="jq-row"
+          data-job={text(job.job.job_id)}
+          data-closed={closed(job)}
+          data-lane={item.lane}
+          key={text(job.job.pipeline_id)}
+          tabIndex={0}
+          aria-label={`查看 ${text(job.job.title)} 详情`}
+          onKeyDown={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              ["Enter", " "].includes(e.key)
+            ) {
+              e.preventDefault();
+              open(job);
+            }
+          }}
+          onClick={(e) => {
+            if (
+              (e.target as HTMLElement).closest(
+                "button,a,input,textarea,select,summary",
+              ) ||
+              window.getSelection()?.toString()
+            )
+              return;
+            e.currentTarget.focus({ preventScroll: true });
+            open(job);
+          }}
+        >
+          <div className="jq-job-info">
+            <button
+              className="jq-job"
+              title={text(job.job.title)}
+              aria-pressed={current.job.job.pipeline_id === job.job.pipeline_id}
+              onClick={() => open(job)}
+            >
+              {text(job.job.title)}
+            </button>
+            <div className="jq-company">
+              <span>{text(job.job.company)}</span>
+              {job.meta.paused === true && <span>已暂停</span>}
             </div>
-            <div className="jq-progress">
-              <p className="jq-milestone">
-                {item.milestone}
-                {item.milestoneAt != null && (
-                  <time>{shortTime(item.milestoneAt)}</time>
-                )}
-              </p>
-              <Progress item={item} />
-            </div>
-            <div className="jq-needs">
-              {item.asks.length ? (
-                item.asks.map((ask) => (
-                  <p className="jq-ask" key={ask.text}>
-                    <button
-                      className="jq-attention"
-                      onClick={() => {
-                        setSelected(text(job.job.pipeline_id));
-                        setStageKey("");
-                        setOpened(true);
-                      }}
-                    >
-                      需要你
-                    </button>
-                    {ask.text}
-                  </p>
-                ))
-              ) : (
-                <span className="jq-none">—</span>
-              )}
-            </div>
+            <strong className="jq-salary">{text(job.job.salary_raw)}</strong>
+            <p>{text(job.job.location)}</p>
           </div>
-        );
-      })}
+          <div className="jq-channel-cell">
+            <button
+              className="jq-channel"
+              aria-label={`${channelOf(job).name} 渠道详情`}
+              onClick={() => open(job, "channel")}
+            >
+              {channelOf(job).name}
+            </button>
+          </div>
+          <div className="jq-rank">
+            <p>
+              {group.ambiguous
+                ? "存在多条未结束联系，评估适用范围需核对。"
+                : reasons(job)}
+            </p>
+            {!group.ambiguous && scoreOf(job) !== null && (
+              <small>已存匹配参考：{Math.round(scoreOf(job)! * 100)}%</small>
+            )}
+          </div>
+          <div className="jq-progress">
+            <p className="jq-milestone">
+              {item.milestone}
+              {item.milestoneAt != null && (
+                <time>{shortTime(item.milestoneAt)}</time>
+              )}
+            </p>
+            <Progress item={item} />
+          </div>
+          <div className="jq-needs">
+            {item.asks.length ? (
+              <p className="jq-ask">
+                <button
+                  className="jq-attention"
+                  onClick={() => open(job, "todo")}
+                  aria-label={`需要你：${item.asks[0].text}`}
+                >
+                  <span className="host-dot" aria-hidden="true" />
+                  需要你
+                </button>
+                {item.asks[0].text}
+              </p>
+            ) : (
+              <span className="jq-none">
+                {host?.source.mode === "snapshot" || !host
+                  ? "待办来源未接入"
+                  : "—"}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
       {!shown.length && <p className="empty">没有符合这个筛选的岗位。</p>}
       {unbound > 0 && (
         <p className="jq-unbound">
@@ -258,27 +334,22 @@ export function JobQueue({
               item={current.item}
               snapshot={snapshot}
               renderJobDetails={renderJobDetails}
+              initialTab={initialTab}
               progress={
                 <>
                   <dl className="jq-report">
                     <div>
                       <dt>我做到了哪里</dt>
-                      <dd>
-                        {current.item.milestone}
-                        {unique(current.item.done).length > 0 &&
-                          `；已${unique(current.item.done).join("、")}`}
-                      </dd>
+                      <dd>{current.item.milestone}</dd>
                     </div>
                     <div>
                       <dt>我正在做</dt>
                       <dd>
                         {current.item.current.length
-                          ? current.item.current
-                              .map((stage) => label(stage.event.activity))
-                              .join("、")
+                          ? unique(current.item.current).join("、")
                           : current.item.unconfirmed.length
-                            ? "有工作缺少近期更新，状态未确认"
-                            : "当前没有进行中的工作"}
+                            ? "工作缺少近期更新，状态未确认"
+                            : "现有记录中没有进行中的工作"}
                       </dd>
                     </div>
                     <div>
@@ -292,25 +363,15 @@ export function JobQueue({
                     <div>
                       <dt>需要你</dt>
                       <dd>
-                        {current.item.asks.length ? (
-                          <ul>
-                            {current.item.asks.map((ask) => (
-                              <li key={ask.text}>
-                                <strong>{ask.text}</strong>
-                                {ask.detail && <span>{ask.detail}</span>}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          "暂时不需要你处理"
-                        )}
+                        {current.item.asks.map((a) => a.text).join("；") ||
+                          (host?.source.mode === "snapshot"
+                            ? "待办来源未接入，尚无法确认"
+                            : "本次核对范围内没有待决定事项")}
                       </dd>
                     </div>
                   </dl>
                   {current.group.ambiguous && (
-                    <p role="status">
-                      这个岗位有多条尚未结束的联系记录，需要先核对，才能确定当前进展。
-                    </p>
+                    <p>这个岗位有多条尚未结束的联系记录，当前进展待核对。</p>
                   )}
                   <h3>工作记录</h3>
                   <div
@@ -321,7 +382,6 @@ export function JobQueue({
                       <button
                         key={stage.key}
                         aria-label={`${label(stage.event.activity)} / ${label(stage.status)} ${stage.started === null ? "开始未记录" : shortTime(stage.started)}，轮次 ${stage.runId}，阶段 ${stage.event.activity_id}`}
-                        title={`${stage.runId} / ${stage.event.activity_id}`}
                         aria-pressed={chosen?.key === stage.key}
                         data-status={stage.status}
                         onClick={() => setStageKey(stage.key)}
@@ -336,52 +396,17 @@ export function JobQueue({
                   {chosen ? (
                     <div className="jq-event-detail">
                       <p>{text(chosen.event.message)}</p>
-                      <dl className="facts">
-                        <div>
-                          <dt>状态</dt>
-                          <dd>{label(chosen.status)}</dd>
-                        </div>
-                        <div>
-                          <dt>最近更新</dt>
-                          <dd>{shortTime(chosen.event.occurred_at)}</dd>
-                        </div>
-                        <div>
-                          <dt>执行者</dt>
-                          <dd>{chosen.event.owner}</dd>
-                        </div>
-                        <div>
-                          <dt>恢复点</dt>
-                          <dd>{text(chosen.event.checkpoint_reference)}</dd>
-                        </div>
-                      </dl>
+                      <p>
+                        {label(chosen.status)} ·{" "}
+                        {shortTime(chosen.event.occurred_at)}
+                      </p>
                       <button onClick={() => onTrace(chosen.runId)}>
                         查看这次运行
                       </button>
-                      <details>
-                        <summary>查看工作原始数据</summary>
-                        <pre>{JSON.stringify(chosen.event, null, 2)}</pre>
-                      </details>
                     </div>
                   ) : (
                     <p className="note">还没有这个岗位的工作记录。</p>
                   )}
-                  <details>
-                    <summary>查看岗位评估记录</summary>
-                    <pre>
-                      {JSON.stringify(
-                        {
-                          match_result: current.job.match_result ?? null,
-                          match_context: current.job.match_context ?? null,
-                          hard_filter_result:
-                            current.job.hard_filter_result ?? null,
-                          hard_filter_context:
-                            current.job.hard_filter_context ?? null,
-                        },
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </details>
                 </>
               }
             />

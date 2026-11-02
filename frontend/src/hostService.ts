@@ -5,6 +5,8 @@ import type {
   HostSync,
   HostSyncDifference,
   HostTodo,
+  HostEvent,
+  HostExecutionItem,
 } from "./hostContracts";
 
 /** Scraped fields only. All other fields retain their existing owner and history. */
@@ -99,12 +101,23 @@ export function personalTodos(state: HostState): HostTodo[] {
       t.basis.length > 0 &&
       t.options.length > 0 &&
       state.jobs.some(
-        (j) =>
-          j.job_id === t.job_id &&
-          j.contact_id === t.contact_id &&
-          currentMaterial(j)?.revision === t.material_revision,
+        (j) => j.job_id === t.job_id && j.contact_id === t.contact_id,
       ),
   );
+}
+/** Collapse duplicate display entries without mutating the authoritative event chain. */
+export function displayHistory(events: HostEvent[]): HostEvent[] {
+  const visible = new Map<string, HostEvent>();
+  for (const event of events) {
+    const key = JSON.stringify([
+      event.job_id,
+      event.contact_id,
+      event.operation_key,
+    ]);
+    visible.delete(key);
+    visible.set(key, event);
+  }
+  return [...visible.values()];
 }
 export function safeMaterialUrl(url: string): string | null {
   try {
@@ -117,4 +130,16 @@ export function safeMaterialUrl(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+export function hasVerifiedReadback(item: HostExecutionItem): boolean {
+  return (
+    item.selected &&
+    item.status === "verified" &&
+    item.readback?.status === "verified" &&
+    !!item.readback.evidence &&
+    !!item.readback.observed_at &&
+    Number.isFinite(Date.parse(item.readback.observed_at)) &&
+    item.readback.material_revision === item.material.revision
+  );
 }

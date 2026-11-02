@@ -600,10 +600,9 @@
 .ja-console .jq-head,
 .ja-console .jq-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 80px minmax(150px, 1fr) minmax(
-      180px,
-      1.3fr
-    ) minmax(130px, 0.8fr);
+  grid-template-columns:
+    minmax(140px, 1fr) 80px minmax(150px, 1fr) minmax(180px, 1.3fr)
+    minmax(130px, 0.8fr);
   gap: var(--ja-space-xl);
   align-items: start;
 }
@@ -1052,4 +1051,73 @@
   .ja-console .jq-report {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Secondary dialogs retain the host template semantics. */
+.ja-console .host-sent-body {
+  padding: 16px;
+  border-radius: var(--ja-radius);
+  background: var(--ja-color-track);
+  color: var(--ja-color-ink-2);
+  font-style: italic;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ja-console .host-abandon {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--ja-color-rule);
+}
+.ja-console .host-danger {
+  color: var(--ja-color-error);
+  border-color: var(--ja-color-error);
+  background: var(--ja-color-error-soft);
+}
+.ja-console .host-detail-execution {
+  margin: 20px 0;
+}
+.ja-console .host-selection-echo {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--ja-color-accent);
+  border-radius: var(--ja-radius);
+}
+.ja-console .host-material-version {
+  font-size: var(--ja-text-sm);
+  color: var(--ja-color-ink-2);
+}
+.ja-console .jq-summary button[data-lane="needs"] {
+  position: relative;
+  padding-right: 32px;
+}
+.ja-console .jq-personal-badge {
+  position: absolute;
+  right: 4px;
+  top: -7px;
+  padding: 1px 6px;
+  border-radius: 12px;
+  color: var(--ja-color-error);
+  background: var(--ja-color-paper);
+  font-size: 12px;
+}
+.ja-console .jq-summary button[data-lane="needs"] .jq-personal-badge {
+  color: var(--ja-color-error);
+}
+.ja-console .jq-personal-badge::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 3px;
+  border-radius: 50%;
+  background: var(--ja-color-error);
+  vertical-align: middle;
+}
+.ja-console .jq-ask .jq-ask-action {
+  padding: 0;
+  border: none;
+  background: transparent;
+  white-space: normal;
+  text-align: left;
+  color: var(--ja-color-accent);
 }

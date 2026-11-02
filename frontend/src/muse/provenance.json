@@ -14,7 +14,11 @@
     "Current share-page layout and scoped CSS are the default, as selected by the user",
     "Live static demo mutations are replaced by the zip decision-readback flow and existing host services",
     "Unavailable sources and unsupported operations remain unknown or disabled; no private snapshot or assets shipped",
-    "Historical materials and exact sent content stay accessible through the zip MaterialList component"
+    "Historical materials and exact sent content stay accessible through the zip MaterialList component",
+    "2026-11-03: current template merges shared ChannelTag, persistent selection RPCs, approved-only quick execution, generation/signals and recorded failure views",
+    "Unreviewed auto-approval and binary-only outcomes are not ported; user explicitly confirmed approval-preserving integration",
+    "Completed batches show a summary; per-item results and exclusions stay in job progress/history",
+    "Synthetic selection/exclusion persistence is candidate-scoped; production hosts must inject durable services; no SQL or execution scripts copied"
   ],
   "current_source_url": "https://muse.ai/s/ui-xde6lxuxfxs74kd/nmGbS-bD-P6UW0oZ9dtEsPUMhNwg6mqdVPV6WwO5zb8",
   "current_style_sha256": "6c58c4fad015194408a20fac0390bfd66811e7e6687ffafcdb7342798b6eb3d4",
@@ -22,5 +26,12 @@
   "current_declarations_sha256": "1e17c59d1ade31a06ab4ba726d88a95de1fd4c43bcdd183096ef1b2b9db75d55",
   "zip_literal_classes": 381,
   "zip_literal_classes_sha256": "46a90a8458a06c0dcd6667c7888e5caafe255834ce103eec6ac22c25c2ce2588",
-  "zip_theme_sha256": "da0a2114fb4690fd9fef5c0a1b0f2d318f69bf079df51f07a364c7862b3d46b4"
+  "zip_theme_sha256": "da0a2114fb4690fd9fef5c0a1b0f2d318f69bf079df51f07a364c7862b3d46b4",
+  "sync_archive": {
+    "name": "codex-sync-2026-11-02.zip",
+    "sha256": "898122225ed5eb43e861114552814df99297e5cbc5462f25053f773091fa8aef",
+    "items": 5,
+    "client_snapshot": "2026-11-02 23:29",
+    "later_progress_addendum_in_code": false
+  }
 }

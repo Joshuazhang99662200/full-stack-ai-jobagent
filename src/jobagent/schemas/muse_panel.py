@@ -29,6 +29,7 @@ class MuseGetTableDataResponseRowsItem(MuseView):
     progressError: str | None
     progressUpdatedAt: str | None
     state: str
+    execFailureReason: str | None
     intakeAt: str | None
     contacted: bool
     waiting: bool
@@ -59,10 +60,28 @@ class MuseGetJobResponseJob(MuseView):
     blocked: bool
     blockedKind: str | None
     blockedNote: str | None
+    execFailureReason: str | None
     hasDraft: bool
     deliveryResult: str | None
     latestDecisionKind: str | None
     historyCount: float
+
+
+class MuseGetJobResponseExecFailuresRecentItem(MuseView):
+    id: float
+    kind: str
+    reason: str
+    batchId: float | None
+    createdAt: str
+
+
+class MuseGetJobResponseExecFailures(MuseView):
+    jobCount: float
+    channelCount: float
+    channel: str
+    lastReason: str | None
+    lastAt: str | None
+    recent: list[MuseGetJobResponseExecFailuresRecentItem]
 
 
 class MuseGetJobResponseDecisionsItem(MuseView):
@@ -105,6 +124,7 @@ class MuseGetJobResponse(MuseView):
     channel: str
     matchLabel: str
     matchScore: float | None
+    execFailures: MuseGetJobResponseExecFailures
     decisions: list[MuseGetJobResponseDecisionsItem]
     history: list[MuseGetJobResponseHistoryItem]
 
@@ -185,7 +205,7 @@ class MuseGetTodosRequest(MuseView):
 
 class MuseGetTodosResponseJobsItemItemsItem(MuseView):
     id: str
-    kind: Literal["greeting", "execution", "block", "review"]
+    kind: Literal["greeting", "execution", "block", "review", "failure"]
     action: str
     question: str
     reasons: list[str]
@@ -229,6 +249,10 @@ class MuseGetBatchResponseItemsItem(MuseView):
     title: str
     company: str
     platform: str
+    failureCount: float
+    channelFailureCount: float
+    lastFailureReason: str | None
+    lastFailureAt: str | None
 
 
 class MuseGetBatchResponse(MuseView):
@@ -330,6 +354,10 @@ class MuseGetExecPrecheckResponse(MuseView):
     greetingText: str | None
     blockReason: str | None
     familyRanks: list[float]
+    failureCount: float
+    channelFailureCount: float
+    lastFailureReason: str | None
+    lastFailureAt: str | None
 
 
 class MuseGetOnlineResumeRequest(MuseView):
@@ -385,6 +413,7 @@ class MuseSaveGreetingDraftResponse(MuseView):
     ok: bool
     error: str | None
     message: str | None
+    signalRecorded: bool
 
 
 class MuseCreateExecutionBatchRequest(MuseView):
@@ -398,6 +427,9 @@ class MuseCreateExecutionBatchResponseItemsItem(MuseView):
     company: str
     platform: str
     greetingPreview: str | None
+    failureCount: float
+    lastFailureReason: str | None
+    lastFailureAt: str | None
 
 
 class MuseCreateExecutionBatchResponseExcludedItem(MuseView):
@@ -468,6 +500,104 @@ class MuseRequestLoginRestoreResponse(MuseView):
     requestedAt: str | None
     requestId: str | None
     taskStarted: bool
+
+
+class MuseGetSelectionQueueRequest(MuseView):
+    pass
+
+
+class MuseGetSelectionQueueResponse(MuseView):
+    ranks: list[float]
+    count: float
+
+
+class MuseToggleSelectionItemRequest(MuseView):
+    rank: int
+    selected: bool
+
+
+class MuseToggleSelectionItemResponse(MuseView):
+    ranks: list[float]
+    count: float
+
+
+class MuseApplySelectionOperationRequest(MuseView):
+    operation: Literal["select_visible", "invert_visible", "clear_visible", "clear_all"]
+    visibleRanks: list[int]
+
+
+class MuseApplySelectionOperationResponse(MuseView):
+    ranks: list[float]
+    count: float
+
+
+class MuseExecuteSelectionDirectRequest(MuseView):
+    pass
+
+
+class MuseExecuteSelectionDirectResponseQueuedItem(MuseView):
+    rank: float
+    kind: str
+    title: str
+    company: str
+    platform: str
+
+
+class MuseExecuteSelectionDirectResponseExcludedItem(MuseView):
+    rank: float
+    reason: str
+
+
+class MuseExecuteSelectionDirectResponse(MuseView):
+    ok: bool
+    error: str | None
+    message: str | None
+    batchId: float | None
+    taskStarted: bool
+    queued: list[MuseExecuteSelectionDirectResponseQueuedItem]
+    excluded: list[MuseExecuteSelectionDirectResponseExcludedItem]
+
+
+class MuseExecuteJobDirectRequest(MuseView):
+    rank: int
+
+
+class MuseExecuteJobDirectResponse(MuseView):
+    ok: bool
+    error: str | None
+    message: str | None
+    batchId: float | None
+    taskStarted: bool
+
+
+class MuseRegenerateGreetingRequest(MuseView):
+    rank: int
+    currentText: str | None
+
+
+class MuseRegenerateGreetingResponse(MuseView):
+    ok: bool
+    error: str | None
+    message: str | None
+    greeting: str | None
+    signalRecorded: bool
+
+
+class MuseGetGreetingSignalsRequest(MuseView):
+    rank: int
+
+
+class MuseGetGreetingSignalsResponseSignalsItem(MuseView):
+    id: float
+    kind: str
+    beforeText: str | None
+    afterText: str
+    createdAt: str
+
+
+class MuseGetGreetingSignalsResponse(MuseView):
+    signals: list[MuseGetGreetingSignalsResponseSignalsItem]
+    count: float
 
 
 class MuseGenerateProgressRequest(MuseView):
@@ -559,6 +689,19 @@ MUSE_RPC_MODELS = {
     "confirmExecution": (MuseConfirmExecutionRequest, MuseConfirmExecutionResponse),
     "syncFromHost": (MuseSyncFromHostRequest, MuseSyncFromHostResponse),
     "requestLoginRestore": (MuseRequestLoginRestoreRequest, MuseRequestLoginRestoreResponse),
+    "getSelectionQueue": (MuseGetSelectionQueueRequest, MuseGetSelectionQueueResponse),
+    "toggleSelectionItem": (MuseToggleSelectionItemRequest, MuseToggleSelectionItemResponse),
+    "applySelectionOperation": (
+        MuseApplySelectionOperationRequest,
+        MuseApplySelectionOperationResponse,
+    ),
+    "executeSelectionDirect": (
+        MuseExecuteSelectionDirectRequest,
+        MuseExecuteSelectionDirectResponse,
+    ),
+    "executeJobDirect": (MuseExecuteJobDirectRequest, MuseExecuteJobDirectResponse),
+    "regenerateGreeting": (MuseRegenerateGreetingRequest, MuseRegenerateGreetingResponse),
+    "getGreetingSignals": (MuseGetGreetingSignalsRequest, MuseGetGreetingSignalsResponse),
     "generateProgress": (MuseGenerateProgressRequest, MuseGenerateProgressResponse),
     "seedFromSnapshot": (MuseSeedFromSnapshotRequest, MuseSeedFromSnapshotResponse),
     "repairMatchFromSnapshot": (

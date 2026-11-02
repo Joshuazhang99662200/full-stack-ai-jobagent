@@ -5,4 +5,6 @@ export {
   type MuseOperationStore,
 } from "./adapter";
 export type { MuseActions } from "./contracts";
+export type { MuseSyncActions } from "./syncAdapter";
+export { ChannelTag, channelBrandColor } from "./ChannelTag";
 export type { MuseConfiguration, MuseCvFiles } from "./context";

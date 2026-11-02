@@ -6,6 +6,10 @@ const reference = await readFile(
   new URL("./fixtures/muse-current-reference.css", import.meta.url),
   "utf8",
 );
+const syncReference = await readFile(
+  new URL("./fixtures/muse-sync-reference.css", import.meta.url),
+  "utf8",
+);
 async function measurements(page: Page, selector: string, offset = 0) {
   return page.locator(selector).evaluateAll(
     (nodes, yOffset) =>
@@ -50,8 +54,10 @@ for (const width of [375, 860, 1440])
     const golden = await context.newPage();
     await golden.setViewportSize({ width, height: 1000 });
     await golden.setContent(
-      `<!doctype html><html lang="zh-CN"><style>${reference}.material-history{margin-top:14px}</style><body>${await root.innerHTML()}</body></html>`,
+      `<!doctype html><html lang="zh-CN"><style>${reference}${syncReference}.material-history{margin-top:14px}</style><body>${await root.innerHTML()}</body></html>`,
     );
+    await page.mouse.move(0, 0);
+    await golden.mouse.move(0, 0);
     const selectors = [
       ".topbar-in",
       ".navtab",
@@ -80,8 +86,10 @@ for (const width of [375, 860, 1440])
       .getByRole("heading", { name: "岗位要点", exact: true })
       .waitFor();
     await golden.setContent(
-      `<!doctype html><html lang="zh-CN"><style>${reference}.material-history{margin-top:14px}</style><body>${await root.innerHTML()}</body></html>`,
+      `<!doctype html><html lang="zh-CN"><style>${reference}${syncReference}.material-history{margin-top:14px}</style><body>${await root.innerHTML()}</body></html>`,
     );
+    await page.mouse.move(0, 0);
+    await golden.mouse.move(0, 0);
     for (const selector of [
       ".scrim",
       ".modal",

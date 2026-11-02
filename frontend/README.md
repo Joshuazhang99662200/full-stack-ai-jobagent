@@ -25,6 +25,14 @@ import '@jobagent/polling-console/muse/styles.css';
 
 当前页样式限定在 `.muse-current`。zip 对照入口包含其原 Tailwind 基础样式，Muse 样式包适合独立面板；宿主需要完全隔离样式时在 iframe 内挂载。React 和 React Query 作为 Muse 库的外部运行时依赖；分发构建资产时保留 `THIRD_PARTY_NOTICES.md`。
 
+## 2026-11-03 同步增量
+
+默认模板新增统一渠道标签、常驻选择队列、仅消费已有准确批准的快捷执行、重新生成与改写记录、失败累计与本人重试，以及完成结果归岗位进展。详见 [增量合并核对](../docs/panel-sync-merge-2026-11-03.md)。
+
+`MusePanel` 的完整动作接口已包含同步包新增 RPC；`MuseSourcePanel` 可接收 `syncActions` 注入真实服务。缺少服务端选择接口时禁用选择；重新生成须同时提供生成与 signal 查询，未接通时明确禁用。默认 demo 的选择存储只是合成演示，不能当作服务端持久化验收。
+
+快捷执行不为未审阅材料自动批准，失败项保留在选择队列；结果未知不能重试。只把正向回读成功的岗位移出已选。完成后只留批次汇总，逐项结果在各岗位进展与历史中查看。
+
 ## 兼容 Console 参考接口
 
 以下为 `?legacy=1` 及原 `<Console>` / `<SourceConsole>` 组件说明；不表示当前 Muse 模板沿用这些布局。

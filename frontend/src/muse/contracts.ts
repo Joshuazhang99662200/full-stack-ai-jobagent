@@ -1,4 +1,12 @@
 // Generated from src/jobagent/schemas/muse_panel.py. Do not edit.
+export interface MuseApplySelectionOperationRequest {
+  operation: "select_visible" | "invert_visible" | "clear_visible" | "clear_all";
+  visibleRanks: Array<number>;
+}
+export interface MuseApplySelectionOperationResponse {
+  ranks: Array<number>;
+  count: number;
+}
 export interface MuseConfirmExecutionRequest {
   batchId: number;
 }
@@ -27,6 +35,9 @@ export interface MuseCreateExecutionBatchResponseItemsItem {
   company: string;
   platform: string;
   greetingPreview: string | null;
+  failureCount: number;
+  lastFailureReason: string | null;
+  lastFailureAt: string | null;
 }
 export interface MuseCreateJobExecutionBatchRequest {
   rank: number;
@@ -48,6 +59,38 @@ export interface MuseCreateJobExecutionBatchResponseItemsItem {
   company: string;
   platform: string;
   greetingPreview: string | null;
+}
+export interface MuseExecuteJobDirectRequest {
+  rank: number;
+}
+export interface MuseExecuteJobDirectResponse {
+  ok: boolean;
+  error: string | null;
+  message: string | null;
+  batchId: number | null;
+  taskStarted: boolean;
+}
+export interface MuseExecuteSelectionDirectRequest {
+}
+export interface MuseExecuteSelectionDirectResponse {
+  ok: boolean;
+  error: string | null;
+  message: string | null;
+  batchId: number | null;
+  taskStarted: boolean;
+  queued: Array<MuseExecuteSelectionDirectResponseQueuedItem>;
+  excluded: Array<MuseExecuteSelectionDirectResponseExcludedItem>;
+}
+export interface MuseExecuteSelectionDirectResponseExcludedItem {
+  rank: number;
+  reason: string;
+}
+export interface MuseExecuteSelectionDirectResponseQueuedItem {
+  rank: number;
+  kind: string;
+  title: string;
+  company: string;
+  platform: string;
 }
 export interface MuseGenerateProgressRequest {
   limit: number;
@@ -83,6 +126,10 @@ export interface MuseGetBatchResponseItemsItem {
   title: string;
   company: string;
   platform: string;
+  failureCount: number;
+  channelFailureCount: number;
+  lastFailureReason: string | null;
+  lastFailureAt: string | null;
 }
 export interface MuseGetChannelLoginRequest {
 }
@@ -155,6 +202,24 @@ export interface MuseGetExecPrecheckResponse {
   greetingText: string | null;
   blockReason: string | null;
   familyRanks: Array<number>;
+  failureCount: number;
+  channelFailureCount: number;
+  lastFailureReason: string | null;
+  lastFailureAt: string | null;
+}
+export interface MuseGetGreetingSignalsRequest {
+  rank: number;
+}
+export interface MuseGetGreetingSignalsResponse {
+  signals: Array<MuseGetGreetingSignalsResponseSignalsItem>;
+  count: number;
+}
+export interface MuseGetGreetingSignalsResponseSignalsItem {
+  id: number;
+  kind: string;
+  beforeText: string | null;
+  afterText: string;
+  createdAt: string;
 }
 export interface MuseGetJobMaterialsRequest {
   rank: number;
@@ -241,6 +306,7 @@ export interface MuseGetJobResponse {
   channel: string;
   matchLabel: string;
   matchScore: number | null;
+  execFailures: MuseGetJobResponseExecFailures;
   decisions: Array<MuseGetJobResponseDecisionsItem>;
   history: Array<MuseGetJobResponseHistoryItem>;
 }
@@ -250,6 +316,21 @@ export interface MuseGetJobResponseDecisionsItem {
   note: string | null;
   greetingText: string | null;
   status: string;
+  createdAt: string;
+}
+export interface MuseGetJobResponseExecFailures {
+  jobCount: number;
+  channelCount: number;
+  channel: string;
+  lastReason: string | null;
+  lastAt: string | null;
+  recent: Array<MuseGetJobResponseExecFailuresRecentItem>;
+}
+export interface MuseGetJobResponseExecFailuresRecentItem {
+  id: number;
+  kind: string;
+  reason: string;
+  batchId: number | null;
   createdAt: string;
 }
 export interface MuseGetJobResponseHistoryItem {
@@ -276,6 +357,7 @@ export interface MuseGetJobResponseJob {
   blocked: boolean;
   blockedKind: string | null;
   blockedNote: string | null;
+  execFailureReason: string | null;
   hasDraft: boolean;
   deliveryResult: string | null;
   latestDecisionKind: string | null;
@@ -303,6 +385,12 @@ export interface MuseGetReviewBriefResponse {
   incomplete: boolean;
   note: string | null;
 }
+export interface MuseGetSelectionQueueRequest {
+}
+export interface MuseGetSelectionQueueResponse {
+  ranks: Array<number>;
+  count: number;
+}
 export interface MuseGetTableDataRequest {
 }
 export interface MuseGetTableDataResponse {
@@ -326,6 +414,7 @@ export interface MuseGetTableDataResponseRowsItem {
   progressError: string | null;
   progressUpdatedAt: string | null;
   state: string;
+  execFailureReason: string | null;
   intakeAt: string | null;
   contacted: boolean;
   waiting: boolean;
@@ -352,7 +441,7 @@ export interface MuseGetTodosResponseJobsItem {
 }
 export interface MuseGetTodosResponseJobsItemItemsItem {
   id: string;
-  kind: "greeting" | "execution" | "block" | "review";
+  kind: "greeting" | "execution" | "block" | "review" | "failure";
   action: string;
   question: string;
   reasons: Array<string>;
@@ -380,6 +469,17 @@ export interface MuseRecordDecisionResponse {
   message: string | null;
   decisionId: number | null;
   writebackStarted: boolean;
+}
+export interface MuseRegenerateGreetingRequest {
+  rank: number;
+  currentText: string | null;
+}
+export interface MuseRegenerateGreetingResponse {
+  ok: boolean;
+  error: string | null;
+  message: string | null;
+  greeting: string | null;
+  signalRecorded: boolean;
 }
 export interface MuseRepairMatchFromSnapshotRequest {
 }
@@ -410,6 +510,7 @@ export interface MuseSaveGreetingDraftResponse {
   ok: boolean;
   error: string | null;
   message: string | null;
+  signalRecorded: boolean;
 }
 export interface MuseSeedFromSnapshotRequest {
 }
@@ -433,6 +534,14 @@ export interface MuseSyncNewJobsResponse {
   intakeCount: number;
   newRanksPresent: Array<number>;
 }
+export interface MuseToggleSelectionItemRequest {
+  rank: number;
+  selected: boolean;
+}
+export interface MuseToggleSelectionItemResponse {
+  ranks: Array<number>;
+  count: number;
+}
 export interface MuseActions {
   getTableData(args: MuseGetTableDataRequest): Promise<MuseGetTableDataResponse>;
   getJob(args: MuseGetJobRequest): Promise<MuseGetJobResponse>;
@@ -452,6 +561,13 @@ export interface MuseActions {
   confirmExecution(args: MuseConfirmExecutionRequest): Promise<MuseConfirmExecutionResponse>;
   syncFromHost(args: MuseSyncFromHostRequest): Promise<MuseSyncFromHostResponse>;
   requestLoginRestore(args: MuseRequestLoginRestoreRequest): Promise<MuseRequestLoginRestoreResponse>;
+  getSelectionQueue(args: MuseGetSelectionQueueRequest): Promise<MuseGetSelectionQueueResponse>;
+  toggleSelectionItem(args: MuseToggleSelectionItemRequest): Promise<MuseToggleSelectionItemResponse>;
+  applySelectionOperation(args: MuseApplySelectionOperationRequest): Promise<MuseApplySelectionOperationResponse>;
+  executeSelectionDirect(args: MuseExecuteSelectionDirectRequest): Promise<MuseExecuteSelectionDirectResponse>;
+  executeJobDirect(args: MuseExecuteJobDirectRequest): Promise<MuseExecuteJobDirectResponse>;
+  regenerateGreeting(args: MuseRegenerateGreetingRequest): Promise<MuseRegenerateGreetingResponse>;
+  getGreetingSignals(args: MuseGetGreetingSignalsRequest): Promise<MuseGetGreetingSignalsResponse>;
   generateProgress(args: MuseGenerateProgressRequest): Promise<MuseGenerateProgressResponse>;
   seedFromSnapshot(args: MuseSeedFromSnapshotRequest): Promise<MuseSeedFromSnapshotResponse>;
   repairMatchFromSnapshot(args: MuseRepairMatchFromSnapshotRequest): Promise<MuseRepairMatchFromSnapshotResponse>;

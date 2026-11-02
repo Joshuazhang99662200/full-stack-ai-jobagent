@@ -111,3 +111,15 @@
 /* Restore browser defaults removed by Tailwind, matching the reference document. */
 .muse-current p{margin-block:1em}
 .muse-current .modal .x{padding:1px 6px}
+
+/* Authorized sync delta: row selection and distinct recorded execution outcomes. */
+.muse-current .trow{grid-template-columns:28px 1.12fr .36fr 1.32fr 1.78fr .88fr}
+.muse-current .selection-bar{margin:12px 0;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.muse-current .selection-cell input{width:18px;height:18px;accent-color:var(--blue)}
+.muse-current .execution-workflow{border-top:1px solid var(--line);margin-top:16px;padding-top:8px}
+.muse-current .outcome-done{color:var(--blue)}
+.muse-current .outcome-failed{color:var(--red)}
+.muse-current .outcome-executing{outline:1px solid var(--blue);padding:8px}
+@media(max-width:860px){.muse-current .trow{grid-template-columns:1fr}}
+
+.muse-current .selection-cell input{margin:0;font:inherit;color:inherit}

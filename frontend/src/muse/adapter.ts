@@ -5,6 +5,7 @@ import type {
   HostMaterial,
   HostDecisionRequest,
   HostBatch,
+  HostState,
 } from "../hostContracts";
 import {
   currentMaterial,
@@ -16,6 +17,14 @@ import {
 import { channelOf } from "../channels";
 import type { MuseActions, ApiResponse } from "./contracts";
 
+import { executionFacts } from "./executionFacts";
+import {
+  createSyncActions,
+  skippedHistory,
+  type MuseSyncActions,
+  type MuseCoreActions,
+} from "./syncAdapter";
+
 type Response<K extends keyof MuseActions> = ApiResponse<MuseActions, K>;
 type MaterialItem = Response<"getJobMaterials">["sentGreetings"][number];
 export interface MuseOperationStore {
@@ -24,6 +33,8 @@ export interface MuseOperationStore {
 }
 export interface MuseAdapterOptions {
   operationStore: MuseOperationStore;
+  sync?: Partial<MuseSyncActions>;
+  onChange?: () => void;
 }
 const value = (v: unknown) => (typeof v === "string" ? v : "");
 const strings = (v: unknown): string[] =>
@@ -39,6 +50,22 @@ const hash = (v: string) => {
   return n >>> 0;
 };
 
+function hasApprovedMaterial(entry?: HostJob) {
+  if (!entry) return false;
+  const decision = latestDecision(entry),
+    material = currentMaterial(entry),
+    approved = decision?.material;
+  return (
+    decision?.kind === "approve_material" &&
+    !!material &&
+    !!approved &&
+    approved.revision === material.revision &&
+    approved.body === material.body &&
+    JSON.stringify(approved.attachments.map((a) => a.digest)) ===
+      JSON.stringify(material.attachments.map((a) => a.digest))
+  );
+}
+
 /** Translate source RPC views only. Canonical state and all side effects stay in host services. */
 export function createMuseActions(
   source: ConsoleDataSource,
@@ -47,6 +74,7 @@ export function createMuseActions(
   const identities = new Map<number, string>();
   const batches = new Map<number, string>();
   let verifiedContacts = new Set<string>();
+  let observedState: HostState | null = null;
   function batchNumber(id: string) {
     let key = hash(id) || 1;
     while (batches.has(key) && batches.get(key) !== id) key++;
@@ -56,6 +84,7 @@ export function createMuseActions(
   async function data() {
     const snapshot = checkSnapshot(await source.getSnapshot());
     const state = await source.getHostState();
+    observedState = state;
     if (
       source.mode !== "snapshot" &&
       state.candidate_id !== snapshot.candidate_id
@@ -117,11 +146,25 @@ export function createMuseActions(
       ].includes(String(job.job.pipeline_state))
     )
       return channelOf(job).greetings ? "sent" : "delivered";
+    const execution =
+      observedState &&
+      executionFacts(
+        observedState,
+        String(job.job.pipeline_id),
+        channelOf(job).name,
+      );
+    if (execution?.status === "executing") return "executing";
+    if (execution?.status === "failed") return "exec_failed";
+    if (execution?.status === "unknown") return "exec_unknown";
     if (
-      entry &&
-      latest?.kind === "approve_material" &&
-      latest.material?.revision === currentMaterial(entry)?.revision
+      options.operationStore.load(
+        `muse.sync.request.${job.job.candidate_id}.${rankOf(job)}`,
+      ) &&
+      execution?.status !== "done" &&
+      execution?.status !== "failed"
     )
+      return "exec_unknown";
+    if (hasApprovedMaterial(entry))
       return channelOf(job).greetings ? "pending_greeting" : "pending_delivery";
     return "pending_review";
   }
@@ -138,6 +181,13 @@ export function createMuseActions(
       location: value(job.job.location) || null,
       salary: value(job.job.salary_raw) || null,
       jobUrl: value(job.job.job_url) || null,
+      execFailureReason: observedState
+        ? executionFacts(
+            observedState,
+            String(job.job.pipeline_id),
+            channelOf(job).name,
+          ).archive.lastReason
+        : null,
       hostStatus: state,
       state,
       stateLabel:
@@ -281,6 +331,18 @@ export function createMuseActions(
           company: value(job.job.company),
           platform: item.channel,
           greetingPreview: item.material.body || null,
+          failureCount: observedState
+            ? executionFacts(observedState, item.contact_id, item.channel)
+                .archive.jobCount
+            : 0,
+          lastFailureReason: observedState
+            ? executionFacts(observedState, item.contact_id, item.channel)
+                .archive.lastReason
+            : null,
+          lastFailureAt: observedState
+            ? executionFacts(observedState, item.contact_id, item.channel)
+                .archive.lastAt
+            : null,
         };
       }),
       excluded: batch.excluded.map((e) => ({
@@ -289,7 +351,7 @@ export function createMuseActions(
       })),
     };
   }
-  const actions: MuseActions = {
+  const actions: MuseCoreActions = {
     getTableData: async () => {
       const { snapshot, state } = await data();
       return {
@@ -312,6 +374,7 @@ export function createMuseActions(
             location: f.location,
             salary: f.salary,
             jobUrl: f.jobUrl,
+            execFailureReason: f.execFailureReason,
             matchBullets: bullets.length
               ? bullets
               : ["已保存的匹配理由尚未接入"],
@@ -319,7 +382,20 @@ export function createMuseActions(
               typeof job.match_result?.overall === "number"
                 ? job.match_result.overall
                 : null,
-            progress: entry?.progress ?? null,
+            progress: observedState
+              ? (executionFacts(
+                  observedState,
+                  String(job.job.pipeline_id),
+                  channelOf(job).name,
+                ).detail ??
+                skippedHistory(
+                  options.operationStore,
+                  String(job.job.candidate_id),
+                  rankOf(job),
+                ).at(-1)?.detail ??
+                entry?.progress ??
+                null)
+              : (entry?.progress ?? null),
             progressStale: !entry?.progress,
             progressError: null,
             progressUpdatedAt: null,
@@ -338,6 +414,11 @@ export function createMuseActions(
         { job, entry, material } = c;
       return {
         job: facts(job, entry),
+        execFailures: executionFacts(
+          c.state,
+          String(job.job.pipeline_id),
+          channelOf(job).name,
+        ).archive,
         jdPoints: strings(job.job.jd_points).length
           ? strings(job.job.jd_points)
           : value(job.job.jd_text).split(/\n+/).filter(Boolean),
@@ -358,7 +439,19 @@ export function createMuseActions(
         sendStatus: stateOf(job, entry) === "sent" ? "sent" : null,
         deliveryStatus:
           stateOf(job, entry) === "delivered" ? "delivered" : null,
-        progress: entry?.progress ?? null,
+        progress:
+          executionFacts(
+            c.state,
+            String(job.job.pipeline_id),
+            channelOf(job).name,
+          ).detail ??
+          skippedHistory(
+            options.operationStore,
+            c.snapshot.candidate_id,
+            rank,
+          ).at(-1)?.detail ??
+          entry?.progress ??
+          null,
         progressStale: !entry?.progress,
         progressError: null,
         channel: channelOf(job).name,
@@ -375,15 +468,22 @@ export function createMuseActions(
           status: "recorded",
           createdAt: e.occurred_at,
         })),
-        history: job.history.map((e, index) => ({
-          id: index + 1,
-          eventKind: String(e.to_state ?? "recorded"),
-          occurredAt: value(e.changed_at) || null,
-          occurredAtStatus: e.changed_at ? "已记录" : "时间未记录",
-          detail: value(e.reason),
-          isTransition: true,
-          origin: "host",
-        })),
+        history: [
+          ...skippedHistory(
+            options.operationStore,
+            c.snapshot.candidate_id,
+            rank,
+          ),
+          ...job.history.map((e, index) => ({
+            id: index + 1,
+            eventKind: String(e.to_state ?? "recorded"),
+            occurredAt: value(e.changed_at) || null,
+            occurredAtStatus: e.changed_at ? "已记录" : "时间未记录",
+            detail: value(e.reason),
+            isTransition: true,
+            origin: "host",
+          })),
+        ],
       };
     },
     getJobMaterials: async ({ rank }) => {
@@ -482,6 +582,45 @@ export function createMuseActions(
           reasons: todo.basis,
         });
       }
+      for (const job of snapshot.jobs) {
+        const entry = state.jobs.find(
+          (j) => j.contact_id === job.job.pipeline_id,
+        );
+        if (stateOf(job, entry) !== "exec_failed") continue;
+        const rank = rankOf(job),
+          archive = executionFacts(
+            state,
+            String(job.job.pipeline_id),
+            channelOf(job).name,
+          ).archive;
+        let group = grouped.get(rank);
+        if (!group) {
+          group = {
+            rank,
+            title: value(job.job.title),
+            company: value(job.job.company),
+            platform: channelOf(job).name,
+            location: value(job.job.location) || null,
+            salary: value(job.job.salary_raw) || null,
+            matchOverall:
+              typeof job.match_result?.overall === "number"
+                ? job.match_result.overall
+                : null,
+            matchStrengths: strings(job.match_result?.strengths),
+            matchPartial: strings(job.match_result?.partial_matches),
+            matchUncertainties: strings(job.match_result?.uncertainties),
+            items: [],
+          };
+          grouped.set(rank, group);
+        }
+        group.items.push({
+          id: `execution-failure:${rank}:${archive.jobCount}`,
+          kind: "failure",
+          action: "再次执行",
+          question: "执行失败，是否再次执行这个岗位？",
+          reasons: [archive.lastReason ?? "失败原因尚未接入"],
+        });
+      }
       const jobs = [...grouped.values()];
       return {
         jobCount: jobs.length,
@@ -517,6 +656,14 @@ export function createMuseActions(
             title: i.title,
             company: value(job.job.company),
             platform: i.channel,
+            failureCount: executionFacts(state, i.contact_id, i.channel).archive
+              .jobCount,
+            channelFailureCount: executionFacts(state, i.contact_id, i.channel)
+              .archive.channelCount,
+            lastFailureReason: executionFacts(state, i.contact_id, i.channel)
+              .archive.lastReason,
+            lastFailureAt: executionFacts(state, i.contact_id, i.channel)
+              .archive.lastAt,
           };
         }),
       };
@@ -576,12 +723,15 @@ export function createMuseActions(
       };
     },
     getExecPrecheck: async ({ rank }) => {
-      const { job, entry, material } = await context(rank),
+      const { job, entry, material, state } = await context(rank),
         f = facts(job, entry);
       const available =
         !!source.createExecutionBatch && !!source.confirmExecution;
       const block =
         entry?.blockers.join("；") ||
+        (["executing", "exec_unknown"].includes(f.state)
+          ? "已有执行记录待核验"
+          : null) ||
         (!available
           ? "执行服务尚未接入"
           : !channelOf(job).greetings
@@ -600,13 +750,32 @@ export function createMuseActions(
         salary: f.salary,
         kind: channelOf(job).greetings ? "greeting" : "delivery",
         state: f.state,
-        approved:
-          f.state === "pending_greeting" || f.state === "pending_delivery",
+        approved: hasApprovedMaterial(entry),
         needsApproval: f.state === "pending_review",
         executable: !block,
         greetingText: material?.body ?? null,
         blockReason: block,
         familyRanks: [],
+        failureCount: executionFacts(
+          state,
+          String(job.job.pipeline_id),
+          channelOf(job).name,
+        ).archive.jobCount,
+        channelFailureCount: executionFacts(
+          state,
+          String(job.job.pipeline_id),
+          channelOf(job).name,
+        ).archive.channelCount,
+        lastFailureReason: executionFacts(
+          state,
+          String(job.job.pipeline_id),
+          channelOf(job).name,
+        ).archive.lastReason,
+        lastFailureAt: executionFacts(
+          state,
+          String(job.job.pipeline_id),
+          channelOf(job).name,
+        ).archive.lastAt,
       };
     },
     getOnlineResume: async () => {
@@ -677,6 +846,7 @@ export function createMuseActions(
         ok: r.ok && r.error !== "outcome_unknown",
         error: r.error,
         message: r.message,
+        signalRecorded: r.ok && r.error === null,
       };
     },
     createExecutionBatch: async () => {
@@ -708,11 +878,31 @@ export function createMuseActions(
       );
     },
     confirmExecution: async ({ batchId }) => {
-      const { snapshot } = await data();
+      const { snapshot, state } = await data();
       const id = batches.get(batchId),
         batch = id && (await source.getBatch(id));
       if (!batch || !source.confirmExecution)
         return { ...failed("执行服务尚未接入"), taskStarted: false };
+      if (
+        batch.items.some((item) => {
+          const entry = state.jobs.find(
+            (j) => j.contact_id === item.contact_id,
+          );
+          const current = entry && currentMaterial(entry);
+          return (
+            !hasApprovedMaterial(entry) ||
+            !current ||
+            current.revision !== item.material.revision ||
+            current.body !== item.material.body ||
+            JSON.stringify(current.attachments.map((a) => a.digest)) !==
+              JSON.stringify(item.material.attachments.map((a) => a.digest))
+          );
+        })
+      )
+        return {
+          ...failed("准确正文或附件已变化，请重新审阅批准。"),
+          taskStarted: false,
+        };
       if (batch.status !== "ready")
         return {
           ...failed("该批次已进入执行或结果未知，请先核验，不能重复执行。"),
@@ -813,5 +1003,27 @@ export function createMuseActions(
       throw new Error("前端不能自动导入特定轮次岗位");
     },
   };
-  return actions;
+  const sync = createSyncActions(
+    source,
+    actions,
+    options.operationStore,
+    async (ranks) => {
+      const { snapshot, state } = await data();
+      if (!source.createExecutionBatch)
+        return {
+          batchId: null,
+          status: "unavailable",
+          items: [],
+          excluded: ranks.map((rank) => ({ rank, reason: "执行服务尚未接入" })),
+        };
+      const contacts = ranks
+        .map((rank) => identities.get(rank))
+        .filter((id): id is string => !!id);
+      if (contacts.length !== ranks.length)
+        throw new Error("选择岗位关联不完整");
+      return echo(await source.createExecutionBatch(contacts), snapshot);
+    },
+    options.onChange ?? (() => {}),
+  );
+  return Object.assign(actions, sync, options.sync ?? {});
 }

@@ -3,6 +3,9 @@ import type { MuseActions } from "./contracts";
 
 export interface MuseConfiguration {
   refreshMs?: number;
+  regenerationAvailable?: boolean;
+  quickExecutionAvailable?: boolean;
+  retryAvailable?: boolean;
   batchRefreshMs?: number;
   progressBatchLimit?: number;
   executionSummary?: string;

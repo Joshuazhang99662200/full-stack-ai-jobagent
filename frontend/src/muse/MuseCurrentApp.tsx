@@ -23,6 +23,15 @@ import {
 } from "./MuseApp";
 import { saveMuseDecision } from "./decisions";
 import "./current.css";
+import { ChannelTag } from "./ChannelTag";
+import {
+  SelectionQueueBar,
+  SelectionCheckbox,
+  RegenerateGreetingControl,
+  GreetingSignals,
+  ExecutionWorkflow,
+  ExecutionProgress,
+} from "./SyncControls";
 
 type Tab = "progress" | "runs" | "comms" | "about";
 type Filter = "all" | "active" | "todo" | "waiting" | "ended";
@@ -119,7 +128,7 @@ function Meta({ job, row }: { job: NonNullable<JobDetail["job"]>; row?: Row }) {
   return (
     <div className="meta">
       {job.company ? `${job.company} · ` : ""}
-      {job.platform} · {job.location ?? "地点待核实"} ·{" "}
+      <ChannelTag channel={job.platform} /> · {job.location ?? "地点待核实"} ·{" "}
       <span className="salary">{job.salary ?? "薪资待核实"}</span> · 入库{" "}
       {row?.intakeAt ? row.intakeAt.slice(0, 10) : "时间未记录"}
     </div>
@@ -146,6 +155,12 @@ export function MuseCurrentApp() {
     rank: number;
     todo?: TodoJob["items"][number];
   } | null>(null);
+  const [watchBatch, setWatchBatch] = useState<number | null>(null);
+  const [excludedCount, setExcludedCount] = useState(0);
+  const watch = (id: number, excluded = 0) => {
+    setWatchBatch(id);
+    setExcludedCount(excluded);
+  };
   const [batch, setBatch] = useState<Batch | null>(null),
     [notice, setNotice] = useState("");
   const snapshot = useQuery({
@@ -315,8 +330,20 @@ export function MuseCurrentApp() {
                       : "待办来源读取未完成，数量尚不确定。"}
                   </p>
                 )}
+                <SelectionQueueBar
+                  visibleRanks={visible.map((r) => r.rank)}
+                  onWatch={watch}
+                />
+                {watchBatch != null && (
+                  <ExecutionProgress
+                    batchId={watchBatch}
+                    excludedCount={excludedCount}
+                    onClose={() => setWatchBatch(null)}
+                  />
+                )}
                 <div className="card">
                   <div className="trow head">
+                    <span>选</span>
                     {["岗位", "渠道", "匹配情况", "进展", "待你处理"].map(
                       (h) => (
                         <span key={h}>
@@ -370,12 +397,16 @@ export function MuseCurrentApp() {
                               }
                             }}
                           >
+                            <SelectionCheckbox
+                              rank={row.rank}
+                              title={row.title}
+                            />
                             <div className="cell" data-label="岗位">
                               <div className="job-t">{row.title}</div>
                               <div className="job-c">{row.company}</div>
                             </div>
                             <div className="cell" data-label="渠道">
-                              <span className="chan">{row.channel}</span>
+                              <ChannelTag channel={row.channel} />
                             </div>
                             <div className="cell" data-label="匹配情况">
                               <ul className="match">
@@ -441,12 +472,19 @@ export function MuseCurrentApp() {
                           {r.run.status !== "completed" && "（完成状态待核对）"}
                         </span>
                         <span>
-                          {channels.data?.channels
-                            .map(
-                              (c) =>
-                                `${c.channel} ${c.status === "ok" ? "已登录" : c.status === "dropped" ? "登录失效" : "状态待核对"}`,
-                            )
-                            .join(" · ") || "登录状态尚未接入"}
+                          {channels.data?.channels.length
+                            ? channels.data.channels.map((c, index) => (
+                                <span key={c.channel}>
+                                  {index > 0 ? " · " : ""}
+                                  <ChannelTag channel={c.channel} />{" "}
+                                  {c.status === "ok"
+                                    ? "已登录"
+                                    : c.status === "dropped"
+                                      ? "登录失效"
+                                      : "状态待核对"}
+                                </span>
+                              ))
+                            : "登录状态尚未接入"}
                         </span>
                       </div>
                     ))
@@ -478,7 +516,9 @@ export function MuseCurrentApp() {
                           >
                             <b>{r.title}</b>
                           </button>
-                          <span>{r.channel}</span>
+                          <span>
+                            <ChannelTag channel={r.channel} />
+                          </span>
                           <span>
                             {r.progress ||
                               "已有联系记录；对方是否回复尚未核实。"}
@@ -557,6 +597,7 @@ export function MuseCurrentApp() {
           row={rows.find((r) => r.rank === selection.rank)}
           onClose={() => setSelection(null)}
           onNotice={setNotice}
+          onWatch={watch}
         />
       )}
       {batch && (
@@ -564,6 +605,7 @@ export function MuseCurrentApp() {
           echo={batch}
           onClose={() => setBatch(null)}
           onNotice={setNotice}
+          onWatch={watch}
         />
       )}
       {notice && (
@@ -581,12 +623,14 @@ function CurrentJobDialog({
   todo,
   onClose,
   onNotice,
+  onWatch,
 }: {
   rank: number;
   row?: Row;
   todo?: TodoJob["items"][number];
   onClose: () => void;
   onNotice: (s: string) => void;
+  onWatch: (id: number) => void;
 }) {
   const api = useMuseActions(),
     client = useQueryClient(),
@@ -754,7 +798,7 @@ function CurrentJobDialog({
               )}
             </>
           )}
-          {!liepin && hasDraft ? (
+          {!liepin && hasDraft && todo?.kind !== "failure" ? (
             <>
               <h3>招呼稿（可编辑）</h3>
               <textarea
@@ -763,6 +807,15 @@ function CurrentJobDialog({
                 value={text}
                 disabled={blocked}
                 onChange={(e) => setEdit(e.target.value)}
+              />
+              <RegenerateGreetingControl
+                rank={rank}
+                text={text}
+                previousText={d.draftGreeting ?? ""}
+                disabled={blocked || !!ended}
+                onSaved={() => setEdit(null)}
+                onBusy={setBusy}
+                onUnknown={() => setLocked(true)}
               />
               {!todo && (
                 <>
@@ -841,51 +894,56 @@ function CurrentJobDialog({
           })}
           {todo ? (
             <div>
-              {(todo.kind === "block"
-                ? [
-                    [
-                      "解除屏蔽后投递",
-                      "解除屏蔽，进入投递安排，执行后回读确认。",
-                      "resolve_block",
-                    ],
-                    [
-                      "先跳过这个岗位",
-                      "这次不投这个岗位，保留在正在推进里。",
-                      "skip",
-                    ],
-                    ["岗位不合适", "整岗结束，不再处理。", "decline"],
-                  ]
-                : liepin
+              {todo.kind === "failure" && (
+                <ExecutionWorkflow detail={d} onWatch={onWatch} />
+              )}
+              {(todo.kind === "failure"
+                ? []
+                : todo.kind === "block"
                   ? [
                       [
-                        "确认投递安排",
-                        "按现在的材料投递，执行后逐条回读确认。",
-                        "deliver",
+                        "解除屏蔽后投递",
+                        "解除屏蔽，进入投递安排，执行后回读确认。",
+                        "resolve_block",
                       ],
                       [
-                        "材料还要改",
-                        "只记录反馈，等改好的材料确认后再投，这次不投递。",
-                        "accept_revise",
+                        "先跳过这个岗位",
+                        "这次不投这个岗位，保留在正在推进里。",
+                        "skip",
                       ],
-                      ["岗位不合适", "整岗结束，不再投递。", "decline"],
+                      ["岗位不合适", "整岗结束，不再处理。", "decline"],
                     ]
-                  : [
-                      [
-                        "接受原文",
-                        "岗位合适、这份稿也行，批准当前全文，进入执行清单。",
-                        "accept_original",
-                      ],
-                      [
-                        "岗位行，稿要改",
-                        "只记录反馈，等新版全文出来再单独批准发送。",
-                        "accept_revise",
-                      ],
-                      [
-                        "岗位不合适",
-                        "整岗结束，这份稿不再用于发送。",
-                        "decline",
-                      ],
-                    ]
+                  : liepin
+                    ? [
+                        [
+                          "确认投递安排",
+                          "按现在的材料投递，执行后逐条回读确认。",
+                          "deliver",
+                        ],
+                        [
+                          "材料还要改",
+                          "只记录反馈，等改好的材料确认后再投，这次不投递。",
+                          "accept_revise",
+                        ],
+                        ["岗位不合适", "整岗结束，不再投递。", "decline"],
+                      ]
+                    : [
+                        [
+                          "接受原文",
+                          "岗位合适、这份稿也行，批准当前全文，进入执行清单。",
+                          "accept_original",
+                        ],
+                        [
+                          "岗位行，稿要改",
+                          "只记录反馈，等新版全文出来再单独批准发送。",
+                          "accept_revise",
+                        ],
+                        [
+                          "岗位不合适",
+                          "整岗结束，这份稿不再用于发送。",
+                          "decline",
+                        ],
+                      ]
               ).map(([label, caption, kind]) => (
                 <button
                   key={kind}
@@ -927,6 +985,7 @@ function CurrentJobDialog({
               )}
               <details className="material-history">
                 <summary>查看材料与历史</summary>
+                <GreetingSignals rank={rank} />
                 {materials.isError ? (
                   <p role="alert">材料与历史读取未完成。</p>
                 ) : materials.isPending ? (
@@ -963,6 +1022,7 @@ function CurrentJobDialog({
                   </a>
                 </p>
               )}
+              <ExecutionWorkflow detail={d} onWatch={onWatch} />
               <div className="modal-actions">
                 {!ended && (
                   <button
@@ -1033,10 +1093,12 @@ function CurrentExecution({
   echo,
   onClose,
   onNotice,
+  onWatch,
 }: {
   echo: Batch;
   onClose: () => void;
   onNotice: (s: string) => void;
+  onWatch: (id: number) => void;
 }) {
   const api = useMuseActions(),
     policy = useMuseConfiguration(),
@@ -1050,24 +1112,23 @@ function CurrentExecution({
     enabled: echo.batchId != null && dispatched,
     refetchInterval: dispatched ? (policy.batchRefreshMs ?? false) : false,
   });
-  async function execute() {
+  function execute() {
     if (busy || dispatched || echo.batchId == null) return;
-    setBusy(true);
     setDispatched(true);
-    try {
-      const r = await api.confirmExecution({ batchId: echo.batchId });
-      if (!r.ok || r.error) {
-        setError(r.message ?? "执行结果未知，请先核验，不重复执行。");
-        return;
-      }
-      onNotice(r.message ?? "已记录执行请求，逐条回读后更新。 ");
-      await client.invalidateQueries();
-    } catch {
-      setError("执行结果未知，请先核验，不重复执行。");
-    } finally {
-      setBusy(false);
-    }
+    onWatch(echo.batchId);
+    onClose();
+    void api
+      .confirmExecution({ batchId: echo.batchId })
+      .then((r) => {
+        onNotice(r.message ?? "执行结果待核验");
+        void client.invalidateQueries();
+      })
+      .catch(() => {
+        onNotice("执行请求结果未知，请先核验，不重复执行。");
+        void client.invalidateQueries();
+      });
   }
+
   return (
     <Modal title="执行清单" wide onClose={onClose} busy={busy}>
       <h2>执行清单</h2>
@@ -1083,7 +1144,7 @@ function CurrentExecution({
                 <span>
                   <span className="t">{item.title}</span>{" "}
                   <span className="d">
-                    {item.company} · {item.platform}
+                    {item.company} · <ChannelTag channel={item.platform} />
                   </span>
                 </span>
                 <span

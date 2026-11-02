@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ConsoleDataSource } from "../dataSource";
+import type { MuseSyncActions } from "./syncAdapter";
 import type { MuseActions } from "./contracts";
 import {
   MuseContext,
@@ -17,6 +18,8 @@ export interface MusePanelProps {
   appearance?: "current" | "zip";
   configuration?: MuseConfiguration;
   cvFiles?: MuseCvFiles;
+  syncActions?: Partial<MuseSyncActions>;
+  dataRevision?: number;
 }
 /** Source-derived Muse UI; the host supplies its own RPC implementation and assets. */
 export function MusePanel({
@@ -24,6 +27,7 @@ export function MusePanel({
   appearance = "current",
   configuration = {},
   cvFiles = {},
+  dataRevision = 0,
 }: MusePanelProps) {
   const client = useMemo(
     () =>
@@ -36,6 +40,9 @@ export function MusePanel({
     [actions],
   );
   useEffect(() => () => client.clear(), [client]);
+  useEffect(() => {
+    void client.invalidateQueries();
+  }, [client, dataRevision]);
   return (
     <QueryClientProvider client={client}>
       <MuseContext.Provider value={{ actions, configuration, cvFiles }}>
@@ -50,9 +57,12 @@ export function MuseSourcePanel({
   source,
   ...props
 }: { source: ConsoleDataSource } & Omit<MusePanelProps, "actions">) {
+  const [revision, setRevision] = useState(0);
   const actions = useMemo(
     () =>
       createMuseActions(source, {
+        sync: props.syncActions,
+        onChange: () => setRevision((n) => n + 1),
         operationStore: {
           load: (key) =>
             typeof localStorage === "undefined"
@@ -65,7 +75,7 @@ export function MuseSourcePanel({
           },
         },
       }),
-    [source],
+    [source, props.syncActions],
   );
   return (
     <div data-template="muse-source">
@@ -80,8 +90,17 @@ export function MuseSourcePanel({
       <MusePanel
         actions={actions}
         {...props}
+        dataRevision={revision}
         configuration={{
           ...props.configuration,
+          regenerationAvailable:
+            !!props.syncActions?.regenerateGreeting &&
+            !!props.syncActions?.getGreetingSignals,
+          quickExecutionAvailable:
+            source.mode === "demo" ||
+            !!props.syncActions?.executeSelectionDirect,
+          retryAvailable:
+            source.mode === "demo" || !!props.syncActions?.executeJobDirect,
           ...(!source.recordDecision
             ? { readonlyReason: "决定保存服务尚未接入，当前只能查看已有记录。" }
             : {}),

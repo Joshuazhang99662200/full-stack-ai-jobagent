@@ -1,4 +1,33 @@
-# 岗位任务队列
+# Muse 通用 React 模板
+
+默认页面以用户指定的当前 Muse 分享页为视觉与结构基准，直接复用 zip 的 React 查询、排序、筛选、材料展示和决定回读逻辑。详情、独立待办、执行清单及运行/沟通/说明页均可交互。
+
+来源、差异、接入限制及核验方法见 [源码还原记录](../docs/muse-source-template-2026-11-02.md)。默认入口 `?demo=1` 使用合成数据；`?demo=1&template=zip` 查看 zip React 版本；`?legacy=1` 保留先前 Console 的兼容视图。真实来源失败不会自动进入演示。
+
+```powershell
+npm.cmd ci
+npm.cmd run typecheck
+npm.cmd run build
+npm.cmd run test:ssr
+npm.cmd run dev -- --port 5178
+```
+
+独立构建输出 `dist/`；兼容 Console 库输出 `lib/`；Muse 库输出 `muse-lib/`。字段类型通过 `python scripts/build_muse_contracts.py --check` 核对 Python 权威传输模型。
+
+```tsx
+import { MusePanel, type MuseActions } from '@jobagent/polling-console/muse';
+import '@jobagent/polling-console/muse/styles.css';
+
+<MusePanel actions={hostActions as MuseActions} cvFiles={hostPreviewFiles} />
+```
+
+宿主提供 `MuseActions`，或向 `MuseSourcePanel` 注入已有 `ConsoleDataSource`。查看与筛选不执行招聘操作。真实保存、审批、发送与回读必须调用已有业务服务。未接入能力禁用或明确说明，不能用前端状态变更代替成功。
+
+当前页样式限定在 `.muse-current`。zip 对照入口包含其原 Tailwind 基础样式，Muse 样式包适合独立面板；宿主需要完全隔离样式时在 iframe 内挂载。React 和 React Query 作为 Muse 库的外部运行时依赖；分发构建资产时保留 `THIRD_PARTY_NOTICES.md`。
+
+## 兼容 Console 参考接口
+
+以下为 `?legacy=1` 及原 `<Console>` / `<SourceConsole>` 组件说明；不表示当前 Muse 模板沿用这些布局。
 
 React 岗位面板与可嵌入组件，支持只读快照及可注入的宿主交互接口。岗位事实来自现有 pipeline，执行活动来自宿主的明确记录；查看页面不触发招聘网站请求，不登记审批或发送。
 

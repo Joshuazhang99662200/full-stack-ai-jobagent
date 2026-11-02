@@ -4,7 +4,7 @@ export const storageKey = "ja-console.synthetic.v1.CAND_DEMO";
 export const test = base.extend<{ freshPanel: void }>({
   freshPanel: [
     async ({ page }, use) => {
-      await page.goto("/?demo=1");
+      await page.goto("/?legacy=1&demo=1");
       await page.evaluate(() => localStorage.clear());
       await page.reload();
       await expect(page.locator(".jq-row")).toHaveCount(5);

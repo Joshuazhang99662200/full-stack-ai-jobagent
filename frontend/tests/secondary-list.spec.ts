@@ -39,7 +39,7 @@ test("sort survives a browser reload and missing reasons do not expose a bare sc
   snapshot.jobs[0].match_result!.strengths = [];
   await page.route("**/api/snapshot", (r) => r.fulfill({ json: snapshot }));
   await page.route("**/api/definitions", (r) => r.fulfill({ json: {} }));
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   const row = page.locator('.jq-row[data-job="DEMO_A"]');
   await expect(row).toContainText("已保存匹配评估，具体理由尚未接入");
   await expect(row).not.toContainText("100%");

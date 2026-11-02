@@ -36,3 +36,8 @@ frontend/node_modules/
 frontend/lib/
 frontend/test-results/
 frontend/playwright-report/
+
+# Standalone Muse template library build
+frontend/muse-lib/
+
+/test-results/

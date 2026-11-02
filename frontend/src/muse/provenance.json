@@ -1,0 +1,26 @@
+{
+  "source_zip_sha256": "9e2ffc453e86c0b03c5d106042732c0d2f1dc51e79b17e5c62de41477c1c4a1a",
+  "source_app_sha256": "935f99992d1a68d9482a2f6f71a5a47db153a3076998b8b2fc56ea33400762bb",
+  "source_app_lines": 3427,
+  "render_source": "code/client/src/App.tsx",
+  "style_source": "code/client/src/theme.css",
+  "changes": [
+    "React Query actions and CV files injected by context",
+    "Missing private CV catalog is supplied by the host",
+    "Personal seed/repair/reconcile/new-round migrations removed",
+    "Polling and progress-generation limits supplied by host configuration; no automatic migration or generation",
+    "Execution cadence text supplied by the host; no personal timing defaults",
+    "Comments removed; JSX structure and regular-state copy preserved",
+    "Current share-page layout and scoped CSS are the default, as selected by the user",
+    "Live static demo mutations are replaced by the zip decision-readback flow and existing host services",
+    "Unavailable sources and unsupported operations remain unknown or disabled; no private snapshot or assets shipped",
+    "Historical materials and exact sent content stay accessible through the zip MaterialList component"
+  ],
+  "current_source_url": "https://muse.ai/s/ui-xde6lxuxfxs74kd/nmGbS-bD-P6UW0oZ9dtEsPUMhNwg6mqdVPV6WwO5zb8",
+  "current_style_sha256": "6c58c4fad015194408a20fac0390bfd66811e7e6687ffafcdb7342798b6eb3d4",
+  "current_style_declarations": 409,
+  "current_declarations_sha256": "1e17c59d1ade31a06ab4ba726d88a95de1fd4c43bcdd183096ef1b2b9db75d55",
+  "zip_literal_classes": 381,
+  "zip_literal_classes_sha256": "46a90a8458a06c0dcd6667c7888e5caafe255834ce103eec6ac22c25c2ce2588",
+  "zip_theme_sha256": "da0a2114fb4690fd9fef5c0a1b0f2d318f69bf079df51f07a364c7862b3d46b4"
+}

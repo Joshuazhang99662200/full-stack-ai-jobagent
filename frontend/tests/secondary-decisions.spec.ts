@@ -50,7 +50,7 @@ test("delivery entry is explicit and unavailable services never pretend to execu
   snapshot.jobs[0].job.platform = "liepin";
   await page.route("**/api/snapshot", (r) => r.fulfill({ json: snapshot }));
   await page.route("**/api/definitions", (r) => r.fulfill({ json: {} }));
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await page.getByRole("button", { name: "数据工程师", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "审批并投递", exact: true }),

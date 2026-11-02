@@ -39,7 +39,7 @@ test("readonly personal counts are unknown, and only dropped channels offer reco
   expect(popups).toEqual([]);
   await page.route("**/api/snapshot", (r) => r.fulfill({ json: demo }));
   await page.route("**/api/definitions", (r) => r.fulfill({ json: {} }));
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   const needs = page.locator('.jq-summary button[data-lane="needs"]');
   await expect(needs).toContainText("待确认");
   await expect(needs.locator(".jq-personal-badge")).toHaveCount(0);
@@ -69,7 +69,7 @@ test("workflow keeps failed and unconfirmed records distinct on the same step", 
   ];
   await page.route("**/api/snapshot", (r) => r.fulfill({ json: snapshot }));
   await page.route("**/api/definitions", (r) => r.fulfill({ json: {} }));
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await page.getByRole("button", { name: "数据工程师", exact: true }).click();
   const step = page.locator('.jq-workflow [data-step="match"]');
   await expect(step).toContainText("状态未确认");

@@ -4,7 +4,7 @@ import demo from "../src/demo.json" with { type: "json" };
 test("queue and history retain the approved white, gray and pale-blue palette", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.locator(".ja-console")).toHaveCSS(
     "background-color",
     "rgb(255, 255, 255)",
@@ -32,7 +32,7 @@ test("queue and history retain the approved white, gray and pale-blue palette", 
 test("each job reads as an agent report without a clock axis", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.locator(".jq-axis, .jq-clock, .jq-window")).toHaveCount(0);
   await expect(page.getByText("最近30分钟")).toHaveCount(0);
   const a = page.locator('.jq-row[data-job="DEMO_A"]');
@@ -51,7 +51,7 @@ test("each job reads as an agent report without a clock axis", async ({
 });
 
 test("summary counts filter jobs that need you", async ({ page }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   const needs = page.locator('.jq-summary button[data-lane="needs"]');
   await expect(needs).toContainText("等你处理");
   const count = Number(await needs.locator("strong").textContent());
@@ -68,7 +68,7 @@ test("mobile queue stays readable and embedded history avoids duplicate pickers"
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 1000 });
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.locator(".jq-flow").first()).toBeVisible();
   await expect(page.locator(".jq-details .job-list")).toHaveCount(0);
   await page.getByRole("tab", { name: "沟通进展" }).click();
@@ -80,7 +80,7 @@ test("mobile queue stays readable and embedded history avoids duplicate pickers"
 test("paused status alone creates no personal todo and parallel work stays distinct", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.locator('.jq-row[data-job="DEMO_E"]')).toContainText(
     "已暂停",
   );
@@ -119,7 +119,7 @@ test("within a lane stored pass and match rank jobs while abandoned stays last",
   page,
 }) => {
   const snapshot = await fixture(page);
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(
     page.getByRole("heading", { name: "岗位进展", exact: true }),
   ).toBeVisible();
@@ -137,7 +137,7 @@ test("within a lane stored pass and match rank jobs while abandoned stays last",
 test("unbound work is counted but never assigned to a job", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.locator(".jq-unbound")).toContainText("没有注明所属岗位");
   await expect(page.locator(".jq-flow", { hasText: "整理结果" })).toHaveCount(
     0,
@@ -165,7 +165,7 @@ test("canonical job keeps one row and preserves distinct contact rounds", async 
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(
     page.locator(`.jq-row[data-job="${active.job.job_id}"]`),
   ).toHaveCount(1);
@@ -198,7 +198,7 @@ test("ambiguous rounds stay uncertain without manufacturing a personal todo", as
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(page.locator(".jq-row").last()).toHaveAttribute(
     "data-closed",
     "true",

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import demo from "../src/demo.json" with { type: "json" };
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 });
@@ -110,11 +110,11 @@ test("login restore only records request and synthetic sync is labelled", async 
 test("default view hides internal data and read-only operations explain their limitation", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await page.route("**/api/**", (route) =>
     route.fulfill({ status: 503, body: "{}" }),
   );
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.locator(".context")).not.toContainText("CAND_");
   await expect(
     page.getByRole("tab", { name: "数据说明", exact: true }),
@@ -188,7 +188,7 @@ test("readonly source explicitly disables decisions and does not infer personal 
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await expect(page.locator(".jq-attention")).toHaveCount(0);
   await page.getByRole("button", { name: "数据工程师", exact: true }).click();
   await expect(
@@ -216,7 +216,7 @@ test("previous contact text remains readable in history without opening diagnost
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await page.getByRole("button", { name: "数据工程师", exact: true }).click();
   await page.getByRole("tab", { name: "历史记录", exact: true }).click();
   await expect(

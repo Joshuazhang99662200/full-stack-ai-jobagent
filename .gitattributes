@@ -1,0 +1,3 @@
+
+# Preserve the exact LF stylesheet supplied in the Muse source archive.
+frontend/src/muse/theme.css text eol=lf

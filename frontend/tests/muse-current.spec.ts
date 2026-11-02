@@ -1,6 +1,22 @@
 import { test, expect } from "@playwright/test";
 import demo from "../src/demo.json" with { type: "json" };
 
+test("progress explains AI authorship and concise factual summaries", async ({
+  page,
+}) => {
+  await page.goto("/?demo=1");
+  await expect(page.locator(".muse-current .trow.head")).toContainText(
+    "AI 填写 · 约20～50字",
+  );
+  await page.getByRole("tab", { name: "数据说明", exact: true }).click();
+  await expect(page.locator(".muse-current .doc")).toContainText(
+    "宿主 AI 根据本岗位已保存、已核实的记录填写",
+  );
+  await expect(page.locator(".muse-current .doc")).toContainText(
+    "BOSS 执行失败",
+  );
+});
+
 test("readonly Muse keeps personal counts unknown and disables unavailable writes", async ({
   page,
 }) => {

@@ -3,6 +3,10 @@ import { text, type JobView, type Snapshot } from "./contracts";
 import { channelOf } from "./channels";
 import { belongs, label, stages, type Report } from "./agentReport";
 import { JobWorkflow } from "./JobWorkflow";
+import { DecisionPanel, MaterialView } from "./DecisionPanel";
+import { TodoPanel } from "./TodoPanel";
+import { ChannelPanel } from "./HostControls";
+import { useHost } from "./hostContext";
 
 const raw = (value: unknown) => <pre>{JSON.stringify(value, null, 2)}</pre>;
 export function JobDetailTabs({
@@ -13,6 +17,7 @@ export function JobDetailTabs({
   snapshot,
   progress,
   renderJobDetails,
+  initialTab = "progress",
 }: {
   job: JobView;
   rounds: JobView[];
@@ -21,15 +26,33 @@ export function JobDetailTabs({
   snapshot: Snapshot;
   progress: ReactNode;
   renderJobDetails: (job: JobView) => ReactNode;
+  initialTab?: string;
 }) {
-  const [tab, setTab] = useState("progress");
+  const [tab, setTab] = useState(initialTab);
+  const [more, setMore] = useState(false);
+  const host = useHost();
+  const hostJob = host?.state.jobs.find(
+    (j) => j.job_id === job.job.job_id && j.contact_id === job.job.pipeline_id,
+  );
+  const hostJobs =
+    host?.state.jobs.filter((j) =>
+      rounds.some(
+        (r) => r.job.job_id === j.job_id && r.job.pipeline_id === j.contact_id,
+      ),
+    ) ?? [];
   const channel = channelOf(job);
   const tabs = [
     ["progress", "进展与操作"],
     ["materials", channel.greetings ? "招呼与材料" : "投递与材料"],
     ["history", "历史记录"],
-    ["signals", "Signal / Harness"],
-    ["raw", "原始记录"],
+    ["todo", "需要你决定"],
+    ["channel", "渠道与流程"],
+    ...(more
+      ? [
+          ["signals", "Signal / Harness"],
+          ["raw", "排查问题"],
+        ]
+      : []),
   ];
   const originalWork = stages(snapshot).filter((stage) =>
     rounds.some((round) => belongs(stage, round)),
@@ -43,6 +66,12 @@ export function JobDetailTabs({
       <p className="note">
         {text(job.job.company)} / {channel.name}
       </p>
+      <p>
+        薪资：<strong>{text(job.job.salary_raw)}</strong>
+      </p>
+      <button aria-expanded={more} onClick={() => setMore(!more)}>
+        更多
+      </button>
       <nav className="jq-dialog-tabs" role="tablist" aria-label="岗位详情内容">
         {tabs.map(([id, name]) => (
           <button
@@ -82,7 +111,14 @@ export function JobDetailTabs({
         role="tabpanel"
         aria-labelledby={`detail-tab-${tab}`}
       >
-        {tab === "progress" && progress}
+        {tab === "progress" && (
+          <>
+            {progress}
+            <DecisionPanel job={job} />
+          </>
+        )}
+        {tab === "todo" && <TodoPanel contactId={text(job.job.pipeline_id)} />}
+        {tab === "channel" && <ChannelPanel channel={channel.name} />}
         {tab === "materials" && (
           <section className="jq-materials">
             {!channel.greetings && (
@@ -98,32 +134,96 @@ export function JobDetailTabs({
               <>
                 <h3>当前草稿</h3>
                 <p className="jq-exact">{text(job.job.draft_greeting)}</p>
-                <p>草稿版本：{text(job.job.draft_version)}</p>
+                <p>当前草稿，是否适用请核对已保存的材料。</p>
                 <h3>保留的获批正文</h3>
                 <p className="jq-exact">{text(job.job.approved_greeting)}</p>
+                <h3>保留的实际发送正文</h3>
+                <p className="jq-exact">{text(job.job.sent_greeting)}</p>
                 <p className="note">
                   是否可执行须由审批服务核对准确正文、附件和当前版本。
                 </p>
               </>
             )}
-            <h3>简历与附件</h3>
-            <dl className="facts">
-              <div>
-                <dt>文件引用</dt>
-                <dd>{text(job.job.resume_file_id)}</dd>
-              </div>
-              <div>
-                <dt>简历版本</dt>
-                <dd>{text(job.job.resume_version)}</dd>
-              </div>
-            </dl>
+            {hostJob?.materials.map((material) => (
+              <MaterialView key={material.revision} material={material} />
+            ))}
+            {!hostJob?.materials.some((m) => m.attachments.length) && (
+              <p>
+                实际简历文件来源尚未接入；已有引用保留在“更多 →
+                排查问题”中，不能确认附件内容。
+              </p>
+            )}
             <p className="note">
-              审批、放弃和投递的写入接口尚未接入此页面；当前可查看记录。
+              材料决定在“进展与操作”中保存；是否可执行须由业务服务核对。
             </p>
           </section>
         )}
         {tab === "history" && (
           <>
+            {hostJobs.map((historyJob) => (
+              <section key={historyJob.contact_id}>
+                <h3>历版材料</h3>
+                {historyJob.materials.map((material) => (
+                  <MaterialView key={material.revision} material={material} />
+                ))}
+                <h3>本人决定与执行记录</h3>
+                {historyJob.events.length ? (
+                  <ol className="history">
+                    {historyJob.events.map((event) => (
+                      <li key={event.event_id}>
+                        <time>
+                          {new Date(event.occurred_at).toLocaleString("zh-CN")}
+                        </time>
+                        <strong>
+                          {(
+                            {
+                              save_draft: "保存草稿",
+                              approve_text: "文案意见已记录",
+                              approve_material: "材料批准已记录",
+                              decline: "放弃决定已记录",
+                              answer_todo: "待办决定已记录",
+                              execution_readback: "执行回读",
+                            } as Record<string, string>
+                          )[event.kind] ?? "已保存工作记录"}
+                        </strong>
+                        <p>{event.detail}</p>
+                        {event.material && (
+                          <MaterialView material={event.material} />
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p>尚无面板决定或执行记录。</p>
+                )}
+              </section>
+            ))}
+            {rounds
+              .filter((round) => round.job.pipeline_id !== job.job.pipeline_id)
+              .map((round, index) => (
+                <section key={text(round.job.pipeline_id)}>
+                  <h3>此前联系记录 {index + 1}</h3>
+                  <p>{label(round.job.pipeline_state)}</p>
+                  <h4>保留的实际发送正文</h4>
+                  <p className="jq-exact">{text(round.job.sent_greeting)}</p>
+                  <h4>保留的获批正文</h4>
+                  <p className="jq-exact">
+                    {text(round.job.approved_greeting)}
+                  </p>
+                  <ol className="history">
+                    {round.history.map((event, i) => (
+                      <li key={i}>
+                        <time>
+                          {typeof event.changed_at === "string"
+                            ? new Date(event.changed_at).toLocaleString("zh-CN")
+                            : "时间未记录"}
+                        </time>
+                        <strong>{label(event.to_state)}</strong>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
             {channel.greetings && !ambiguous ? (
               renderJobDetails(job)
             ) : (
@@ -184,6 +284,8 @@ export function JobDetailTabs({
             {raw(originalWork.map((stage) => stage.event))}
             <h3>来源读取情况</h3>
             {raw(snapshot.sources)}
+            <h3>宿主交互原始记录</h3>
+            {raw(hostJob ?? null)}
           </>
         )}
       </div>

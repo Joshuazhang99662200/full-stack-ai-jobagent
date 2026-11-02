@@ -11,6 +11,16 @@ import type {
 } from "./contracts";
 import { text } from "./contracts";
 import "./styles.css";
+import { HostContext, type HostController } from "./hostContext";
+import { HostControls } from "./HostControls";
+export { SourceConsole } from "./SourceConsole";
+export {
+  createSnapshotSource,
+  createHttpSource,
+  type ConsoleDataSource,
+} from "./dataSource";
+export { createDemoSource, type DemoStorage } from "./demoHost";
+export type { HostState } from "./hostContracts";
 export type { Snapshot, Definitions } from "./contracts";
 export interface ConsoleProps {
   snapshot: Snapshot;
@@ -21,6 +31,7 @@ export interface ConsoleProps {
   initialView?: string;
   syncUrl?: boolean;
   onViewChange?: (view: string) => void;
+  host?: HostController;
 }
 const labels: Record<string, string> = {
   draft_pending: "待准备 / 待发送",
@@ -435,7 +446,11 @@ function JobPanel({
                   ? "历史状态待核对"
                   : label(entry.to_state)}
               </strong>
-              <span>{text(entry.evidence_reference)}</span>
+              <span>
+                {typeof entry.reason === "string"
+                  ? entry.reason
+                  : "已保存进展记录；核验依据可在排查信息中查看。"}
+              </span>
             </li>
           ))}
         </ol>
@@ -461,135 +476,165 @@ export function Console({
   initialView,
   syncUrl = false,
   onViewChange,
+  host,
 }: ConsoleProps) {
   const [view, setView] = useState(
     initialView || (syncUrl ? params().get("view") : null) || "queue",
   );
   const write = syncUrl ? remember : noop;
+  const [more, setMore] = useState(false);
   const pick = (value: string) => {
     setView(value);
     write("view", value);
     onViewChange?.(value);
   };
   return (
-    <main className="ja-console">
-      <header className="masthead">
-        <div>
-          <h1>岗位进展</h1>
-          <p>查看每个岗位正在做什么，以及哪些事项需要你处理。</p>
-        </div>
-        <div className="header-actions">
-          {demo && <span className="demo">合成示例</span>}
-          {onRefresh && (
-            <button
-              className="refresh"
-              onClick={onRefresh}
-              disabled={refreshing}
-            >
-              {refreshing ? "刷新中" : "刷新"}
+    <HostContext.Provider value={host ?? null}>
+      <main className="ja-console">
+        <header className="masthead">
+          <div>
+            <h1>岗位进展</h1>
+            <p>查看每个岗位正在做什么，以及哪些事项需要你处理。</p>
+          </div>
+          <div className="header-actions">
+            <button aria-expanded={more} onClick={() => setMore(!more)}>
+              更多
             </button>
+            {more && (
+              <button
+                onClick={() => {
+                  pick("fields");
+                  setMore(false);
+                }}
+              >
+                排查问题
+              </button>
+            )}
+            {demo && <span className="demo">合成示例</span>}
+            {onRefresh && (
+              <button
+                className="refresh"
+                onClick={onRefresh}
+                disabled={refreshing}
+              >
+                {refreshing ? "刷新中" : "刷新"}
+              </button>
+            )}
+          </div>
+        </header>
+        <div className="context">
+          <span>本页读取于 {when(snapshot.generated_at)}</span>
+          <span>
+            {host?.source.mode === "demo"
+              ? "合成交互演示"
+              : host?.source.mode === "host"
+                ? "宿主已接入"
+                : "仅供查看"}
+          </span>
+        </div>
+        <HostControls />
+        <nav role="tablist" aria-label="控制台视图">
+          {[
+            ["queue", "任务进度"],
+            ["runs", "运行记录"],
+            ["jobs", "沟通进展"],
+          ].map(([key, name]) => (
+            <button
+              key={key}
+              id={`tab-${key}`}
+              role="tab"
+              aria-controls="console-panel"
+              aria-selected={view === key}
+              onClick={() => pick(key)}
+            >
+              {name}
+            </button>
+          ))}
+        </nav>
+        <div role="tabpanel" id="console-panel" aria-labelledby={`tab-${view}`}>
+          {view === "queue" ? (
+            <JobQueue
+              snapshot={snapshot}
+              onTrace={(runId) => {
+                write("run", runId);
+                pick("runs");
+              }}
+              renderJobDetails={(job) => (
+                <JobPanel
+                  items={[job]}
+                  embedded
+                  write={write}
+                  syncUrl={syncUrl}
+                  emptyConfirmed={true}
+                />
+              )}
+            />
+          ) : view === "runs" ? (
+            <RunPanel
+              items={snapshot.runs}
+              now={snapshot.generated_at}
+              write={write}
+              syncUrl={syncUrl}
+              emptyConfirmed={snapshot.sources.some(
+                (source) =>
+                  source.name === "harness" && source.status === "complete",
+              )}
+            />
+          ) : view === "jobs" ? (
+            <JobPanel
+              items={snapshot.jobs}
+              write={write}
+              syncUrl={syncUrl}
+              emptyConfirmed={snapshot.sources.some(
+                (source) =>
+                  source.name === "pipeline" && source.status === "complete",
+              )}
+            />
+          ) : (
+            <section className="contracts">
+              <h2>接入时可用的数据</h2>
+              <p>
+                供接入工具或排查问题时查看。下面列出可读取的数据项、格式和可选值；没有记录的内容保持为空。
+              </p>
+              <pre>{JSON.stringify(definitions, null, 2)}</pre>
+              {host && (
+                <details>
+                  <summary>宿主操作与保存结果</summary>
+                  <pre>{JSON.stringify(host.state, null, 2)}</pre>
+                </details>
+              )}
+              <details>
+                <summary>查看本页完整数据（JSON）</summary>
+                <pre>{JSON.stringify(snapshot, null, 2)}</pre>
+              </details>
+            </section>
           )}
         </div>
-      </header>
-      <div className="context">
-        <span>候选人编号 {snapshot.candidate_id}</span>
-        <span>本页读取于 {when(snapshot.generated_at)}</span>
-        <span>仅供查看</span>
-      </div>
-      <nav role="tablist" aria-label="控制台视图">
-        {[
-          ["queue", "任务进度"],
-          ["runs", "运行记录"],
-          ["jobs", "沟通进展"],
-          ["fields", "数据说明"],
-        ].map(([key, name]) => (
-          <button
-            key={key}
-            id={`tab-${key}`}
-            role="tab"
-            aria-controls="console-panel"
-            aria-selected={view === key}
-            onClick={() => pick(key)}
-          >
-            {name}
-          </button>
-        ))}
-      </nav>
-      <div role="tabpanel" id="console-panel" aria-labelledby={`tab-${view}`}>
-        {view === "queue" ? (
-          <JobQueue
-            snapshot={snapshot}
-            onTrace={(runId) => {
-              write("run", runId);
-              pick("runs");
-            }}
-            renderJobDetails={(job) => (
-              <JobPanel
-                items={[job]}
-                embedded
-                write={write}
-                syncUrl={syncUrl}
-                emptyConfirmed={true}
-              />
-            )}
-          />
-        ) : view === "runs" ? (
-          <RunPanel
-            items={snapshot.runs}
-            now={snapshot.generated_at}
-            write={write}
-            syncUrl={syncUrl}
-            emptyConfirmed={snapshot.sources.some(
-              (source) =>
-                source.name === "harness" && source.status === "complete",
-            )}
-          />
-        ) : view === "jobs" ? (
-          <JobPanel
-            items={snapshot.jobs}
-            write={write}
-            syncUrl={syncUrl}
-            emptyConfirmed={snapshot.sources.some(
-              (source) =>
-                source.name === "pipeline" && source.status === "complete",
-            )}
-          />
-        ) : (
-          <section className="contracts">
-            <h2>接入时可用的数据</h2>
-            <p>
-              供接入工具或排查问题时查看。下面列出可读取的数据项、格式和可选值；没有记录的内容保持为空。
-            </p>
-            <pre>{JSON.stringify(definitions, null, 2)}</pre>
-            <details>
-              <summary>查看本页完整数据（JSON）</summary>
-              <pre>{JSON.stringify(snapshot, null, 2)}</pre>
-            </details>
-          </section>
-        )}
-      </div>
-      <footer>
-        <h2>数据来源</h2>
-        <ul className="sources">
-          {snapshot.sources.map((source) => (
-            <li key={source.name}>
-              <strong>{source.name}</strong>
-              <span>
-                {(
-                  {
-                    complete: "已读取",
-                    missing: "未找到数据",
-                    invalid: "数据无法读取",
-                    unsupported: "暂未接入",
-                  } as Record<string, string>
-                )[source.status] || source.status}
-              </span>
-              {source.message && <span>{source.message}</span>}
-            </li>
-          ))}
-        </ul>
-        <p>发送招呼语或简历前，仍需你逐项确认。</p>
-      </footer>
-    </main>
+        <footer>
+          <details>
+            <summary>查看来源读取情况</summary>
+            <ul className="sources">
+              {snapshot.sources.map((source) => (
+                <li key={source.name}>
+                  <strong>{source.name}</strong>
+                  <span>
+                    {(
+                      {
+                        complete: "已读取",
+                        missing: "未找到数据",
+                        invalid: "数据无法读取",
+                        unsupported: "暂未接入",
+                      } as Record<string, string>
+                    )[source.status] || source.status}
+                  </span>
+                  {source.message && <span>{source.message}</span>}
+                </li>
+              ))}
+            </ul>
+          </details>
+          <p>发送招呼语或简历前，仍需你逐项确认。</p>
+        </footer>
+      </main>
+    </HostContext.Provider>
   );
 }

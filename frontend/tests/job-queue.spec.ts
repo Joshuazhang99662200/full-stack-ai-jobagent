@@ -36,17 +36,15 @@ test("each job reads as an agent report without a clock axis", async ({
   await expect(page.locator(".jq-axis, .jq-clock, .jq-window")).toHaveCount(0);
   await expect(page.getByText("最近30分钟")).toHaveCount(0);
   const a = page.locator('.jq-row[data-job="DEMO_A"]');
-  await expect(a).toHaveAttribute("data-lane", "active");
+  await expect(a).toHaveAttribute("data-lane", "needs");
   await expect(a.locator(".jq-flow .current")).toContainText("正在查看详情");
   await expect(a.locator(".jq-flow .next")).toContainText(
     "接下来：读完详情后评估匹配度。",
   );
   const b = page.locator('.jq-row[data-job="DEMO_B"]');
-  await expect(b).toHaveAttribute("data-lane", "needs");
+  await expect(b).toHaveAttribute("data-lane", "idle");
   await expect(b.locator(".jq-milestone")).toContainText("待面试");
-  await expect(b.locator(".jq-ask").first()).toContainText(
-    "审阅准确正文与附件，逐项批准",
-  );
+  await expect(b.locator(".jq-attention")).toHaveCount(0);
   const c = page.locator('.jq-row[data-job="DEMO_C"]');
   await expect(c.locator(".jq-flow .next")).toContainText("下一步尚未安排");
   await expect(c.locator(".jq-none")).toBeVisible();
@@ -79,7 +77,7 @@ test("mobile queue stays readable and embedded history avoids duplicate pickers"
   );
 });
 
-test("paused jobs ask for a decision and parallel work controls identify their run", async ({
+test("paused status alone creates no personal todo and parallel work stays distinct", async ({
   page,
 }) => {
   await page.goto("/?demo=1");
@@ -87,10 +85,8 @@ test("paused jobs ask for a decision and parallel work controls identify their r
     "已暂停",
   );
   await expect(
-    page
-      .locator('.jq-row[data-job="DEMO_E"] .jq-ask')
-      .filter({ hasText: "岗位已暂停，决定是否继续" }),
-  ).toContainText("岗位已暂停，决定是否继续");
+    page.locator('.jq-row[data-job="DEMO_E"] .jq-attention'),
+  ).toHaveCount(0);
   await page.locator(".jq-job").filter({ hasText: "数据工程师" }).click();
   const controls = page
     .locator(".jq-phase-controls button")
@@ -180,12 +176,16 @@ test("canonical job keeps one row and preserves distinct contact rounds", async 
   await expect(
     page.locator(`.jq-row[data-job="${active.job.job_id}"]`),
   ).toHaveAttribute("data-closed", "false");
-  await page.getByRole("dialog").getByRole("tab", { name: "原始记录" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "更多", exact: true })
+    .click();
+  await page.getByRole("dialog").getByRole("tab", { name: "排查问题" }).click();
   await page.getByText("历次联系记录（2）", { exact: true }).click();
   await expect(page.getByText(/OLD_CONTACT_HISTORY/)).toBeVisible();
 });
 
-test("ambiguous active rounds need you and do not claim a current state", async ({
+test("ambiguous rounds stay uncertain without manufacturing a personal todo", async ({
   page,
 }) => {
   const snapshot: any = structuredClone(demo);
@@ -206,9 +206,10 @@ test("ambiguous active rounds need you and do not claim a current state", async 
   const row = page.locator(
     `.jq-row[data-job="${snapshot.jobs[0].job.job_id}"]`,
   );
-  await expect(row).toHaveAttribute("data-lane", "needs");
+  await expect(row).toHaveAttribute("data-lane", "active");
+  await expect(row.locator(".jq-attention")).toHaveCount(0);
   await row.locator(".jq-job").click();
-  await expect(page.locator(".jq-details").getByRole("status")).toContainText(
+  await expect(page.locator(".jq-details")).toContainText(
     "这个岗位有多条尚未结束的联系记录",
   );
   await expect(page.locator(".jq-details [data-state]")).toHaveCount(0);

@@ -53,7 +53,7 @@ test("each job reads as an agent report without a clock axis", async ({
 test("summary counts filter jobs that need you", async ({ page }) => {
   await page.goto("/?demo=1");
   const needs = page.locator('.jq-summary button[data-lane="needs"]');
-  await expect(needs).toContainText("需要你");
+  await expect(needs).toContainText("等你处理");
   const count = Number(await needs.locator("strong").textContent());
   expect(count).toBeGreaterThan(0);
   await needs.click();
@@ -93,7 +93,7 @@ test("paused status alone creates no personal todo and parallel work stays disti
     .filter({ hasText: "查看详情" });
   await expect(controls).toHaveCount(2);
   for (const button of await controls.all())
-    await expect(button).toHaveAttribute("aria-label", /RUN_/);
+    await expect(button).toHaveAttribute("aria-label", /第 \d+ 条工作记录/);
 });
 
 async function fixture(page: import("@playwright/test").Page) {

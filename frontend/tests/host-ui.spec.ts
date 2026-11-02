@@ -48,7 +48,10 @@ test("personal todo dots survive viewing; only a saved answer clears them", asyn
     page.getByRole("heading", { name: "需要你决定", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("这份材料是否可以继续推进？", { exact: true }),
+    page.getByRole("heading", {
+      name: "这份材料是否可以继续推进？",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.getByRole("button", { name: "关闭详情", exact: true }).click();
   await expect(page.locator(".jq-attention")).toHaveCount(1);

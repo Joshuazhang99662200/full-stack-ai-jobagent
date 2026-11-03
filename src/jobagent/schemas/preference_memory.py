@@ -9,6 +9,8 @@ from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
 from jobagent.schemas.jobs import JobId
 
+FeedbackEventDigest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
+
 
 class PreferenceRule(ContractModel):
     rule_id: NonEmptyString
@@ -34,6 +36,7 @@ class PreferenceMemory(ContractModel):
     version: NonEmptyString = "PMEM_EMPTY"
     previous_version: str | None = None
     consumed_event_ids: list[NonEmptyString] = Field(default_factory=list)
+    consumed_event_digests: dict[NonEmptyString, FeedbackEventDigest] = Field(default_factory=dict)
     rules: list[PreferenceRule] = Field(default_factory=list, max_length=24)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -44,6 +47,8 @@ class PreferenceMemory(ContractModel):
             raise ValueError("Preference rule IDs must be unique.")
         if len(self.consumed_event_ids) != len(set(self.consumed_event_ids)):
             raise ValueError("Consumed events must be unique.")
+        if not set(self.consumed_event_digests) <= set(self.consumed_event_ids):
+            raise ValueError("Event digests must refer to consumed preference events.")
         if any(not set(rule.source_event_ids) <= set(self.consumed_event_ids)
                for rule in self.rules):
             raise ValueError("Every preference needs consumed source events.")

@@ -80,7 +80,12 @@ def _body(memory: PreferenceMemory) -> str:
                     "",
                 ]
             )
-    return "\n".join(lines) + _META + memory.model_dump_json(indent=2) + "\n```\n"
+    # Preserve the exact legacy document when no event fingerprints were recorded.
+    excluded = {"consumed_event_digests"} if not memory.consumed_event_digests else set()
+    return (
+        "\n".join(lines) + _META
+        + memory.model_dump_json(indent=2, exclude=excluded) + "\n```\n"
+    )
 
 
 def _document(memory: PreferenceMemory) -> str:
@@ -111,7 +116,18 @@ class MarkdownPreferenceStore:
         try:
             if self.path.stat().st_size > 2000000:
                 raise ValueError("oversized memory")
-            text = self.path.read_text(encoding="utf-8")
+            return self.parse_bytes(self.path.read_bytes())
+        except (OSError, ValueError):
+            raise ContractValidationError(
+                "Preference memory integrity failed or the Markdown was manually modified."
+            ) from None
+
+    def parse_bytes(self, raw: bytes) -> PreferenceMemory:
+        """Validate one captured document, so its digest and selected content stay bound."""
+        try:
+            if len(raw) > 2000000:
+                raise ValueError("oversized memory")
+            text = raw.decode("utf-8")
             match = _CHECKSUM.match(text)
             if match is None:
                 raise ValueError("missing integrity header")

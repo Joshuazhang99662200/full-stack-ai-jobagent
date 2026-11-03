@@ -114,3 +114,7 @@ python scripts/build_console_host_contracts.py --check
 ```
 
 二级页面的发送只读态、单岗执行入口、集中已选清单、可读附件版本、过期待办与滚动恢复，详见 [二级页面核验记录](../docs/react-secondary-pages-verification-2026-11-02.md)。这些交互通过合成验收，真实宿主接入仍需实测。
+
+## 使用授权
+
+组件源码使用 [PolyForm Noncommercial 1.0.0](../LICENSE)：非商业用途免费，商业用途须按[商业授权说明](../COMMERCIAL_LICENSE.md)另行取得授权。教育、公益等机构按标准协议专门条款处理；旧版 Apache 既有权利和第三方依赖协议保留。`npm run build` 会将项目法律文件及 `THIRD_PARTY_NOTICES.md` 一并复制到 `dist/`、`lib/` 和 `muse-lib/`，分发时须保留。

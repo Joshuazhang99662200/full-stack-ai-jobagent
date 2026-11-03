@@ -8,7 +8,8 @@ version = "0.4.0"
 description = "Evidence-grounded, human-approved AI job hunting capabilities"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt"]
 dependencies = [
   "pydantic>=2.11,<3",
   "pypdf>=6.14,<7",
@@ -64,3 +65,18 @@ packages = ["src/jobagent"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "skills/job-hunting" = "jobagent/optimizer/resources/job-hunting"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.jobagent/**",
+    "/.claude/**",
+    "/.codex/**",
+    "/candidate/private/**",
+    "/candidate/variants/**",
+    "/frontend/node_modules/**",
+    "/frontend/dist/**",
+    "/frontend/lib/**",
+    "/frontend/muse-lib/**",
+    "/frontend/test-results/**",
+    "/frontend/playwright-report/**",
+]

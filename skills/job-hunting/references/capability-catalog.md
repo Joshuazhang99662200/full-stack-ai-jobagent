@@ -22,6 +22,14 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | `ask_question` | 已落地 | `jobagent candidate question` · `AdaptiveInterview.next_question` |
 | `add_evidence` | 已落地 | `jobagent candidate answer` · `jobagent candidate confirm` |
 
+## 统一记忆（P1）
+
+| 能力 | 状态 | 入口 |
+|---|---|---|
+| 来源盘点 | 已落地 | `jobagent memory status`：显式私有配置，区分缺失、空、无效及未接入；不创建或迁移业务库 |
+| 不可变来源快照 | 已落地 | `jobagent memory compile`：只写独立私有元数据 sidecar，同源幂等，不复制业务正文、不调用模型、不激活规则 |
+| 搜索与招呼上下文 | 已落地 | `jobagent memory context`：重验来源摘要，确定性筛选已验证软偏好与既有本人确认规则；角色语义条件及 pipeline 范围未接入，回复与简历返回未接入；不证明实际注入或学习效果 |
+
 ## 职位情报(Jobs)
 
 | 能力 | 状态 | 入口 |

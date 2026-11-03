@@ -1,6 +1,6 @@
 """Summarize owner signals into small notes, then select notes for this task."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -24,6 +24,13 @@ def memory_digest(memory: PreferenceMemory) -> str:
     return content_digest(memory.model_dump(mode="json"))
 
 
+def _feedback_digest(event: SourcingFeedback) -> str:
+    payload = event.model_dump(mode="json")
+    if event.occurred_at.utcoffset() is not None:
+        payload["occurred_at"] = event.occurred_at.astimezone(UTC).isoformat()
+    return content_digest(payload)
+
+
 class PreferenceLearner:
     def __init__(self, provider: ReasoningProvider) -> None:
         self.provider = provider
@@ -44,13 +51,27 @@ class PreferenceLearner:
     ) -> PreferenceMemory:
         memory = PreferenceMemory.model_validate(memory.model_dump())
         unique: dict[str, SourcingFeedback] = {}
+        digests: dict[str, str] = {}
         for event in events:
             event = SourcingFeedback.model_validate(event.model_dump())
             if event.candidate_id != memory.candidate_id:
                 raise ContractValidationError("Preference feedback belongs to another candidate.")
             if event.event_id in unique and unique[event.event_id] != event:
                 raise ContractValidationError("The same preference event has different content.")
+            digest = _feedback_digest(event)
+            if event.event_id in memory.consumed_event_ids:
+                saved = memory.consumed_event_digests.get(event.event_id)
+                if saved is None:
+                    raise ContractValidationError(
+                        "Consumed preference feedback has no saved digest; "
+                        "verify its original source before replay."
+                    )
+                if saved != digest:
+                    raise ContractValidationError(
+                        "The same preference event has different content."
+                    )
             unique[event.event_id] = event
+            digests[event.event_id] = digest
         fresh = [event for event in unique.values()
                  if event.event_id not in memory.consumed_event_ids]
         if not fresh:
@@ -64,12 +85,14 @@ class PreferenceLearner:
         if proposal.input_digest != identity:
             raise InvalidProviderOutputError("Preference summary has a stale input digest.")
         known = set(memory.consumed_event_ids) | set(unique)
+        fresh_ids = {event.event_id for event in fresh}
         old_rules = {rule.rule_id: rule for rule in memory.rules}
         for rule in proposal.rules:
             if not set(rule.source_event_ids) <= known:
                 raise InvalidProviderOutputError("Preference rule refers to an unknown source.")
             sources = [unique[eid] for eid in rule.source_event_ids if eid in unique]
-            if not sources and old_rules.get(rule.rule_id) != rule:
+            if (not set(rule.source_event_ids) & fresh_ids
+                    and old_rules.get(rule.rule_id) != rule):
                 raise InvalidProviderOutputError("Changed preferences need a fresh owner source.")
             if rule.scope == "job" and sources and not any(
                 event.job_id == rule.job_id for event in sources
@@ -98,6 +121,10 @@ class PreferenceLearner:
                 version="PMEM_" + content_digest([memory.version, identity,
                                                    proposal.model_dump(mode="json")])[7:27].upper(),
                 previous_version=memory.version, consumed_event_ids=consumed,
+                consumed_event_digests={
+                    **memory.consumed_event_digests,
+                    **{event.event_id: digests[event.event_id] for event in fresh},
+                },
                 rules=proposal.rules, updated_at=now,
             )
         except ValidationError:

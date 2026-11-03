@@ -1,5 +1,6 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,7 @@ from jobagent.bridge.preference_memory import (
     refresh_preference_memory,
 )
 from jobagent.errors import ContractValidationError, UserInterventionRequiredError
+from jobagent.outreach.preference_memory import PreferenceLearner
 from jobagent.schemas.outreach import OutreachBatch
 from jobagent.schemas.preference_memory import PreferenceMemory, PreferenceRule
 from jobagent.schemas.sourcing_feedback import PagedCardState, SourcingFeedback
@@ -17,6 +19,7 @@ from jobagent.storage.feedback_repository import SqliteFeedbackRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 from tests.bridge.test_greeting_context import populated
+from tests.outreach.test_preference_memory import Provider, empty, signal
 
 NOW = datetime(2026, 10, 26, tzinfo=UTC)
 
@@ -56,6 +59,35 @@ def test_markdown_roundtrip_is_readable_and_has_typed_metadata(tmp_path, monkeyp
     assert "Emphasize model evaluation." in text and "EV_ONE" in text
     assert "greetings" in text and "role" in text
     assert store.load() == memory
+
+
+def test_legacy_markdown_without_digests_remains_readable_and_byte_unchanged(tmp_path, monkeypatch):
+    path = private_path(tmp_path, monkeypatch)
+    legacy = (Path(__file__).parent / "fixtures/preference-memory-v1-no-digests.md").read_bytes()
+    path.parent.mkdir(parents=True)
+    path.write_bytes(legacy)
+    store = MarkdownPreferenceStore(path, "CAND_TEST")
+    memory = store.load()
+    assert memory == sample_memory()
+    assert memory.consumed_event_digests == {}
+    store.save(memory, expected_version=memory.version)
+    assert path.read_bytes() == legacy
+
+
+def test_saved_event_digest_rejects_changed_feedback_after_reload(tmp_path, monkeypatch):
+    path = private_path(tmp_path, monkeypatch)
+    provider = Provider()
+    learner = PreferenceLearner(provider)
+    memory = learner.update(empty(), [signal()], now=NOW)
+    store = MarkdownPreferenceStore(path, "CAND_TEST")
+    store.save(memory, expected_version="PMEM_EMPTY")
+    original = path.read_bytes()
+    reloaded = MarkdownPreferenceStore(path, "CAND_TEST").load()
+    assert learner.update(reloaded, [signal()], now=NOW) == memory
+    with pytest.raises(ContractValidationError, match="different content"):
+        learner.update(reloaded, [signal(note="Replaced feedback.")], now=NOW)
+    assert path.read_bytes() == original
+    assert len(provider.calls) == 1
 
 
 def test_version_guard_and_backup_preserve_previous_memory(tmp_path, monkeypatch):

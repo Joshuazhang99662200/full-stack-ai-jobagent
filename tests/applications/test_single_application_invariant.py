@@ -28,9 +28,26 @@ CONTAINER_PREFIXES = ("list", "List", "Sequence", "tuple", "Tuple", "set", "Iter
 
 def module_names() -> list[str]:
     return [
-        f"jobagent.applications.{info.name}"
-        for info in pkgutil.iter_modules([str(PACKAGE_ROOT)])
+        f"jobagent.applications.{info.name}" for info in pkgutil.iter_modules([str(PACKAGE_ROOT)])
     ]
+
+
+@pytest.mark.parametrize("name", ["service", "ports", "selection"])
+def test_memory_core_has_no_infrastructure_dependencies(name: str) -> None:
+    import jobagent.memory
+
+    path = Path(inspect.getfile(jobagent.memory)).parent / f"{name}.py"
+    source = path.read_text(encoding="utf-8")
+    for forbidden in (
+        "import typer",
+        "import sqlite3",
+        "selenium",
+        "playwright",
+        "requests",
+        "jobagent.storage",
+        "jobagent.bridge",
+    ):
+        assert forbidden not in source, (name, forbidden)
 
 
 def annotations() -> Iterator[tuple[str, str, str]]:
@@ -48,9 +65,9 @@ def annotations() -> Iterator[tuple[str, str, str]]:
 
 def test_no_parameter_anywhere_accepts_more_than_one_application() -> None:
     scanned = list(annotations())
-    assert any(
-        annotation.endswith("ApplicationPackage") for _, _, annotation in scanned
-    ), "the scan found no single-application parameters, so it proves nothing"
+    assert any(annotation.endswith("ApplicationPackage") for _, _, annotation in scanned), (
+        "the scan found no single-application parameters, so it proves nothing"
+    )
 
     offenders = [
         (module, parameter, annotation)

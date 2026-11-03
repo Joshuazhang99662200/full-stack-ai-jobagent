@@ -65,6 +65,14 @@ export function JobWorkflow({
                       : ""}
                   {status}
                 </small>
+                {state !== "failed" &&
+                  work.some((stage) => stage.status === "failed") && (
+                    <small>另有失败记录</small>
+                  )}
+                {state !== "unconfirmed" &&
+                  work.some((stage) => stage.status === "unconfirmed") && (
+                    <small>另有状态未确认的记录</small>
+                  )}
                 {state !== "completed" &&
                   work.some((stage) => stage.status === "completed") && (
                     <small>另有已完成记录</small>

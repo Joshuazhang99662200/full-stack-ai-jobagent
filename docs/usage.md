@@ -188,7 +188,7 @@ python -m jobagent.bridge.mcp_server --database .jobagent/jobagent.sqlite3
 | `post_to_claude_code` | 唯一的写操作：把用户的审批原话或需求追加进信箱。转达的审批必须对应一张仍在待批的审批单，否则拒收 |
 | `receipts` / `notes_from_claude_code` / `peer_sessions` | 读执行会话的逐条回执、留言，以及哪个会话担任哪个角色 |
 
-执行会话一侧用 `jobagent mailbox inbox / ack / notify / register-session / peers`。信箱文件放在 `candidate/private/`，不进 git，只追加。**转达的审批不会自动生效**：执行会话仍要用 `outreach approve` 登记，登记后写回执。MCP 是请求—应答协议，服务端不能主动唤醒空闲会话。目前由巡检或用户触发执行会话读信箱。看板：`python scripts/patrol_dashboard.py`（http://localhost:8765，30 秒刷新）。交接说明见 [cowork-handoff.md](cowork-handoff.md)。
+执行会话一侧用 `jobagent mailbox inbox / ack / notify / register-session / peers`。信箱文件放在 `candidate/private/`，不进 git，只追加。**转达的审批不会自动生效**：执行会话仍要用 `outreach approve` 登记，登记后写回执。MCP 是请求—应答协议，服务端不能主动唤醒空闲会话。读取时机来自本人已有配置或明确请求，文档不创建轮询任务。新面板使用[岗位控制台](polling-console.md)；`scripts/patrol_dashboard.py` 仅保留给旧巡检台账使用。旧本机双会话的适用范围见[兼容交接说明](cowork-handoff.md)，Muse 使用[个人 Agent 入口](../hosts/personal-ai/README.md)。
 
 ## 简历渲染与 PDF 核对
 

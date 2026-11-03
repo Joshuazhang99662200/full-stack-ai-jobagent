@@ -1,5 +1,6 @@
 """A published skill must run independently of its development checkout."""
 
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -124,7 +125,7 @@ def test_accidental_private_state_inside_skill_tree_is_not_distributed(tmp_path)
     (skill / "candidate/private").mkdir(parents=True)
     (skill / "references").mkdir()
     (source / "src/jobagent").mkdir(parents=True)
-    (source / "LICENSE").write_text("test license")
+    synthetic_legal_files(source)
     (source / "pyproject.toml").write_text('[project]\nversion="test"\ndependencies=[]')
     (source / "src/jobagent/__init__.py").write_text('"""synthetic runtime"""')
     (skill / "SKILL.md").write_text("synthetic skill")
@@ -147,10 +148,45 @@ def synthetic_release_source(tmp_path):
     (source / "skills/job-hunting/SKILL.md").write_text("Public skill", encoding="utf-8")
     (source / "src/jobagent").mkdir(parents=True)
     (source / "src/jobagent/__init__.py").write_text('"""Public runtime."""')
-    (source / "LICENSE").write_text("test license")
+    synthetic_legal_files(source)
     (source / "pyproject.toml").write_text('[project]\nversion="test"\ndependencies=[]')
     build.__globals__["ROOT"] = source
     return build, source, policy
+
+
+def synthetic_legal_files(source):
+    for relative, text in {
+        "LICENSE": "Synthetic noncommercial license",
+        "NOTICE": "Synthetic attribution and historical rights",
+        "COMMERCIAL_LICENSE.md": "Synthetic paid commercial authorization route",
+        "LICENSES/Apache-2.0.txt": "Synthetic preserved third-party license",
+    }.items():
+        path = source / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+@pytest.mark.parametrize("host", ["codex", "claude-code"])
+def test_standalone_distribution_preserves_legal_terms_and_integrity(tmp_path, host):
+    build, source, _ = synthetic_release_source(tmp_path)
+    installed = build(tmp_path / "installed", host)
+    manifest = json.loads((installed / "manifest.json").read_text(encoding="utf-8"))
+
+    for relative in ("LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt"):
+        original = (source / relative).read_bytes()
+        assert (installed / relative).read_bytes() == original
+        assert manifest["files"][relative] == hashlib.sha256(original).hexdigest()
+
+
+def test_missing_required_legal_terms_never_produces_a_distribution(tmp_path):
+    build, source, _ = synthetic_release_source(tmp_path)
+    (source / "NOTICE").unlink()
+    installed = tmp_path / "installed"
+
+    with pytest.raises(FileNotFoundError):
+        build(installed, "codex")
+
+    assert not installed.exists()
 
 
 @pytest.mark.parametrize(

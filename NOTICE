@@ -1,0 +1,17 @@
+CareerHarness / full-stack-ai-jobagent
+
+Project licensing: PolyForm Noncommercial License 1.0.0, with separately
+negotiated commercial licenses. See LICENSE and COMMERCIAL_LICENSE.md.
+
+The licensing change applies to revisions carrying the new license, to the
+extent the relevant copyright holders can grant those rights. It does not
+revoke rights already granted under Apache License 2.0 for earlier copies.
+The prior Apache license text is retained in LICENSES/Apache-2.0.txt for
+historical and applicable third-party licensing obligations. Its presence
+does not offer every new project revision under Apache License 2.0.
+
+Third-party software and materials retain their own licenses and notices.
+See frontend/THIRD_PARTY_NOTICES.md, docs/oss-review.md, the dependency
+licenses, and the license notices alongside individual assets. The project
+does not impose its commercial licensing fee on those components when used
+independently under their own licenses.

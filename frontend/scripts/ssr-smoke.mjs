@@ -28,3 +28,9 @@ assert.ok(empty.includes("还没有运行记录"));
 console.log(
   "SSR embedding and empty-state smoke passed without browser globals.",
 );
+
+const { MusePanel } = await import("../muse-lib/muse.js");
+const muse = renderToString(createElement(MusePanel, { actions: {} }));
+assert.ok(muse.includes("任务进度"));
+assert.ok(muse.includes("muse-current"));
+console.log("Muse current template SSR smoke passed without browser globals.");

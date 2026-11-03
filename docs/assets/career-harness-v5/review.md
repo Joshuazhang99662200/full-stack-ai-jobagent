@@ -24,7 +24,7 @@ sloplint.mjs gallery.html gallery.css tokens.css --scope component --genre edito
 
 - 四张新图与锁定主图构成同一风格家族：暖白纸底、棕色线条、薄荷绿状态与橙黄色本人确认；无待修视觉问题。
 - 箭头清楚，无文字遮挡或裁切。手机端阅读细节需要打开原图，所有图片入口均可点击。
-- `EVID_A`、`RESUME_1:page:1`、两段文本差异、复核夹具结果与四组摘要前八位均与 [samples.json](../career-harness-v2/samples.json) 一致。
+- `EVID_A`、`RESUME_1:page:1`、两段文本差异、复核夹具结果与四组摘要前八位均与 [samples.json](../shared/samples.json) 一致。
 - 合成夹具说明清楚，没有将夹具结论表述为真实模型独立复核；准确全文、实际附件审批与运营规则确认的权限边界保持清楚；无虚构转化数字。
 
 旧图对按平台、方向、薪资段与材料版本比较、关闭与拒绝单独记录写得更细；新版是概览，完整口径见[工作链路底稿](../../workflow-outline.md)、[实现说明](../../workflow-implementation.md)和[运营文档](../../pipeline-flywheel.md)。

@@ -1,0 +1,10 @@
+.trow{grid-template-columns:28px 1.12fr .36fr 1.32fr 1.78fr .88fr}
+.selection-bar{margin:12px 0;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.selection-cell input{width:18px;height:18px;accent-color:var(--blue)}
+.execution-workflow{border-top:1px solid var(--line);margin-top:16px;padding-top:8px}
+.outcome-done{color:var(--blue)}
+.outcome-failed{color:var(--red)}
+.outcome-executing{outline:1px solid var(--blue);padding:8px}
+@media(max-width:860px){.trow{grid-template-columns:1fr}}
+
+.selection-cell input{margin:0;font:inherit;color:inherit}

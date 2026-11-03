@@ -8,12 +8,13 @@
 [快速体验](#快速体验)
 [选择使用方式](#选择使用方式)
 [能力与边界](#能力与边界)
+[文档入口](docs/README.md)
 [使用指南](docs/usage.md)
 [参与贡献](CONTRIBUTING.md)
 
 从简历中提取的经历先由本人确认，再用于匹配岗位和起草材料。程序保留引用证据、文本差异和复核结果；消息与附件经本人逐项批准后，交给具备相应能力的宿主执行。
 
-当前为 0.4.0 开发者 Alpha（见 [版本记录](CHANGELOG.md)），需要 Python 3.11+，按 [Apache-2.0](LICENSE) 开源。
+当前为 0.4.0 开发者 Alpha（见 [版本记录](CHANGELOG.md)），需要 Python 3.11+。本次协议变更后的版本按 [PolyForm Noncommercial 1.0.0](LICENSE) 公开源码：非商业用途免费，商业用途须另行取得付费授权，见[授权说明](COMMERCIAL_LICENSE.md)。已按 Apache-2.0 发布的旧版授权不受追溯影响。
 
 适合愿意使用 AI 助手、配置 Python 环境并参与逐项确认的求职者，也适合复用求职能力的 Agent 开发者。核心程序提供契约、校验与记账；推理、浏览器、账号、定时和通知由实际宿主提供，并在你的环境中分别验收。
 
@@ -41,7 +42,7 @@
 
 [![合成测试输出示意：迁移经历的文本 diff、引用证据 EVID_A 和原始页码；缺少独立复核时 passed 为 false，提供复核夹具后为 true。](docs/assets/career-harness-v5/evidence.png)](docs/assets/career-harness-v5/evidence.png)
 
-*图中将程序处理合成夹具的输出重新绘制为说明图。复核结论由测试夹具提供，不代表真实模型独立复核。原始数据见[合成输出](docs/assets/career-harness-v2/samples.json)，配图来源与审核记录见[素材目录](docs/assets/career-harness-v5/README.md)。*
+*图中将程序处理合成夹具的输出重新绘制为说明图。复核结论由测试夹具提供，不代表真实模型独立复核。原始数据见[合成输出](docs/assets/shared/samples.json)，配图来源与审核记录见[素材目录](docs/assets/career-harness-v5/README.md)。*
 
 | 你关心的事 | 工作流如何处理 |
 |---|---|
@@ -145,7 +146,7 @@ AI 助手 / job-hunting Skill / CLI / MCP
 | [架构](docs/architecture.md) · [领域模型](docs/domain-model.md) | 依赖方向、核心模型与不变式 |
 | [Harness 协议](skills/job-hunting/references/harness.md) · [宿主对比](docs/harness-comparison.md) | 恢复、交接、产物检查和宿主分工 |
 | [开源复用评审](docs/oss-review.md) | 上游来源、许可证与复用方式 |
-| [岗位任务队列](docs/polling-console.md) | React 公共组件、岗位并行时间轴、宿主完整字段查询与九态历史 |
+| [岗位任务队列](docs/polling-console.md) | React 公共组件、岗位并行进展、宿主完整字段查询与九态历史 |
 
 ## 隐私与参与
 
@@ -155,4 +156,10 @@ AI 助手 / job-hunting Skill / CLI / MCP
 
 近期发布工作集中在合成演示、持续集成、安装体验和不同宿主的真实验收。新增平台能力始终保留证据确认与人工审批门禁。
 
-按 [Apache-2.0](LICENSE) 开源。
+## 使用授权
+
+非商业用途可按 [PolyForm Noncommercial 1.0.0](LICENSE) 免费使用、修改和分发，包括个人自用、学习及协议规定的教育、公益等机构使用。个人使用本项目为自己求职也免费。
+
+未被免费许可覆盖的商业用途，需要先取得单独的书面商业授权并按约付费。收费求职服务、商业 SaaS、面向商业运营的企业内部部署及商业产品集成，参见[商业授权说明](COMMERCIAL_LICENSE.md)。学校及公益等机构的许可范围以标准协议中的专门条款为准，不只根据是否收费判断。
+
+这是带非商业限制的源码公开项目，不标为 OSI 批准的开源软件。旧 Apache 版本的既有权利与第三方组件的原协议继续保留；切换边界及分发要求见[许可证说明](docs/licensing.md)和 [NOTICE](NOTICE)。

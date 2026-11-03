@@ -4,7 +4,7 @@ import demo from "../src/demo.json" with { type: "json" };
 test("channel opens a modal with keyboard dismissal and restores focus", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".jq-details")).toHaveCount(0);
   const channel = page
@@ -39,7 +39,7 @@ test("Liepin routes materials without greeting steps and preserves raw records",
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   const row = page.locator('.jq-row[data-job="DEMO_A"]');
   await expect(row).not.toContainText("招呼");
   await row.getByRole("button", { name: /猎聘.*详情/ }).click();
@@ -105,7 +105,7 @@ test("workflow shows recorded completion, concurrent current work and unknown st
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await page.locator('.jq-row[data-job="DEMO_A"] .jq-job').click();
   const flow = page.getByRole("region", { name: "工作流程" });
   await expect(flow).toBeVisible();
@@ -176,7 +176,7 @@ test("workflow does not turn stale, failed or closed work into current or comple
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/");
+  await page.goto("/?legacy=1");
   await page.locator('.jq-row[data-job="DEMO_A"] .jq-job').click();
   const flow = page.getByRole("region", { name: "工作流程" });
   await expect(flow.locator('[data-step="match"]')).toContainText("状态未确认");
@@ -192,7 +192,7 @@ test("mobile dialog fits the viewport and missing sources stay explicit", async 
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 750 });
-  await page.goto("/?demo=1");
+  await page.goto("/?legacy=1&demo=1");
   await page.locator(".jq-job").first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "更多", exact: true }).click();

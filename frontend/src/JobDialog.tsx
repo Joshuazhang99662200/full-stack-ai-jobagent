@@ -14,6 +14,19 @@ export function JobDialog({
   useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     const overflow = document.body.style.overflow;
+    const scrollX = window.scrollX,
+      scrollY = window.scrollY;
+    const ancestors: { element: HTMLElement; left: number; top: number }[] = [];
+    for (
+      let element = opener?.parentElement;
+      element;
+      element = element.parentElement
+    )
+      ancestors.push({
+        element,
+        left: element.scrollLeft,
+        top: element.scrollTop,
+      });
     const dialog = ref.current;
     dialog?.showModal();
     document.body.style.overflow = "hidden";
@@ -21,6 +34,9 @@ export function JobDialog({
       dialog?.close();
       document.body.style.overflow = overflow;
       if (opener?.isConnected) opener.focus({ preventScroll: true });
+      for (const { element, left, top } of ancestors)
+        element.scrollTo({ left, top, behavior: "instant" });
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: "instant" });
     };
   }, []);
   return (

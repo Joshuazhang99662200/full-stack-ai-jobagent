@@ -4,7 +4,7 @@ import demo from "../src/demo.json" with { type: "json" };
 test("run selection reveals recorded activity; URL remembers view and selection", async ({
   page,
 }) => {
-  await page.goto("/?demo=1&view=runs");
+  await page.goto("/?legacy=1&demo=1&view=runs");
   await expect(
     page.getByRole("heading", { name: "岗位进展", exact: true }),
   ).toBeVisible();
@@ -30,7 +30,7 @@ test("run selection reveals recorded activity; URL remembers view and selection"
 test("nine states highlight only recorded history and preserve full private content", async ({
   page,
 }) => {
-  await page.goto("/?demo=1&view=jobs");
+  await page.goto("/?legacy=1&demo=1&view=jobs");
   await page.getByRole("button", { name: /交互设计师/ }).click();
   await expect(page.locator("[data-state]")).toHaveCount(9);
   await expect(page.locator('[data-state="resume_sent"]')).toHaveAttribute(
@@ -57,7 +57,7 @@ test("production error never silently falls back to synthetic data", async ({
   await page.route("**/api/**", (route) =>
     route.fulfill({ status: 503, body: "{}" }),
   );
-  await page.goto("/?view=runs");
+  await page.goto("/?legacy=1&view=runs");
   await expect(page.getByRole("alert")).toContainText("读取失败");
   await expect(page.getByText("合成示例", { exact: true })).toHaveCount(0);
 });
@@ -84,7 +84,7 @@ test("loading and verified empty snapshot are distinct", async ({ page }) => {
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: { snapshot: {}, activity: {} } }),
   );
-  await page.goto("/?view=runs");
+  await page.goto("/?legacy=1&view=runs");
   await expect(page.getByRole("status")).toContainText("正在读取");
   release();
   await expect(
@@ -111,7 +111,7 @@ test("missing sources never masquerade as a verified empty result", async ({
   await page.route("**/api/definitions", (route) =>
     route.fulfill({ json: {} }),
   );
-  await page.goto("/?view=runs");
+  await page.goto("/?legacy=1&view=runs");
   await expect(
     page.getByText("暂时无法读取运行记录。", { exact: true }),
   ).toBeVisible();
@@ -134,7 +134,7 @@ for (const freshness of ["unknown", "terminal"]) {
     await page.route("**/api/definitions", (route) =>
       route.fulfill({ json: {} }),
     );
-    await page.goto("/?view=runs");
+    await page.goto("/?legacy=1&view=runs");
     await expect(
       page.locator(".detail .facts").getByText("状态未确认", { exact: true }),
     ).toBeVisible();
@@ -151,7 +151,7 @@ test("mobile phases use full-label touch controls instead of narrow interactive 
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 1000 });
-  await page.goto("/?demo=1&view=runs");
+  await page.goto("/?legacy=1&demo=1&view=runs");
   await expect(page.locator(".track button")).toHaveCount(0);
   const phase = page.getByRole("button", { name: "获取信息", exact: true });
   await expect(phase).toBeVisible();
@@ -167,7 +167,7 @@ for (const width of [320, 375, 768, 1440, 1920]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
-    await page.goto("/?demo=1&view=runs");
+    await page.goto("/?legacy=1&demo=1&view=runs");
     for (const view of ["任务进度", "运行记录", "沟通进展"]) {
       await page.getByRole("tab", { name: view }).click();
       expect(

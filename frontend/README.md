@@ -1,10 +1,47 @@
-# 岗位任务队列
+# Muse 通用 React 模板
+
+默认页面以用户指定的当前 Muse 分享页为视觉与结构基准，直接复用 zip 的 React 查询、排序、筛选、材料展示和决定回读逻辑。详情、独立待办、执行清单及运行/沟通/说明页均可交互。
+
+来源、差异、接入限制及核验方法见 [源码还原记录](../docs/muse-source-template-2026-11-02.md)。默认入口 `?demo=1` 使用合成数据；`?demo=1&template=zip` 查看 zip React 版本；`?legacy=1` 保留先前 Console 的兼容视图。真实来源失败不会自动进入演示。
+
+```powershell
+npm.cmd ci
+npm.cmd run typecheck
+npm.cmd run build
+npm.cmd run test:ssr
+npm.cmd run dev -- --port 5178
+```
+
+独立构建输出 `dist/`；兼容 Console 库输出 `lib/`；Muse 库输出 `muse-lib/`。字段类型通过 `python scripts/build_muse_contracts.py --check` 核对 Python 权威传输模型。
+
+```tsx
+import { MusePanel, type MuseActions } from '@jobagent/polling-console/muse';
+import '@jobagent/polling-console/muse/styles.css';
+
+<MusePanel actions={hostActions as MuseActions} cvFiles={hostPreviewFiles} />
+```
+
+宿主提供 `MuseActions`，或向 `MuseSourcePanel` 注入已有 `ConsoleDataSource`。查看与筛选不执行招聘操作。真实保存、审批、发送与回读必须调用已有业务服务。未接入能力禁用或明确说明，不能用前端状态变更代替成功。
+
+当前页样式限定在 `.muse-current`。zip 对照入口包含其原 Tailwind 基础样式，Muse 样式包适合独立面板；宿主需要完全隔离样式时在 iframe 内挂载。React 和 React Query 作为 Muse 库的外部运行时依赖；分发构建资产时保留 `THIRD_PARTY_NOTICES.md`。
+
+## 2026-11-03 同步增量
+
+默认模板新增统一渠道标签、常驻选择队列、仅消费已有准确批准的快捷执行、重新生成与改写记录、失败累计与本人重试，以及完成结果归岗位进展。详见 [增量合并核对](../docs/panel-sync-merge-2026-11-03.md)。
+
+`MusePanel` 的完整动作接口已包含同步包新增 RPC；`MuseSourcePanel` 可接收 `syncActions` 注入真实服务。缺少服务端选择接口时禁用选择；重新生成须同时提供生成与 signal 查询，未接通时明确禁用。默认 demo 的选择存储只是合成演示，不能当作服务端持久化验收。
+
+快捷执行不为未审阅材料自动批准，失败项保留在选择队列；结果未知不能重试。只把正向回读成功的岗位移出已选。完成后只留批次汇总，逐项结果在各岗位进展与历史中查看。
+
+## 兼容 Console 参考接口
+
+以下为 `?legacy=1` 及原 `<Console>` / `<SourceConsole>` 组件说明；不表示当前 Muse 模板沿用这些布局。
 
 React 岗位面板与可嵌入组件，支持只读快照及可注入的宿主交互接口。岗位事实来自现有 pipeline，执行活动来自宿主的明确记录；查看页面不触发招聘网站请求，不登记审批或发送。
 
 本组件采用白底、浅灰历史记录和浅蓝进行中状态，只维护 `src/` 中这一套实现。绿色旧版与早期独立 HTML 原型已废弃，不作为模板、主题或备用入口复用。文案调整沿用当前样式，配色回归测试同时覆盖岗位任务、运行记录和沟通进展。
 
-默认主视图一行一个岗位，像 Agent 汇报：我做到了哪里（岗位业务状态及其时间）、已完成和正在做的工作、接下来准备做什么、需要你处理什么。不画分钟刻度或耗时色条。顶部按“正在推进 / 需要你 / 等待对方”计数，点击即可筛选；默认按已保存匹配度排序，可切换入库时间；缺值排在同组末尾，已关闭的岗位沉底。
+默认主视图一行一个岗位，像 Agent 汇报：我做到了哪里（岗位业务状态及其时间）、已完成和正在做的工作、接下来准备做什么、需要你处理什么。不画分钟刻度或耗时色条。顶部按“全部 / 正在推进 / 等你处理 / 等待对方 / 已结束”计数，点击即可筛选；默认按已保存匹配度排序，可切换入库时间；缺值排在同组末尾，已关闭的岗位沉底。
 
 “接下来”只读取宿主在阶段记录里明确登记的 `next_step`，没有登记时显示“下一步尚未安排”，不由界面推断。“需要你”只读取宿主明确提供、已排除自身信息缺口的个人待办；暂停、待核对或未读取记录本身不会生成红点。未接入待办源时明确显示未知。一个岗位跨轮次的工作可以同时出现，run_id 作为追溯信息保留；缺少评分不会补零，执行失败也不会把岗位自动关闭。
 
@@ -75,3 +112,5 @@ npm.cmd test
 python scripts/build_console_host_contracts.py
 python scripts/build_console_host_contracts.py --check
 ```
+
+二级页面的发送只读态、单岗执行入口、集中已选清单、可读附件版本、过期待办与滚动恢复，详见 [二级页面核验记录](../docs/react-secondary-pages-verification-2026-11-02.md)。这些交互通过合成验收，真实宿主接入仍需实测。

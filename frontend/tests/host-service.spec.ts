@@ -2,7 +2,12 @@ import { expect, test } from "@playwright/test";
 import demo from "../src/demo.json" with { type: "json" };
 import { createDemoSource } from "../src/demoHost";
 import { createSnapshotSource } from "../src/dataSource";
-import { mergeJobFacts, synchronizeHost } from "../src/hostService";
+import {
+  mergeJobFacts,
+  synchronizeHost,
+  personalTodos,
+  displayHistory,
+} from "../src/hostService";
 
 const clock = () => "2026-11-02T10:00:00+08:00";
 const memory = () => {
@@ -437,4 +442,21 @@ test("a partial selection retains unselected plans and never reads them back", a
   expect(calls).toBe(1);
   expect(result!.items).toHaveLength(2);
   expect(result!.items[1].readback).toBeNull();
+});
+
+test("stale personal material remains pending until the current version is reviewed", async () => {
+  const { state } = await setup();
+  state.todos[0].material_revision = "OLD_SYNTHETIC_REVISION";
+  expect(personalTodos(state)).toHaveLength(1);
+});
+
+test("display deduplication preserves authoritative raw events", async () => {
+  const { source, request } = await setup();
+  await source.recordDecision!(request);
+  const state = await source.getHostState();
+  const original = state.jobs[0].events[0];
+  const events = [original, { ...original, event_id: "DUPLICATE_EVENT" }];
+  expect(displayHistory(events)).toHaveLength(1);
+  expect(events).toHaveLength(2);
+  expect(displayHistory(events)[0].event_id).toBe("DUPLICATE_EVENT");
 });

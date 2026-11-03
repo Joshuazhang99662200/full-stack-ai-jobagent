@@ -3,7 +3,9 @@ import { text, type JobView, type Snapshot } from "./contracts";
 import { channelOf } from "./channels";
 import { belongs, label, stages, type Report } from "./agentReport";
 import { JobWorkflow } from "./JobWorkflow";
-import { DecisionPanel, MaterialView } from "./DecisionPanel";
+import { DecisionPanel } from "./DecisionPanel";
+import { MaterialView } from "./MaterialView";
+import { displayHistory } from "./hostService";
 import { TodoPanel } from "./TodoPanel";
 import { ChannelPanel } from "./HostControls";
 import { useHost } from "./hostContext";
@@ -113,6 +115,13 @@ export function JobDetailTabs({
       >
         {tab === "progress" && (
           <>
+            <section className="host-progress-summary">
+              <h3>当前进展说明</h3>
+              <p>
+                {hostJob?.progress ||
+                  "尚无已保存的进展说明，请核对下方工作记录；未收到近期更新的工作状态未确认。"}
+              </p>
+            </section>
             {progress}
             <DecisionPanel job={job} />
           </>
@@ -124,7 +133,7 @@ export function JobDetailTabs({
             {!channel.greetings && (
               <p className="notice">
                 {channel.known
-                  ? "按当前渠道的接口能力核对投递材料；实际投递和附件传输条件仍需检查。"
+                  ? "逐岗附件传输须先由宿主核对；未支持时附件项不可执行。在线简历版本不代表逐岗附件已提交。"
                   : "渠道能力尚未接入，请先核对来源。"}
               </p>
             )}
@@ -169,7 +178,7 @@ export function JobDetailTabs({
                 <h3>本人决定与执行记录</h3>
                 {historyJob.events.length ? (
                   <ol className="history">
-                    {historyJob.events.map((event) => (
+                    {displayHistory(historyJob.events).map((event) => (
                       <li key={event.event_id}>
                         <time>
                           {new Date(event.occurred_at).toLocaleString("zh-CN")}
@@ -224,24 +233,31 @@ export function JobDetailTabs({
                   </ol>
                 </section>
               ))}
-            {channel.greetings && !ambiguous ? (
-              renderJobDetails(job)
-            ) : (
-              <>
-                <h3>投递与沟通进展</h3>
-                <p>
-                  {["draft_pending", "greeting_sent", "greeting_read"].includes(
-                    text(job.job.pipeline_state),
-                  )
-                    ? "当前历史状态需按渠道核对，原始值保留在原始记录中。"
-                    : label(job.job.pipeline_state)}
-                </p>
-                <p>
-                  现有历史记录：{job.history.length}{" "}
-                  条，具体来源与原文可在原始记录中核对。
-                </p>
-              </>
-            )}
+            <section>
+              <h3>投递与沟通进展</h3>
+              <p>
+                {ambiguous
+                  ? "存在多条未结束联系，当前进展待核对。"
+                  : label(job.job.pipeline_state)}
+              </p>
+              <ol className="history">
+                {job.history.map((event, index) => (
+                  <li key={index}>
+                    <time>
+                      {typeof event.changed_at === "string"
+                        ? new Date(event.changed_at).toLocaleString("zh-CN")
+                        : "时间未记录"}
+                    </time>
+                    <strong>
+                      {!channel.greetings &&
+                      String(event.to_state).startsWith("greeting_")
+                        ? "历史沟通状态待核对"
+                        : label(event.to_state)}
+                    </strong>
+                  </li>
+                ))}
+              </ol>
+            </section>
           </>
         )}
         {tab === "signals" && (
@@ -285,7 +301,11 @@ export function JobDetailTabs({
             <h3>来源读取情况</h3>
             {raw(snapshot.sources)}
             <h3>宿主交互原始记录</h3>
-            {raw(hostJob ?? null)}
+            {raw(hostJobs)}
+            <details>
+              <summary>沟通进展完整字段</summary>
+              {renderJobDetails(job)}
+            </details>
           </>
         )}
       </div>

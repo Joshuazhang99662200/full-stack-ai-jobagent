@@ -1,0 +1,6 @@
+
+# Preserve the exact LF stylesheet supplied in the Muse source archive.
+frontend/src/muse/theme.css text eol=lf
+
+# This historical fixture includes a digest of its exact LF body.
+tests/bridge/fixtures/preference-memory-v1-no-digests.md text eol=lf

@@ -14,7 +14,7 @@ function Channel({ entry }: { entry: HostChannel }) {
       <p>
         {
           {
-            connected: "最近核对时已登录",
+            connected: "已登录",
             dropped: "登录已掉线",
             unknown: "登录情况尚未确认",
           }[entry.status]

@@ -4,6 +4,7 @@ import { SourceConsole } from "./SourceConsole";
 import { createHttpSource, type ConsoleDataSource } from "./dataSource";
 import { createDemoSource } from "./demoHost";
 import "./app.css";
+import { MuseSourcePanel } from "./muse/MusePanel";
 
 function App() {
   const example = new URLSearchParams(location.search).get("demo") === "1";
@@ -51,7 +52,18 @@ function App() {
         <p role="status">正在读取本地任务记录…</p>
       </main>
     );
-  return <SourceConsole source={source} syncUrl />;
+  return new URLSearchParams(location.search).get("legacy") === "1" ? (
+    <SourceConsole source={source} syncUrl />
+  ) : (
+    <MuseSourcePanel
+      source={source}
+      appearance={
+        new URLSearchParams(location.search).get("template") === "zip"
+          ? "zip"
+          : "current"
+      }
+    />
+  );
 }
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

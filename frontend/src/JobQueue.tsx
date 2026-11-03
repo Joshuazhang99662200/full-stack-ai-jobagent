@@ -87,7 +87,17 @@ export function JobQueue({
   const host = useHost();
   const todos = host ? personalTodos(host.state) : [];
   const all = stages(snapshot);
-  const [sort, setSort] = useState("match");
+  const sortKey = `ja-console.sort.${host?.source.mode ?? "snapshot"}.${snapshot.candidate_id}`;
+  const [sort, setSort] = useState(() => {
+    try {
+      return typeof window !== "undefined" &&
+        localStorage.getItem(sortKey) === "intake"
+        ? "intake"
+        : "match";
+    } catch {
+      return "match";
+    }
+  });
   const rows = contactGroups(snapshot.jobs)
     .map((group) => {
       const job = group.representative;
@@ -161,7 +171,10 @@ export function JobQueue({
           : "暂时无法读取岗位记录。"}
       </p>
     );
-  const shown = rows.filter((r) => lane === "all" || r.item.lane === lane);
+  const inLane = (r: (typeof rows)[number], key: string) =>
+    key === "all" ||
+    (key === "needs" ? r.item.asks.length > 0 : r.item.lane === key);
+  const shown = rows.filter((r) => inLane(r, lane));
   const current =
     rows.find((r) => r.job.job.pipeline_id === selected) || rows[0];
   const chosen =
@@ -177,7 +190,7 @@ export function JobQueue({
           [
             ["all", "全部"],
             ["active", "正在推进"],
-            ["needs", "需要你"],
+            ["needs", "等你处理"],
             ["waiting", "等待对方"],
             ["closed", "已结束"],
           ] as const
@@ -189,9 +202,15 @@ export function JobQueue({
             onClick={() => setLane(lane === key ? "all" : key)}
           >
             {name}
-            <strong>
-              {rows.filter((r) => key === "all" || r.item.lane === key).length}
-            </strong>
+            {key === "needs" && (!host || host.source.mode === "snapshot") ? (
+              <span className="jq-todo-unknown">待确认</span>
+            ) : (
+              <strong
+                className={key === "needs" ? "jq-personal-badge" : undefined}
+              >
+                {rows.filter((r) => inLane(r, key)).length}
+              </strong>
+            )}
           </button>
         ))}
         {lane !== "all" && (
@@ -204,7 +223,14 @@ export function JobQueue({
           <select
             aria-label="岗位排序"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
+            onChange={(e) => {
+              setSort(e.target.value);
+              try {
+                localStorage.setItem(sortKey, e.target.value);
+              } catch {
+                /* In-memory sorting still works when storage is unavailable. */
+              }
+            }}
           >
             <option value="match">按匹配度</option>
             <option value="intake">按入库时间</option>
@@ -279,9 +305,11 @@ export function JobQueue({
                 ? "存在多条未结束联系，评估适用范围需核对。"
                 : reasons(job)}
             </p>
-            {!group.ambiguous && scoreOf(job) !== null && (
-              <small>已存匹配参考：{Math.round(scoreOf(job)! * 100)}%</small>
-            )}
+            {!group.ambiguous &&
+              scoreOf(job) !== null &&
+              reasons(job) !== "已保存匹配评估，具体理由尚未接入" && (
+                <small>已存匹配参考：{Math.round(scoreOf(job)! * 100)}%</small>
+              )}
           </div>
           <div className="jq-progress">
             <p className="jq-milestone">
@@ -303,7 +331,12 @@ export function JobQueue({
                   <span className="host-dot" aria-hidden="true" />
                   需要你
                 </button>
-                {item.asks[0].text}
+                <button
+                  className="jq-ask-action"
+                  onClick={() => open(job, "todo")}
+                >
+                  {item.asks[0].text}
+                </button>
               </p>
             ) : (
               <span className="jq-none">
@@ -349,7 +382,7 @@ export function JobQueue({
                           ? unique(current.item.current).join("、")
                           : current.item.unconfirmed.length
                             ? "工作缺少近期更新，状态未确认"
-                            : "现有记录中没有进行中的工作"}
+                            : "没有可确认的进行中工作，当前状态未确认"}
                       </dd>
                     </div>
                     <div>
@@ -378,10 +411,10 @@ export function JobQueue({
                     className="jq-phase-controls"
                     aria-label="选择要查看的工作"
                   >
-                    {current.item.stages.map((stage) => (
+                    {current.item.stages.map((stage, index) => (
                       <button
                         key={stage.key}
-                        aria-label={`${label(stage.event.activity)} / ${label(stage.status)} ${stage.started === null ? "开始未记录" : shortTime(stage.started)}，轮次 ${stage.runId}，阶段 ${stage.event.activity_id}`}
+                        aria-label={`${label(stage.event.activity)} / ${label(stage.status)} ${stage.started === null ? "开始未记录" : shortTime(stage.started)}，第 ${index + 1} 条工作记录`}
                         aria-pressed={chosen?.key === stage.key}
                         data-status={stage.status}
                         onClick={() => setStageKey(stage.key)}

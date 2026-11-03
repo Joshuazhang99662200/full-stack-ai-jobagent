@@ -3,6 +3,7 @@ const commands = [
   ["node_modules/typescript/bin/tsc", "--noEmit"],
   ["node_modules/vite/bin/vite.js", "build"],
   ["node_modules/vite/bin/vite.js", "build", "--config", "vite.lib.config.ts"],
+  ["node_modules/vite/bin/vite.js", "build", "--config", "vite.muse.config.ts"],
   [
     "node_modules/typescript/bin/tsc",
     "--emitDeclarationOnly",

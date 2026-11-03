@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "full-stack-ai-jobagent"
 version = "0.4.0"
-description = "Evidence-grounded, human-approved AI job hunting capabilities"
+description = "CareerHarness: always-on AI job search workflows with human-approved actions"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "PolyForm-Noncommercial-1.0.0"

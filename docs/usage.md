@@ -2,7 +2,9 @@
 
 [返回首页](../README.md) · [能力目录](../skills/job-hunting/references/capability-catalog.md) · [Personal AI 入口](../hosts/personal-ai/README.md)
 
-以下命令均在仓库根目录执行。CareerHarness 是展示名；GitHub 仓库和 Python 分发包仍为 `full-stack-ai-jobagent`，CLI 为 `jobagent`，安装的 Skill 为 `job-hunting`。请使用同一个已固定版本的代码、策略与运行环境。
+以下命令均在仓库根目录执行。CareerHarness 的 GitHub 仓库为 `career-harness`；为保持兼容，Python 分发包仍为 `full-stack-ai-jobagent`，CLI 为 `jobagent`，模块为 `src/jobagent`，Skill 为 `job-hunting`。请使用同一个已固定版本的代码、策略与运行环境。
+
+持续找岗、材料准备与回复追踪由已配置调度的宿主推进，可在持续运行环境中 7×24 工作。维护者报告其 Muse / Personal AI 个人实例已完成端到端集成；新部署仍须按[宿主入口](../hosts/personal-ai/README.md)验收私有状态、Python、浏览器、调度、通知与执行回读。安装包不会自行建立云端宿主，任何对外发送仍需逐项批准。
 
 先用首页的合成数据体验确认环境，再准备自己的私有资料。下面的 PDF、JSON、数据库与安装路径是示例位置，需要替换成你自己的文件。JSON 输入须满足 `src/jobagent/schemas/` 的契约并经过相应复核。
 
@@ -11,8 +13,8 @@
 需要 Git 与 Python 3.11+。通过构建脚本生成的 zip 包含完整 `job-hunting/`：skill、策略、同版本 runtime、启动脚本与摘要清单。也可从完整 checkout 构建，目标已存在时会拒绝覆盖：
 
 ```powershell
-git clone https://github.com/Joshuazhang99662200/full-stack-ai-jobagent.git
-cd full-stack-ai-jobagent
+git clone https://github.com/Joshuazhang99662200/career-harness.git
+cd career-harness
 # Codex 用户级安装
 python scripts/build_skill.py --host codex --destination "$env:USERPROFILE/.agents/skills/job-hunting"
 # 或 Claude Code 用户级安装
@@ -164,7 +166,24 @@ listing 用于**发现与确定性硬过滤**(薪资、年限、学历、行业�
 - 默认时段：周日 20:00 到周五 20:00。平时每小时一次；一小时内有新来信时，改为每 15 分钟一次。
 - 开工 `record`、完工 `finish`。开工 45 分钟还没完工视为中断，下次醒来立即续查，所以用量耗尽或断网后能安全恢复。
 - `snapshot` 把一个站的整份消息列表存进本地库，并返回与上一份的差异：新会话、对方新消息、消失的会话、用户拉起但还没打招呼的会话。
-- 快照按来源清单声明同步提取我方消息的已读/送达回执；`receipts` 可回填旧快照，无法唯一匹配的行交人。当前落地部分 P0 埋点及在线简历提案与审批门禁；漏斗计算、诊断、实验和其余飞轮编排仍待实现。
+- 快照按来源清单声明同步提取我方消息的已读/送达回执；`receipts` 可回填旧快照，无法唯一匹配的行交人。在线简历的提案、审批与回读记账，以及后段运营指标、诊断和规则效果复核均已有入口。
+
+### 运营指标、诊断与规则复核
+
+这些能力已在当前 CLI 落地，输入须使用真实记录及同版本 Schema；命令参数以 `--help` 为准：
+
+| 操作 | 入口 |
+|---|---|
+| 计算并保存累计、窗口及来源切片指标 | `jobagent pipeline metrics` |
+| 基于已保存指标诊断问题段 | `jobagent pipeline diagnose` |
+| 查看指标及分子、分母、来源证据 | `jobagent pipeline metric-show` |
+| 查看诊断与排除原因 | `jobagent pipeline diagnosis-show` |
+| 提出具体优化规则 | `jobagent pipeline rule-propose` |
+| 本人确认准确规则及适用范围 | `jobagent pipeline rule-confirm` |
+| 读取当前候选人已确认规则 | `jobagent pipeline confirmed-rules` |
+| 比较后续累计结果并提出保留或回退建议 | `jobagent pipeline rule-review` |
+
+指标、诊断与规则复核不等于所有评测实验或飞轮编排均已实现；其余入口按[能力目录](../skills/job-hunting/references/capability-catalog.md)逐项核对。真实网页采集、定时唤醒和通知由宿主提供；规则确认不改写候选人事实，也不代替发送审批。实现及统计口径见[流程说明](workflow-implementation.md)。
 
 规则全文见 [patrol.md](../skills/job-hunting/references/patrol.md)、[conversation.md](../skills/job-hunting/references/conversation.md)、[browser-sourcing.md](../skills/job-hunting/references/browser-sourcing.md)。设计见 [outreach-design.md](outreach-design.md)、[conversation-design.md](conversation-design.md)。
 

@@ -1,6 +1,14 @@
 # CareerHarness
 
-用于 Codex、Claude Code 和个人 AI 助手的求职工作流，包含候选人证据、岗位分析、定向简历和逐项发送审批。
+**你不必一直在线，求职进程可以。**
+
+**Your Always-On AI Job Search Agent**
+
+Automate job discovery, matching, resume tailoring, and follow-ups around the clock — with evidence-grounded decisions and human-approved actions.
+
+CareerHarness 让 Codex、Claude Code 与 Muse / Personal AI 按已确认配置持续找岗、读取 JD、匹配岗位、准备定向简历并追踪回复。具备已配置调度和持续运行环境的宿主可让流程 7×24 推进；安装 Python 包本身不会自动提供云端运行环境。
+
+仓库提供可复用的契约、规则校验、记账、恢复和 CLI；推理、浏览器、账号、调度与通知由宿主承担。根据维护者的使用反馈，其 Muse / Personal AI 实例已完成端到端个人宿主集成，其他部署仍需逐项验收。每次对外发送都须由本人批准具体岗位、准确正文和实际附件，并核验执行结果。
 
 [![整体求职链路：协同接入、列表确认事实、已有对话与新岗位、完整 JD 匹配、准备招呼或简历、本人审批、执行回读，再到运营改进。](docs/assets/career-harness-v4/workflow.png)](docs/assets/career-harness-v4/workflow.png)
 
@@ -34,11 +42,11 @@
 
 [![投后运营闭环：招呼已发、已读、初步沟通、索取简历、简历已发、待面试与已面试；从真实记录进行诊断，提出规则，本人确认后在下一轮复核效果。](docs/assets/career-harness-v5/feedback.png)](docs/assets/career-harness-v5/feedback.png)
 
-*以上为工作流说明图。渠道统一接入编排仍有缺口；运营、诊断与规则复核已通过 [PR #9](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/9) 合入 `main`，使用时需固定对应版本。已读不回率还需明确观察窗口、分母与排除规则，见[实现说明](docs/workflow-implementation.md)。*
+*以上为工作流说明图。渠道统一接入编排仍有缺口；运营、诊断与规则复核已通过 [PR #9](https://github.com/Joshuazhang99662200/career-harness/pull/9) 合入 `main`，使用时需固定对应版本。已读不回率还需明确观察窗口、分母与排除规则，见[实现说明](docs/workflow-implementation.md)。*
 
 ## 简历改写的证据和差异
 
-定向草稿引用已确认证据，diff 由基础简历与变体直接计算。独立复核单独校验主张；缺少复核时，即使草稿给自己标了“有依据”，也不能通过。
+定向草稿引用已确认证据，diff 由基础简历与变体直接计算。语义判断由独立 reviewer 或宿主提供；程序绑定复核产物与草稿、证据摘要，检查主张覆盖及事实指标。缺少独立复核不能通过，程序校验也不代替语义评审。
 
 [![合成测试输出示意：迁移经历的文本 diff、引用证据 EVID_A 和原始页码；缺少独立复核时 passed 为 false，提供复核夹具后为 true。](docs/assets/career-harness-v5/evidence.png)](docs/assets/career-harness-v5/evidence.png)
 
@@ -68,8 +76,8 @@
 先用内置合成数据看看程序输出。下面的读取命令不需要个人简历、平台账号或模型 API 密钥，也不会发送招聘消息。
 
 ```bash
-git clone https://github.com/Joshuazhang99662200/full-stack-ai-jobagent.git
-cd full-stack-ai-jobagent
+git clone https://github.com/Joshuazhang99662200/career-harness.git
+cd career-harness
 python -m pip install -e .
 
 # 搜索内置合成岗位
@@ -102,7 +110,7 @@ python -m pytest -q tests/workflows/test_harness_skill.py
 | Python / CLI 开发者 | [使用指南](docs/usage.md) · [架构](docs/architecture.md) | 安装核心包，按类型化契约调用单项能力 |
 | 已使用本地桥接的用户 | [MCP 与会话信箱](docs/usage.md#聊天前端桥接本地-mcp-与会话信箱) · [Cowork 交接](docs/cowork-handoff.md) | 本机运行环境与相应配置；这是可选路径 |
 
-展示名为 **CareerHarness**；当前 GitHub 仓库和 Python 分发包仍使用 `full-stack-ai-jobagent`，命令仍为 `jobagent`，Skill 仍为 `job-hunting`。
+产品名为 **CareerHarness**，GitHub 仓库为 `career-harness`；Python 分发包继续使用 `full-stack-ai-jobagent`，CLI 为 `jobagent`，模块为 `src/jobagent`，Skill 为 `job-hunting`。这些标识保留兼容，本次更名不要求迁移已有安装或私有数据。
 
 ## 能力与边界
 
@@ -116,10 +124,10 @@ python -m pytest -q tests/workflows/test_harness_skill.py
 | 招呼、回复、对话与巡检 | 已实现门禁与记账 | 招呼生成、逐项审批、租约、回读与跟进；网页读取和实际消息发送由宿主执行 |
 | 搜索反馈学习 | 已实现有边界的核心 | 支持与反例核验后调整软优先级；私有持久化和调度由宿主承担 |
 | 运行恢复与 Skill 分发 | 已实现 | 同版本 runtime、SHA-256 清单、会话租约与产物检查；宿主工具需分别验收 |
-| 平台简历投递 | 当前交人完成 | 猎聘连接器无法传递获批附件与消息，提交前停止；其他不支持的连接器同样交人 |
-| Personal AI 集成 | 提供协议，按账号验收 | 可读取入口与核心不代表 Muse 的网页、定时、审批转交与发送回读已经接通 |
+| Python CLI 平台简历投递 | 当前交人完成 | 猎聘连接器无法传递获批附件与消息，提交前停止；其他不支持的连接器同样交人。宿主已验证的页面操作不等于 CLI 自带跨平台发送器 |
+| Personal AI 集成 | 维护者实例已集成，协议可复用 | 维护者报告其 Muse / Personal AI 已端到端使用；其他用户的网页、私有存储、定时、通知、审批转交与发送回读仍须分别验收 |
 | 运营指标、诊断与规则效果复核 | 已实现（main） | 提供 metrics、diagnose、规则提案、本人确认与后续效果复核；入口和统计口径见流程实现说明 |
-| 批量简历投递与无人值守全流程编排 | 尚未落地 | 批量投递只有契约；运营规则的确认不授予自动发送权限 |
+| 公共 CLI 批量简历投递编排 | 仅契约 | 不提供批量投递执行器；持续调度和运营规则确认不授予发送权限 |
 
 项目当前定位为开发者 Alpha。真实平台的可用性取决于账号、平台状态与宿主能力；这里不承诺全平台开箱即用。
 

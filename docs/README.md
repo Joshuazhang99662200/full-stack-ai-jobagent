@@ -1,6 +1,6 @@
 # 文档入口
 
-先按当前任务选一份文档，不需要遍读整个目录。可执行能力以同版本[能力目录](../skills/job-hunting/references/capability-catalog.md)、`--help` 和 `src/jobagent/schemas/` 为准；设计目标、旧记录和示例不授予额外能力或操作权限。
+这里是 CareerHarness 的使用与接入文档。先按当前任务选一份文档，不需要遍读整个目录。可执行能力以同版本[能力目录](../skills/job-hunting/references/capability-catalog.md)、`--help` 和 `src/jobagent/schemas/` 为准；设计目标、旧记录和示例不授予额外能力或操作权限。
 
 | 要做什么 | 从这里开始 |
 |---|---|

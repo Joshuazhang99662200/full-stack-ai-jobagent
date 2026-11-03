@@ -1,6 +1,6 @@
 # 流程实现说明
 
-核对日期：2026-10-29。本文用于解释 README 流程图的版本范围，完整[文字底稿](workflow-outline.md)单独保留。本次 README 发布只调整文档和配图，不增加自动化能力，也不改变事实确认与发送门禁。
+核对日期：2026-11-03。本文用于解释 CareerHarness README 流程图的实现范围，完整[文字底稿](workflow-outline.md)单独保留。本次品牌对齐不新增自动化能力，不改变事实确认与发送门禁。维护者报告其 Muse / Personal AI 实例已完成集成；跨用户部署仍需分别验证宿主的推理、账号、浏览器、私有状态、调度与通知。全天候运行以已配置持续宿主为前提。
 
 ## 人机协同与确认方式
 
@@ -27,15 +27,19 @@ README 将渠道预检前置为接入责任：Agent 先查明可用的官方 MCP
 
 AI 可以承担普通回复的写作与复核；发送仍需现有审批。对方索取简历、平台提供“同意交换”按钮，都不是本人的发送批准。附件需属于同一岗位，通过校验与本人查阅，并核对实际文件摘要。面试、联系方式、offer 和危险请求按既有规则交本人处理。
 
+## 独立复核的责任
+
+`src/jobagent/optimizer/review.py` 绑定独立 `ClaimReviewSet` 与草稿、证据摘要，检查主张覆盖，并结合 `verification.py` 校验事实指标。语义判断由独立 reviewer / 宿主产出；程序检查复核产物与材料是否对应，不能独自证明所有语义事实正确。Python CLI 没有通用跨平台提交器，猎聘连接器在无法传输获批附件和消息时仍交人处理；个人宿主已验证的页面操作与该限制分别表述。
+
 ## 运营能力在哪个版本
 
-运营能力已通过 [PR #9](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/pull/9) 合入 `main`，合并提交为 `f73eb2d`。实现原位于 `codex/pipeline-flywheel`，以下固定快照可用于核对：
+运营能力已通过 [PR #9](https://github.com/Joshuazhang99662200/career-harness/pull/9) 合入 `main`，合并提交为 `f73eb2d`。实现原位于 `codex/pipeline-flywheel`，以下固定快照可用于核对：
 
 ```text
 710a27da47006113dd12d40ba5e87098db076855
 ```
 
-该版本已有以下源码与 CLI 入口，源码快照可从[该提交](https://github.com/Joshuazhang99662200/full-stack-ai-jobagent/tree/710a27da47006113dd12d40ba5e87098db076855)核对：
+该版本已有以下源码与 CLI 入口，源码快照可从[该提交](https://github.com/Joshuazhang99662200/career-harness/tree/710a27da47006113dd12d40ba5e87098db076855)核对：
 
 | 部分 | 实现位置 | 入口或行为 |
 |---|---|---|

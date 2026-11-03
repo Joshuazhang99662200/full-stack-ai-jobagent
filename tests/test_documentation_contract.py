@@ -2,6 +2,10 @@ import re
 from pathlib import Path
 from urllib.parse import unquote
 
+import pytest
+
+from jobagent.cli.pipeline import pipeline_app
+
 ROOT = Path(__file__).parents[1]
 
 
@@ -76,3 +80,29 @@ def test_active_documentation_links_resolve() -> None:
             historical = any(part in {"superpowers", "reviews"} for part in target.parts)
             if target.suffix == ".md" and not historical:
                 pending.append(target)
+
+
+@pytest.mark.parametrize("name", ["README.md", "docs/usage.md", "hosts/personal-ai/README.md"])
+def test_current_onboarding_points_to_the_current_repository(name: str) -> None:
+    text = (ROOT / name).read_text(encoding="utf-8")
+    current = "Joshuazhang99662200/career-harness"
+    previous = "Joshuazhang99662200/" + "full-stack-ai-jobagent"
+    assert current in text, name
+    assert previous not in text, name
+    if "git clone" in text:
+        assert f"git clone https://github.com/{current}.git" in text
+        assert "cd career-harness" in text
+
+
+def test_operations_guide_documents_implemented_pipeline_commands() -> None:
+    text = (ROOT / "docs/usage.md").read_text(encoding="utf-8")
+    operations = {
+        "metrics", "diagnose", "metric-show", "diagnosis-show",
+        "rule-propose", "rule-confirm", "confirmed-rules", "rule-review",
+    }
+    registered = {command.name for command in pipeline_app.registered_commands}
+    documented = set(re.findall(r"`jobagent pipeline ([a-z-]+)`", text))
+    assert operations <= registered
+    assert operations <= documented
+    assert documented <= registered
+    assert "漏斗计算、诊断、实验和其余飞轮编排仍待实现" not in text

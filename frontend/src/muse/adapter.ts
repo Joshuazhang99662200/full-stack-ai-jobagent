@@ -1008,7 +1008,7 @@ export function createMuseActions(
     actions,
     options.operationStore,
     async (ranks) => {
-      const { snapshot, state } = await data();
+      const { snapshot } = await data();
       if (!source.createExecutionBatch)
         return {
           batchId: null,

@@ -19,7 +19,6 @@ function LoginRestoreEntry({
   compact?: boolean;
 }) {
   const api = useMuseActions();
-  const policy = useMuseConfiguration();
   const queryClient = useQueryClient();
   const [justRequested, setJustRequested] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -324,17 +323,6 @@ export function MuseApp() {
     queryFn: () => api.getTableData({}),
     enabled: seeded,
     refetchInterval: policy.refreshMs ?? false,
-  });
-  const genProgress = useMutation({
-    mutationFn: () =>
-      api.generateProgress({
-        limit: policy.progressBatchLimit ?? 0,
-        force: false,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["table-data"] });
-      void queryClient.invalidateQueries({ queryKey: ["job"] });
-    },
   });
   const retryProgress = useMutation({
     mutationFn: () =>
@@ -1258,7 +1246,6 @@ function TodoDialog({
   onNotice: (msg: string) => void;
 }) {
   const api = useMuseActions();
-  const policy = useMuseConfiguration();
   const queryClient = useQueryClient();
   const [frozen] = useState<TodoJob | null>(
     () => todos.jobs.find((j) => j.rank === rank) ?? null,
@@ -2342,7 +2329,6 @@ function JobDetailDialog({
   onOpenTodo: (rank: number, itemId: string) => void;
 }) {
   const api = useMuseActions();
-  const policy = useMuseConfiguration();
   const CV_FILES = useMuseCvFiles();
   const queryClient = useQueryClient();
   const detail = useQuery({

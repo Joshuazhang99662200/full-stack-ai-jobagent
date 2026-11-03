@@ -204,7 +204,7 @@ function RunPanel({
             ))}
           </div>
         </div>
-        {items.map((item, index) => {
+        {items.map((item) => {
           const start = Date.parse(text(item.run.created_at));
           const grouped = Object.values(
             item.activities.reduce<Record<string, Activity[]>>((acc, e) => {
@@ -388,7 +388,7 @@ function JobPanel({
             </span>
           </div>
           <div className="job-list">
-            {orderedItems.map((entry, index) => (
+            {orderedItems.map((entry) => (
               <button
                 key={text(entry.job.pipeline_id)}
                 aria-pressed={item.job.pipeline_id === entry.job.pipeline_id}

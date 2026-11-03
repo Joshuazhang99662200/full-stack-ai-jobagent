@@ -1,8 +1,9 @@
 # ruff: noqa: RUF001, E501  -- Chinese labels and inline HTML templates.
-"""Local read-only patrol dashboard: per-board progress, refreshed every 30 seconds.
+"""Legacy read-only patrol-ledger dashboard, retained for existing local users.
 
 Run: python scripts/patrol_dashboard.py [--port 8765] [--database .jobagent/jobagent.sqlite3]
-It only reads the local database and private sourcing files; it never touches a board.
+New job panels use jobagent console serve; see docs/polling-console.md.
+This compatibility view only reads legacy local data and never touches a job board.
 """
 
 import argparse

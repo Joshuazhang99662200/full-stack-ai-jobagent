@@ -264,7 +264,6 @@ export async function createDemoSource(
       : null;
   }
   function append(
-    state: HostState,
     job: HostState["jobs"][number],
     key: string,
     kind: string,
@@ -442,7 +441,6 @@ export async function createDemoSource(
                 : "已记录材料批准，尚未执行";
           }
         const event = append(
-          next.state,
           job,
           input.operation_key,
           input.kind,
@@ -593,7 +591,6 @@ export async function createDemoSource(
           item.readback = result;
           item.status = result.status;
           append(
-            progress.state,
             progress.state.jobs.find((j) => j.contact_id === item.contact_id)!,
             input.operation_key + ":" + item.item_id,
             "execution_readback",

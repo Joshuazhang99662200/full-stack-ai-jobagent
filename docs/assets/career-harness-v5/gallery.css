@@ -2,7 +2,7 @@
 /* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: E, preserve fixture strings and check the raster labels separately from the gallery markup. */
 /* Hallmark · finish review: ship · independent visual and fixture audit complete · wrapper lint: 0 fails, 0 reflex, 0 warns · raster pixels reviewed separately. */
 @import url("./tokens.css");
-@font-face { font-family: "Host Grotesk"; src: url("../career-harness-v2/fonts/HostGrotesk.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Host Grotesk"; src: url("../shared/fonts/HostGrotesk.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
 * { box-sizing: border-box; }
 html, body { overflow-x: clip; }
 html { scrollbar-color: var(--color-muted) var(--color-paper); }

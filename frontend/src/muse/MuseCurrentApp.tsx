@@ -1103,9 +1103,9 @@ function CurrentExecution({
   const api = useMuseActions(),
     policy = useMuseConfiguration(),
     client = useQueryClient();
-  const [busy, setBusy] = useState(false),
+  const [busy] = useState(false),
     [dispatched, setDispatched] = useState(echo.status === "executing"),
-    [error, setError] = useState("");
+    [error] = useState("");
   const status = useQuery({
     queryKey: ["batch", echo.batchId],
     queryFn: () => api.getBatch({ batchId: echo.batchId! }),

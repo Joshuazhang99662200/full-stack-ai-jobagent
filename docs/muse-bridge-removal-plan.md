@@ -1,5 +1,7 @@
 # Muse-only 旧桥接移除计划
 
+**历史提案，未执行。** 当前入口和适用范围以[能力目录](../skills/job-hunting/references/capability-catalog.md)及[个人 Agent 入口](../hosts/personal-ai/README.md)为准；阅读本计划不构成删除现有兼容能力的授权，也不证明任何模块已经退役。
+
 本次只交付计划，未删除飞书、mailbox、MCP、dashboard 或 bridge。当前CLI承担核心校验与审批，不整包删除。是否停止兼容旧本地使用者仍需明确决定；先保留现有入口。
 
 ## 第一步：重新核对全仓调用

@@ -8,6 +8,7 @@
 [快速体验](#快速体验)
 [选择使用方式](#选择使用方式)
 [能力与边界](#能力与边界)
+[文档入口](docs/README.md)
 [使用指南](docs/usage.md)
 [参与贡献](CONTRIBUTING.md)
 
@@ -41,7 +42,7 @@
 
 [![合成测试输出示意：迁移经历的文本 diff、引用证据 EVID_A 和原始页码；缺少独立复核时 passed 为 false，提供复核夹具后为 true。](docs/assets/career-harness-v5/evidence.png)](docs/assets/career-harness-v5/evidence.png)
 
-*图中将程序处理合成夹具的输出重新绘制为说明图。复核结论由测试夹具提供，不代表真实模型独立复核。原始数据见[合成输出](docs/assets/career-harness-v2/samples.json)，配图来源与审核记录见[素材目录](docs/assets/career-harness-v5/README.md)。*
+*图中将程序处理合成夹具的输出重新绘制为说明图。复核结论由测试夹具提供，不代表真实模型独立复核。原始数据见[合成输出](docs/assets/shared/samples.json)，配图来源与审核记录见[素材目录](docs/assets/career-harness-v5/README.md)。*
 
 | 你关心的事 | 工作流如何处理 |
 |---|---|
@@ -145,7 +146,7 @@ AI 助手 / job-hunting Skill / CLI / MCP
 | [架构](docs/architecture.md) · [领域模型](docs/domain-model.md) | 依赖方向、核心模型与不变式 |
 | [Harness 协议](skills/job-hunting/references/harness.md) · [宿主对比](docs/harness-comparison.md) | 恢复、交接、产物检查和宿主分工 |
 | [开源复用评审](docs/oss-review.md) | 上游来源、许可证与复用方式 |
-| [岗位任务队列](docs/polling-console.md) | React 公共组件、岗位并行时间轴、宿主完整字段查询与九态历史 |
+| [岗位任务队列](docs/polling-console.md) | React 公共组件、岗位并行进展、宿主完整字段查询与九态历史 |
 
 ## 隐私与参与
 

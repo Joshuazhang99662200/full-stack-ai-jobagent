@@ -2,4 +2,6 @@
 
 依次执行:需求拆解、优先级与风险分析、证据检索、证据排序、定位、章节规划、受约束起草、主张抽取、蕴含校验、指标与夸大检查、关键词与 ATS 审计、diff 生成、变体组装、简历兼容性评估。
 
-在进入下一阶段之前,先校验当前阶段的结构化产物。优化器可以产出一份改写提案,并把一条新事实路由给 Candidate Core add_draft。只有 Candidate Core confirm 才能在取得显式用户确认之后,把该事实提升为 canonical Evidence。优化器无权授权投递审批或投递执行。
+简历写作由 [Writer 角色与宿主交接](writer-workflow.md) 组织。先确定本次改写模式、读取完整原件并盘点结构；只按需加载写作和模板参考。内部草稿的疑点不阻断其他条目优化，暂定建议不进入最终类型化输出。
+
+提交结构化产物时继续执行既有校验。优化器可以产出改写提案，并把新事实路由给 Candidate Core add_draft；只有 Candidate Core confirm 在显式用户确认后才能提升 canonical Evidence。最终 `TailoredDraft`、独立 review 与 assemble 的门禁保持不变。兼容性评估仍按能力目录状态处理，工作流说明不使其自动落地。优化器无权授权投递审批或投递执行。

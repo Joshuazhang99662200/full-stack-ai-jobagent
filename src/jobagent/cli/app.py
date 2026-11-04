@@ -22,6 +22,7 @@ from jobagent.cli.outreach import outreach_app
 from jobagent.cli.patrol import patrol_app
 from jobagent.cli.pipeline import pipeline_app
 from jobagent.cli.profile import profile_app
+from jobagent.cli.public_careers import public_careers_app
 from jobagent.cli.rules import rules_app
 from jobagent.cli.tracking import tracking_app
 from jobagent.cli.worker import worker_app
@@ -60,6 +61,7 @@ app.add_typer(conversations_app, name="conversations")
 app.add_typer(patrol_app, name="patrol")
 app.add_typer(pipeline_app, name="pipeline")
 app.add_typer(profile_app, name="profile")
+app.add_typer(public_careers_app, name="public-careers")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(mailbox_app, name="mailbox")
 app.add_typer(notify_app, name="notify")

@@ -144,6 +144,7 @@
 }
 .ja-console nav {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--ja-space-xl);
   border-bottom: 1px solid var(--ja-color-rule);
   margin-bottom: var(--ja-space-2xl);
@@ -1120,4 +1121,28 @@
   white-space: normal;
   text-align: left;
   color: var(--ja-color-accent);
+}
+.ja-console .public-careers-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+.ja-console .public-career {
+  border: 1px solid var(--ja-color-border, #dbe3ec);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.ja-console .public-career h3 {
+  margin-top: 0;
+}
+.ja-console .public-region {
+  display: block;
+  margin-bottom: 12px;
+}
+.ja-console .public-career details {
+  margin-top: 14px;
+}
+.ja-console .public-jd {
+  white-space: pre-wrap;
 }

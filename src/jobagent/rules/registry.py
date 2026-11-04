@@ -12,6 +12,12 @@ from jobagent.errors import ContractValidationError
 from jobagent.schemas.dynamic_rules import RuleChangeRequest, RuleDefinition
 
 _RUNTIME = {
+    "PUBLIC_CAREERS_HTTP_PER_DAY": "positive_integer",
+    "PUBLIC_CAREERS_HTTP_PER_ROUND": "positive_integer",
+    "PUBLIC_CAREERS_HTTP_PER_BOARD": "positive_integer",
+    "PUBLIC_CAREERS_QUERY_PER_ROUND": "positive_integer",
+    "PUBLIC_CAREERS_MAX_BYTES": "positive_integer",
+    "PUBLIC_CAREERS_TIMEOUT_SECONDS": "positive_integer",
     "POLL_INTERVAL_HOURS": "positive_number",
     "POLL_ALIGN_MINUTE": "local_time",
     "POLL_TIMEZONE": "timezone",
@@ -113,6 +119,8 @@ def definitions() -> list[RuleDefinition]:
 
 
 def _consumer(name: str) -> str:
+    if name.startswith("PUBLIC_CAREERS_"):
+        return "public-careers scan (HTTP/query units; bytes per response; timeout seconds)"
     if name.startswith("MCP_") or name == "LIEPIN_CALLS_PER_ROUND":
         return "mcp round-start/batch (actual dispatch, confirmed limits and shared ledger)"
     if name == "LIEPIN_DELIVERY_SPACING_SEC":

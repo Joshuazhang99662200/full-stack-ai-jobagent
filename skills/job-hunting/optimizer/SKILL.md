@@ -7,6 +7,20 @@ description: 用于母版简历重构或 JD 定向简历改写,需要在已索�
 
 在一张渐进加载、证据接地的能力图上路由优化器工作。每一层都把权限与上下文收到最窄。
 
+## 简历任务入口
+
+新任务未明确改写方式时，先询问并等待选择，不先生成或改版：
+
+> 这次简历优化，您倾向哪种方式？
+>
+> 1. 保留原始简历的结构和排版，只对关键内容重新表述，并适当精简冗余信息。
+> 2. 全盘重写内容与组织结构，版式按您选定的方案执行。
+> 3. 您提供一份目标模板，由 AI 按模板生成和填充完整简历。
+
+本次任务已选定时直接沿用；历史其他任务的选择不代表本次已回答。选定后读取 [Writer 角色与宿主交接](../references/optimizer/writer-workflow.md)。从完整原简历或完整目标模板出发，保留未改写内容，记录删减及原因；内部片段须合回完整文档后才能交付。
+
+保留原结构或模板填充时，按需加载 [模板修改与逐页验收](../references/optimizer/template-tailoring.md)；需要岗位叙事或表达审阅时加载 [写作方法](../references/optimizer/writing-methods.md)。不把通用一页渲染器用于覆盖已锁定模板。实际 Agent 调度由宿主提供，角色文件与 UI 元数据不证明已经运行。
+
 ## 渐进加载
 
 1. 将 `index/repository.yaml` 与 `index/policies.yaml` 编译为 L0 元数据。把 ID、描述、kind、trust、permissions、preconditions 与 required_context 视为唯一可被发现的表面。
@@ -27,12 +41,12 @@ description: 用于母版简历重构或 JD 定向简历改写,需要在已索�
 
 最终简历变体只能使用候选人已确认的 canonical Evidence。一条新的用户事实可以立即支撑一份改写提案草稿,但它本身仍然只是草稿证据。提升为 canonical Evidence 必须经由 Candidate Core 证据服务,并取得显式用户确认。
 
-确认缺失时,保持提案在视觉上明确处于暂定状态,并就事实与证据提出一个聚焦的问题。绝不从对话的延续中推断确认。
+确认缺失时，内部提案明确标为暂定，将问题集中到疑点区，同时继续优化不受影响的内容。按既有 Candidate Core 流程逐项补证；绝不从对话延续推断确认。疑点处理完毕后才提交符合既有契约的 `TailoredDraft`，不新增草稿 schema、CLI 或状态机，不放松最终验证。
 
 ## 权限边界
 
 路由器的权限仅限于简历分析、策略制定、改写、证据收集与校验。它没有任何通往投递、审批、交付、连接器、浏览器控制、身份认证、CAPTCHA 处理或平台操作的路由。
 
-在 Phase 1,所有被索引的入口点都只是可发现的元数据,对应尚未落地的 adapter。Phase 1 仅可加载策略资源;每一个能力入口点都必须被确定性前置条件过滤排除,不可执行。
+在索引 Phase 1 中，所有被索引的入口点都只是可发现的元数据。Phase 1 仅可加载策略资源，能力入口点须由确定性前置条件过滤排除。Writer workflow 通过宿主复用已落地的 CLI 推理交接，运行条件以能力目录及 [agent-reasoning.md](../references/agent-reasoning.md) 为准。
 
 `phase2_refresh_adapter_available` 在整个 Phase 1 期间均不满足。因此确定性过滤必须把 `repo.jobs.refresh-intelligence` 从所有可选路由中移除。

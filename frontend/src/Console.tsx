@@ -13,6 +13,7 @@ import { text } from "./contracts";
 import "./styles.css";
 import { HostContext, type HostController } from "./hostContext";
 import { HostControls } from "./HostControls";
+import { PublicCareers } from "./PublicCareers";
 export { SourceConsole } from "./SourceConsole";
 export {
   createSnapshotSource,
@@ -538,6 +539,7 @@ export function Console({
             ["queue", "任务进度"],
             ["runs", "运行记录"],
             ["jobs", "沟通进展"],
+            ["public-careers", "公开职位补充"],
           ].map(([key, name]) => (
             <button
               key={key}
@@ -580,6 +582,8 @@ export function Console({
                   source.name === "harness" && source.status === "complete",
               )}
             />
+          ) : view === "public-careers" ? (
+            <PublicCareers value={snapshot.public_careers} />
           ) : view === "jobs" ? (
             <JobPanel
               items={snapshot.jobs}

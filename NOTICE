@@ -15,3 +15,13 @@ See frontend/THIRD_PARTY_NOTICES.md, docs/oss-review.md, the dependency
 licenses, and the license notices alongside individual assets. The project
 does not impose its commercial licensing fee on those components when used
 independently under their own licenses.
+
+Career Ops reference adaptations (no upstream runtime dependency)
+https://github.com/career-ops-hq/career-ops
+Commit: 0184805d575f6e25eb780623b34e6e1087b157a9
+Copyright (c) 2026 Santiago Fernández de Valderrama
+MIT license retained in LICENSES/Career-Ops-MIT.txt.
+References: providers/greenhouse.mjs, providers/ashby.mjs, providers/_http.mjs,
+providers/_ip-guard.mjs; modes/pdf.md, modes/_writing.md, modes/pdf/hm-audit.md.
+Provider adapters are independent Python adaptations; resume guidance is
+a Chinese methodological adaptation, without upstream templates or runtime.

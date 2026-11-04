@@ -54,6 +54,17 @@ export function checkSnapshot(value: Snapshot): Snapshot {
     value.jobs.some((j) => j.job.candidate_id !== value.candidate_id)
   )
     throw new Error("收到的数据格式或候选人范围与当前页面不匹配");
+  const publicSource = value.public_careers;
+  if (
+    publicSource &&
+    (!["complete", "missing", "invalid"].includes(publicSource.status) ||
+      !Array.isArray(publicSource.records) ||
+      !Array.isArray(publicSource.runs) ||
+      [...publicSource.records, ...publicSource.runs].some(
+        (item) => item.candidate_id !== value.candidate_id,
+      ))
+  )
+    throw new Error("公开职位补充的数据格式或候选人范围与当前页面不匹配");
   return value;
 }
 

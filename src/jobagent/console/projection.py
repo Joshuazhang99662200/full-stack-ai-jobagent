@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 from jobagent.console.activities import TERMINAL_PHASES, read_activities, validate_activities
 from jobagent.console.assessments import attach_assessments
+from jobagent.console.public_careers import read_public_careers
 from jobagent.errors import JobAgentError
 from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.console import (
@@ -106,6 +107,13 @@ def snapshot(
     now = now or datetime.now(UTC)
     result = ConsoleSnapshot(candidate_id=candidate, generated_at=now)
     _jobs(database, result)
+    result.public_careers = read_public_careers(database, candidate)
+    result.sources.append(
+        ConsoleSource(
+            name="public_careers", status=result.public_careers.status,
+            message="Stored read-only discoveries; contact and delivery remain separate.",
+        )
+    )
     if not any(source.name == "assessments" for source in result.sources):
         result.sources.append(
             ConsoleSource(

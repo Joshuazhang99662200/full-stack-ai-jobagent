@@ -56,9 +56,9 @@ pipeline 动态策略兼容性已在生产写入边界检查；MCP 搜索与查�
 - **接入一个新平台**时,先读 [references/source-onboarding.md](references/source-onboarding.md) 的五档阶梯逐档评估,再按 [references/adding-a-source.md](references/adding-a-source.md) 写一份来源清单。来源是数据不是代码,内置来源只是参考实现。
 - 在 Boss、智联、猎聘等主站**找岗位、取 JD** 时,阅读 [references/browser-sourcing.md](references/browser-sourcing.md):宿主在用户自己登录的浏览器里搜索与读取,抓回的职位用 `jobs import-observations` 入库。
 - 需要取得 JD 正文,或遇到平台门控(登录页、验证码、WAF)时,阅读 [references/jd-sources.md](references/jd-sources.md)。
-- **按 JD 生成简历**(含用户自带的 JD、用户在 Word 里改过的稿)时,先阅读 [references/resume-pipeline.md](references/resume-pipeline.md):入库、事实确认、改写、独立复核、版面门禁、手改合并全程走这条链路,不用裸 LLM 改写。
-- 处理常规简历接地时,阅读 [references/resume-grounding.md](references/resume-grounding.md)。母版简历重构与 JD 定向改写请路由到 [optimizer/SKILL.md](optimizer/SKILL.md);该嵌套技能自行决定后续策略选择。
-- 处理简历渲染、模板或 ATS 关键词覆盖时,阅读 [references/rendering-ats.md](references/rendering-ats.md)。排版与出 PDF 默认路由到外部技能 resume-builder;它是下游消费者,**不替代证据契约与蕴含校验**。
+- **简历优化、母版重构与按 JD 改写**统一进入 [optimizer/SKILL.md](optimizer/SKILL.md)：未明确本次模式时先询问三选一，已选沿用；按需加载 Writer 角色、写作与模板参考。完整原件出发、未改内容保留、删减可追溯，不能只交优化后的项目经历。草稿疑点局部继续，最终事实核验与本人逐份审批保留。
+- 正式定向链路与手改合并按 [references/resume-pipeline.md](references/resume-pipeline.md) 执行；常规证据接地按需读 [references/resume-grounding.md](references/resume-grounding.md)。
+- 渲染、模板或 ATS 覆盖按需读 [references/rendering-ats.md](references/rendering-ats.md)。使用本次选定制作路径，通用一页布局不覆盖锁定母版；下游渲染不替代证据契约与蕴含校验。专用 Agent 调度依赖宿主真实工具，没有接口如实说明未接入。
 - 首条招呼统一按 [references/message-generation.md](references/message-generation.md) 与 [references/greeting-writing.md](references/greeting-writing.md) 阅读完整 JD、已确认证据和适用偏好生成全文，再独立复核；不设置首招字数硬上限，不加载旧话术库或固定结构。
 - 已安装的 Codex 全文生成入口可按 [references/greeting-ai.md](references/greeting-ai.md) 调用 `jobagent greetings generate`；生成通过后仍走具体岗位与准确全文的本人审批。
 - 求职信或投递邮件继续按 [references/message-generation.md](references/message-generation.md) 的证据与内容要求处理。

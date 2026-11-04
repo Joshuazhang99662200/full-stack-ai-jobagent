@@ -9,6 +9,7 @@ from jobagent.schemas.common import ContractModel, NonEmptyString
 from jobagent.schemas.harness import HarnessRun, RunId
 from jobagent.schemas.jobs import HardFilterResult, MatchResult
 from jobagent.schemas.pipeline import PipelineHistory, PipelineJob, PipelineMeta
+from jobagent.schemas.public_careers import PublicCareerRecord, PublicCareerRun
 
 
 class ConsoleSource(ContractModel):
@@ -68,6 +69,14 @@ class ConsoleRun(ContractModel):
     freshness: Literal["current", "stale", "terminal", "unknown"]
 
 
+class ConsolePublicCareers(ContractModel):
+    """Read-only discovery data; no contact round or approval is synthesized."""
+
+    status: Literal["complete", "missing", "invalid"] = "missing"
+    records: list[PublicCareerRecord] = Field(default_factory=list)
+    runs: list[PublicCareerRun] = Field(default_factory=list)
+
+
 class ConsoleSnapshot(ContractModel):
     candidate_id: CandidateId
     generated_at: AwareDatetime
@@ -75,3 +84,4 @@ class ConsoleSnapshot(ContractModel):
     jobs: list[ConsoleJob] = Field(default_factory=list)
     runs: list[ConsoleRun] = Field(default_factory=list)
     approvals: list[dict[str, object]] = Field(default_factory=list)
+    public_careers: ConsolePublicCareers = Field(default_factory=ConsolePublicCareers)

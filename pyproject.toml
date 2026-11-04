@@ -9,7 +9,10 @@ description = "CareerHarness: always-on AI job search workflows with human-appro
 readme = "README.md"
 requires-python = ">=3.11"
 license = "PolyForm-Noncommercial-1.0.0"
-license-files = ["LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt"]
+license-files = [
+  "LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt",
+  "LICENSES/Career-Ops-MIT.txt",
+]
 dependencies = [
   "pydantic>=2.11,<3",
   "pypdf>=6.14,<7",

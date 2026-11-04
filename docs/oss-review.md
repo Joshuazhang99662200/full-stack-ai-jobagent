@@ -24,3 +24,9 @@
 
 
 2026-11-02：Muse 移植采用用户提供的 zip 与用户指定分享页，来源摘要见 `frontend/src/muse/provenance.json`，复用范围见 [还原记录](muse-source-template-2026-11-02.md)。用户明确要求复用，不额外声称该输入具有第三方开源许可证。新依赖的锁定版本、MIT 许可证及通知已登记，未引入私有 SDK、简历附件或服务器数据。
+
+## Career Ops 参考移植（2026-11-03）
+
+锁定 `0184805d575f6e25eb780623b34e6e1087b157a9`，MIT，作者 Santiago Fernández de Valderrama。复用方式为 `reference-adaptation`，保留 [MIT 全文](../LICENSES/Career-Ops-MIT.txt) 和 NOTICE。最小阅读范围是 `providers/greenhouse.mjs`、`providers/ashby.mjs`、`providers/_http.mjs`、`providers/_ip-guard.mjs`。独立 Python adapter 参考端点、字段与连接防护，不运行上游 provider 或 scan，不移植 Node 依赖、代理、重试、全部 provider、个人配置或申请流程。
+
+简历部分仅参考 `modes/pdf.md`、`modes/_writing.md`、`modes/pdf/hm-audit.md`，在写作策略中作中文方法适配；无上游源码、模板或长段字面复制。选择材料、区分 gap、独立逐条审阅与准确版本绑定继续受本仓库证据与人工审批契约约束。详见[来源记录](../skills/job-hunting/references/oss/career-ops.md)。

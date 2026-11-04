@@ -31,6 +31,12 @@ export interface Snapshot {
   jobs: JobView[];
   runs: RunView[];
   approvals: Fields[];
+  /** Projection only; record and run business fields come from the Python schema. */
+  public_careers?: {
+    status: "complete" | "missing" | "invalid";
+    records: Fields[];
+    runs: Fields[];
+  };
 }
 export type Definitions = Record<string, unknown>;
 export const text = (value: unknown) =>

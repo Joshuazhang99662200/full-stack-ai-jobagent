@@ -160,6 +160,7 @@ def synthetic_legal_files(source):
         "NOTICE": "Synthetic attribution and historical rights",
         "COMMERCIAL_LICENSE.md": "Synthetic paid commercial authorization route",
         "LICENSES/Apache-2.0.txt": "Synthetic preserved third-party license",
+        "LICENSES/Career-Ops-MIT.txt": "Synthetic Career Ops attribution and MIT terms",
     }.items():
         path = source / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,7 +173,13 @@ def test_standalone_distribution_preserves_legal_terms_and_integrity(tmp_path, h
     installed = build(tmp_path / "installed", host)
     manifest = json.loads((installed / "manifest.json").read_text(encoding="utf-8"))
 
-    for relative in ("LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt"):
+    for relative in (
+        "LICENSE",
+        "NOTICE",
+        "COMMERCIAL_LICENSE.md",
+        "LICENSES/Apache-2.0.txt",
+        "LICENSES/Career-Ops-MIT.txt",
+    ):
         original = (source / relative).read_bytes()
         assert (installed / relative).read_bytes() == original
         assert manifest["files"][relative] == hashlib.sha256(original).hexdigest()

@@ -28,6 +28,7 @@ SourceId = NonEmptyString
 
 
 class SourceKind(StrEnum):
+    PUBLIC_API = "public_api"
     FIXTURE = "fixture"
     LISTING_CLI = "listing_cli"
     PUBLIC_PAGE = "public_page"
@@ -86,7 +87,6 @@ class PublicPageSpec(ContractModel):
     gate_markers: list[NonEmptyString] = Field(default_factory=list)
     min_length: int = Field(default=30, ge=1)
     recruiter_card: RecruiterCardSpec | None = None
-
 
 
 class HostBrowserSpec(ContractModel):
@@ -205,10 +205,12 @@ class SourceManifest(ContractModel):
     host_browser: HostBrowserSpec | None = None
     observability: ObservabilitySpec | None = None
     profile: ProfileSpec | None = None
+    public_api: "PublicCareerBoard | None" = None
 
     @model_validator(mode="after")
     def require_the_spec_its_kind_implies(self) -> "SourceManifest":
         required = {
+            SourceKind.PUBLIC_API: ("public_api", self.public_api),
             SourceKind.LISTING_CLI: ("listing", self.listing),
             SourceKind.PUBLIC_PAGE: ("detail", self.detail),
             SourceKind.GATED: ("gate", self.gate),
@@ -218,3 +220,8 @@ class SourceManifest(ContractModel):
         if self.kind is SourceKind.GATED and (self.listing or self.detail):
             raise ValueError("a gated source must not declare an automated route")
         return self
+
+
+from jobagent.schemas.public_careers import PublicCareerBoard  # noqa: E402
+
+SourceManifest.model_rebuild()

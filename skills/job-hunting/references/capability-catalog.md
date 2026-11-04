@@ -73,6 +73,8 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 
 ## 简历优化器(Resume)
 
+简历写作角色与草稿软门控属于宿主 workflow，入口为 `optimizer/SKILL.md` → `references/optimizer/writer-workflow.md`，复用下列已落地的 tailor/review/assemble；不新增草稿类型或 CLI。专用 Agent 实际调度由宿主提供，未派发不记运行。新任务先选择保留原结构、全盘重写或目标模板填充，最终保留完整文档及逐份批准。
+
 | 能力 | 状态 | 入口 |
 |---|---|---|
 | 能力索引发现 | 已落地 | `jobagent optimizer capabilities`(只读 L0 元数据) |
@@ -380,3 +382,11 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 控制台统一清单 | 已落地 | `jobagent console list` | 候选人隔离，完整 job/meta/history 与运行及来源诊断；不迁移数据库 |
 | 宿主阶段观察 | 已落地 | `jobagent console event` | 仅私有宿主观察，关联已有运行；不授予审批、发送或修改岗位状态权限 |
 | 本地 React 控制台 | 已落地 | `jobagent console serve` | 仅本机 GET，显式加载前端构建；缺阶段时间不补造，旧审批缺候选人归属时标 unsupported |
+
+## 公开职位补充渠道
+
+| 能力 | 状态 | 入口 | 边界 |
+|---|---|---|---|
+| 固定公开 ATS 读取 | 已落地 | `jobagent public-careers scan` | Greenhouse/Ashby 固定board；当前已确认规则及新渠道预算；仅合成验收，无内置已批准企业来源；不发送 |
+| 公开职位来源清单 | 已落地 | `jobagent public-careers list` | 候选人隔离，保留provider/board/原ID/URL；只读不迁移 |
+| 公开渠道覆盖与恢复 | 已落地 | `jobagent public-careers status` | 请求与条目计数分开；失败、部分、暂停、未知和零结果不混用 |

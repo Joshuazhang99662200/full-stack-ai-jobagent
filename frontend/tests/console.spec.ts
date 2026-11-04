@@ -168,7 +168,7 @@ for (const width of [320, 375, 768, 1440, 1920]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/?legacy=1&demo=1&view=runs");
-    for (const view of ["任务进度", "运行记录", "沟通进展"]) {
+    for (const view of ["任务进度", "运行记录", "沟通进展", "公开职位补充"]) {
       await page.getByRole("tab", { name: view }).click();
       expect(
         await page.evaluate(

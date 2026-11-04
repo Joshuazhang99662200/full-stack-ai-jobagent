@@ -93,7 +93,10 @@ def build_skill(destination: Path, host: str) -> Path:
                 raise ValueError(f"Symlinks cannot be distributed: {path}")
             if path.is_file() and (path.suffix in extensions or path.name == "py.typed"):
                 sources.append((path, relative_root / path.relative_to(source_root)))
-    for name in ("LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt"):
+    for name in (
+        "LICENSE", "NOTICE", "COMMERCIAL_LICENSE.md", "LICENSES/Apache-2.0.txt",
+        "LICENSES/Career-Ops-MIT.txt",
+    ):
         sources.append((ROOT / name, Path(name)))
     # Inspect the exact bytes that will be copied, before creating any destination.
     contents = [(relative, source.read_bytes()) for source, relative in sources]

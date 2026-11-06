@@ -215,8 +215,15 @@ def approve(
                 details={"batch_id": batch_id},
             )
         verify_greeting_sources(store.database, batch.items)
+        numbers = _numbers(items)
+        decided = SqliteFeedbackRepository(store.database).decided_numbers(batch_id)
+        if overlap := sorted(decided & set(numbers)):
+            raise ApprovalRequiredError(
+                "These items were already decided one by one; approve only the rest.",
+                details={"batch_id": batch_id, "already_decided": overlap},
+            )
         approval = OutreachService().approve(
-            batch, ask=store.get_ask(request), numbers=_numbers(items), attestation=answer
+            batch, ask=store.get_ask(request), numbers=numbers, attestation=answer
         )
         store.save_approval(approval)
         _emit(approval)

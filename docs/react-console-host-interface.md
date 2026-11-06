@@ -27,6 +27,18 @@ const source = createHttpSource();
 
 真实适配器必须实施服务端幂等和版本校验、候选人隔离及单写手，不能依赖浏览器按钮状态。普通材料决定、文案意见和执行确认均不能旁路既有绑定摘要的人工审批。当前猎聘获批附件传输限制继续有效。
 
+## 后端入口（首条招呼逐条决定）
+
+Muse 等宿主的适配器可把三项接口接到同版本 CLI，替代已删除的飞书卡片：
+
+| 面板接口 | CLI | 行为 |
+|---|---|---|
+| `getMaterials` | `jobagent console materials --candidate <ID> --contact <PIPE_*>` | 仍待本人决定的首条招呼准确全文；`revision` 为条目摘要 |
+| `recordDecision` | `jobagent console decide <HostDecisionRequest.json> --actor <操作人>` | `approve_text`：仅原文，单条清单上走原审批门禁；`save_draft`：改写反馈，待重新生成复核；`decline`：回绝反馈。其他种类返回 rejected |
+| `getOperation` | `jobagent console operation <operation_key> --candidate <ID>` | 按操作键回读；无记录即未保存，可重新提交 |
+
+回执状态为 saved 时退出码为 0，rejected 为 1，JSON 回执始终输出。决定都不发送；已批准的条目仍由现有租约与 `outreach next` 节奏发送并回读。
+
 ## 已实现及验证范围
 
 | 清单 | 当前实现 |

@@ -72,6 +72,8 @@ class FeedbackSearchStrategy(ContractModel):
 
 
 class PagedCardState(ContractModel):
+    """Per-item decisions over one asked list, whichever host front end collected them."""
+
     message_id: NonEmptyString
     batch_id: NonEmptyString
     ask_id: NonEmptyString
@@ -85,7 +87,8 @@ class PagedCardState(ContractModel):
     approved_batches: dict[str, str] = Field(default_factory=dict)
     query_strategy_version: NonEmptyString = "unversioned"
     candidate_id: str | None = None
-    expires_at: datetime
+    # Card channels expired with the card; panel states rely on digest checks instead.
+    expires_at: datetime | None = None
     closed: bool = False
     demo_mode: bool = False
 

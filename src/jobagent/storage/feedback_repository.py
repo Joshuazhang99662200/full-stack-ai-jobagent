@@ -185,7 +185,7 @@ class SqliteFeedbackRepository:
                 if withdraw_parent:
                     connection.execute(
                         "INSERT INTO outreach_withdrawals VALUES (?, ?, ?)",
-                        (state.batch_id, "All paged-card items were decided individually.",
+                        (state.batch_id, "All listed items were decided individually.",
                          now.isoformat()),
                     )
                 connection.execute("INSERT INTO paged_card_events VALUES (?, ?, ?)",
@@ -193,6 +193,20 @@ class SqliteFeedbackRepository:
             return "stored"
         except sqlite3.Error as error:
             raise StorageError("Could not persist paged approval.") from error
+
+    def decided_numbers(self, batch_id: str) -> set[int]:
+        """Items of a list that some front end already decided one by one."""
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                "SELECT state_json FROM paged_card_states "
+                "WHERE json_extract(state_json, '$.batch_id') = ?",
+                (batch_id,),
+            ).fetchall()
+        return {
+            int(number)
+            for row in rows
+            for number in PagedCardState.model_validate_json(row[0]).decisions
+        }
 
     def event_seen(self, event_id: str) -> bool:
         with self.database.connect() as connection:

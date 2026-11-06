@@ -165,6 +165,8 @@ def test_cli_init_persona_and_report(tmp_path, monkeypatch):
 
 FAKE_GEMINI = r'''
 import json, sys
+sys.stdin.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")
 prompt = sys.stdin.read()
 schema_text, task_text = prompt.split("\nTask JSON follows:\n", 1)
 title = json.loads(schema_text.split("nothing else:\n", 1)[1])["title"]
@@ -202,17 +204,18 @@ print(json.dumps({"response": "```json\n" + json.dumps(out, ensure_ascii=False) 
 
 
 def test_cli_rounds_through_the_real_gemini_runner_contract(tmp_path, monkeypatch):
-    import stat
     import sys
 
     monkeypatch.chdir(tmp_path)
-    script = tmp_path / "gemini"
-    script.write_text(f"#!{sys.executable}\n" + FAKE_GEMINI, encoding="utf-8")
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    script = tmp_path / "gemini.py"
+    script.write_text(FAKE_GEMINI, encoding="utf-8")
     private = tmp_path / ".jobagent"
     private.mkdir()
     config = private / "gemini.json"
-    config.write_text(json.dumps({"argv": [str(script)], "timeout_seconds": 60}), encoding="utf-8")
+    config.write_text(
+        json.dumps({"argv": [sys.executable, str(script)], "timeout_seconds": 60}),
+        encoding="utf-8",
+    )
     runner = CliRunner()
     created = runner.invoke(app, ["roleplay", "init", "--scenario", "evaluation_first_v1"])
     assert created.exit_code == 0

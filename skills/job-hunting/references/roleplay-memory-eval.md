@@ -15,14 +15,31 @@ Gemini 能学到偏好的唯一途径，就是本人每轮留下的决定、改�
 ## 准备（只做一次）
 
 1. 在本机克隆仓库、切到包含本功能的分支，`python -m pip install -e .`。
-2. 确认 Gemini CLI 已登录，并能以 JSON 输出运行：`echo "只回复 {\"ok\": true}" | gemini --output-format json`，输出里应有 `response` 和 `stats.tools.totalCalls`。没有这两项时，`roleplay round` 会失败关闭，不会重试。
-3. 新建一个**空目录**作为工作区并进入，后续命令都在这里运行。写私有配置 `.jobagent/gemini.json`：
+2. 确认本机装的是哪种 CLI，并已登录。两种都支持，由配置里的 `protocol` 区分：
+   - **Gemini CLI（`gemini`）**：`echo "只回复 {\"ok\": true}" | gemini --output-format json`，输出里应有 `response` 和 `stats.tools.totalCalls`。
+   - **Antigravity CLI（`agy`）**：`agy models` 应列出要用的模型。agy 的最终结果不报告工具调用次数，而且无人值守时读文件不经授权，所以必须用 stream-json，从过程事件里数工具调用。
+
+   输出证明不了"没用工具"时，`roleplay round` 会失败关闭，不会重试。
+3. 新建一个**空目录**作为工作区并进入，后续命令都在这里运行。写私有配置 `.jobagent/gemini.json`，二选一：
 
 ```json
 {"argv": ["gemini", "--output-format", "json"], "timeout_seconds": 180}
 ```
 
-需要指定模型时在 argv 里加 `"-m", "<模型名>"`。不要在配置里放密钥。
+```json
+{
+  "protocol": "agy_stream_json",
+  "argv": ["<agy 可执行文件完整路径>", "-p=", "--input-format", "stream-json",
+           "--output-format", "stream-json", "--model", "gemini-3.8-flash-high"],
+  "timeout_seconds": 600
+}
+```
+
+agy 每次调用实测要 1 到 3 分钟，一轮要调用多次；超时设到 300 秒时曾有一次调用超时，所以示例用上限 600 秒。超时也按失败处理，不重试。
+
+Gemini CLI 指定模型时在 argv 里加 `"-m", "<模型名>"`；agy 用 `agy models` 里的模型编号。不要在配置里放密钥，也不要加 `--dangerously-skip-permissions`、`--yolo` 这类自动批准工具的参数，配置会直接拒绝。
+
+两种 CLI 都可能读取用户级的全局上下文（如 `~/.gemini/GEMINI.md`）。里面若有写作或求职偏好，会和记忆规则一起影响 Gemini，测出来的就不只是记忆链路；运行前先确认，必要时在报告里注明。
 
 4. `jobagent roleplay init --scenario evaluation_first_v1`，再 `jobagent roleplay persona` 读一遍人设。
 

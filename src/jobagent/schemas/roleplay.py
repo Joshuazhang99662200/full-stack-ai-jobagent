@@ -11,13 +11,28 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from jobagent.schemas.common import ContractModel, NonEmptyString
 
+AUTO_APPROVE_FLAGS = frozenset({"--dangerously-skip-permissions", "--yolo", "-y"})
+
 
 class GeminiCliConfig(ContractModel):
-    """How this machine invokes the Gemini CLI. The argv must make it print one JSON
-    envelope with `response` and tool statistics (for example `--output-format json`)."""
+    """How this machine invokes a Gemini CLI.
+
+    `gemini_json`: the Gemini CLI with `--output-format json`, which prints one envelope
+    with `response` and `stats.tools.totalCalls`.
+    `agy_stream_json`: the Antigravity CLI (`agy`) with `-p= --input-format stream-json
+    --output-format stream-json`; the task goes in as one stream message and tool use is
+    read from its step events, because its final result does not report tool calls.
+    """
 
     argv: list[NonEmptyString] = Field(min_length=1, max_length=20)
     timeout_seconds: Annotated[float, Field(gt=0, le=600)]
+    protocol: Literal["gemini_json", "agy_stream_json"] = "gemini_json"
+
+    @model_validator(mode="after")
+    def no_auto_approval(self) -> "GeminiCliConfig":
+        if AUTO_APPROVE_FLAGS.intersection(self.argv):
+            raise ValueError("The argv must not auto-approve tool use.")
+        return self
 
 
 class RoleplayEvidence(ContractModel):

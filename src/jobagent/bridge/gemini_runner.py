@@ -1,9 +1,10 @@
 """Isolated, bounded Gemini CLI calls with the same interface as the Codex text runner.
 
-The CLI runs in an empty temporary directory with the task on stdin. Its JSON
-envelope must report tool statistics: any tool call, or missing statistics, is
+The CLI runs in an empty temporary directory with the task on stdin. Its output must
+prove there was no tool use: any tool call, or output that cannot rule it out, is
 treated as outside the text-only boundary, because a reply that may have read or
-changed something cannot be trusted as a pure proposal.
+changed something cannot be trusted as a pure proposal. Two output protocols are
+supported, the Gemini CLI JSON envelope and the Antigravity CLI (`agy`) event stream.
 """
 
 import json
@@ -48,6 +49,73 @@ def _tool_calls(envelope: dict[str, Any]) -> int:
     return calls
 
 
+def _gemini_json_response(stdout: str, request_id: str) -> str:
+    try:
+        envelope = json.loads(stdout)
+        if not isinstance(envelope, dict) or not isinstance(envelope.get("response"), str):
+            raise ValueError("no response field")
+    except ValueError:
+        raise InvalidProviderOutputError(
+            "Gemini did not return a JSON envelope with a response.",
+            details={"request_id": request_id},
+        ) from None
+    if _tool_calls(envelope) != 0:
+        raise InvalidProviderOutputError("Tool activity is outside the text-only boundary.")
+    return str(envelope["response"])
+
+
+# Step kinds that only carry the task or the model's own text. Anything else, including
+# kinds this code has never seen, counts as tool activity.
+TEXT_STEP_TYPES = frozenset({"user_input", "agent_response"})
+
+
+def _agy_stream_response(stdout: str, request_id: str) -> str:
+    """Read `agy --output-format stream-json`. Its final result has no tool count, and in
+    headless mode some tools (file reads) run without asking, so tool use is detected from
+    the step events: one non-text step, or any denied action, fails the round."""
+    events: list[dict[str, Any]] = []
+    try:
+        for line in stdout.splitlines():
+            if line.strip():
+                event = json.loads(line)
+                if not isinstance(event, dict) or not isinstance(event.get("event"), str):
+                    raise ValueError("not a stream event")
+                events.append(event)
+    except ValueError:
+        raise InvalidProviderOutputError(
+            "Gemini did not return a stream-json event stream.",
+            details={"request_id": request_id},
+        ) from None
+    results = [e.get("result") for e in events if e["event"] == "result"]
+    if len(results) != 1 or not isinstance(results[0], dict):
+        raise InvalidProviderOutputError(
+            "Gemini's event stream has no single result.", details={"request_id": request_id}
+        )
+    result = results[0]
+    if result.get("status") != "SUCCESS":
+        raise UserInterventionRequiredError(
+            "Gemini did not complete; check the CLI login and arguments.",
+            details={"request_id": request_id, "status": str(result.get("status"))},
+        )
+    raw_steps = [e.get("step_update") for e in events if e["event"] == "step_update"]
+    steps = [step for step in raw_steps if isinstance(step, dict)]
+    if not steps or len(steps) != len(raw_steps):
+        raise InvalidProviderOutputError(
+            "Gemini reported no step events, so tool use cannot be ruled out.",
+            details={"request_id": request_id},
+        )
+    if any(step.get("step_type") not in TEXT_STEP_TYPES for step in steps) or result.get(
+        "denied_actions"
+    ):
+        raise InvalidProviderOutputError("Tool activity is outside the text-only boundary.")
+    response = result.get("response")
+    if not isinstance(response, str):
+        raise InvalidProviderOutputError(
+            "Gemini's result has no response.", details={"request_id": request_id}
+        )
+    return response
+
+
 class GeminiTextRunner:
     def __init__(self, config: GeminiCliConfig, workspace: Path) -> None:
         self.config = config
@@ -63,11 +131,18 @@ class GeminiTextRunner:
             "supplied facts. Reply with exactly one JSON object matching this JSON Schema and "
             "nothing else:\n" + schema + "\nTask JSON follows:\n" + body
         )
+        stream = self.config.protocol == "agy_stream_json"
+        stdin = (
+            json.dumps({"event": "user", "message": {"content": prompt}}, ensure_ascii=False)
+            + "\n"
+            if stream
+            else prompt
+        )
         self.workspace.mkdir(parents=True, exist_ok=True)
         with TemporaryDirectory(prefix="gemini-text-", dir=self.workspace) as folder:
             try:
                 done = subprocess.run(
-                    self.config.argv, input=prompt, cwd=folder, shell=False,
+                    self.config.argv, input=stdin, cwd=folder, shell=False,
                     capture_output=True, text=True, encoding="utf-8", errors="replace",
                     timeout=self.config.timeout_seconds, check=False,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -84,19 +159,10 @@ class GeminiTextRunner:
             )
         if len(done.stdout) > MAX_OUTPUT:
             raise InvalidProviderOutputError("Gemini output exceeds its bounded size.")
+        read = _agy_stream_response if stream else _gemini_json_response
+        response = read(done.stdout, request.request_id)
         try:
-            envelope = json.loads(done.stdout)
-            if not isinstance(envelope, dict) or not isinstance(envelope.get("response"), str):
-                raise ValueError("no response field")
-        except ValueError:
-            raise InvalidProviderOutputError(
-                "Gemini did not return a JSON envelope with a response.",
-                details={"request_id": request.request_id},
-            ) from None
-        if _tool_calls(envelope) != 0:
-            raise InvalidProviderOutputError("Tool activity is outside the text-only boundary.")
-        try:
-            return output_contract.model_validate(_first_object(envelope["response"]))
+            return output_contract.model_validate(_first_object(response))
         except (ValueError, ValidationError):
             raise InvalidProviderOutputError(
                 "Gemini returned no valid result for the requested output contract.",

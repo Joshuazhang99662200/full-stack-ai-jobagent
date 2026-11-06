@@ -132,8 +132,8 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
-| 节奏判断 | 已落地 | `jobagent patrol next --schedule <私有 PatrolSchedule>`(时段与间隔只来自本人私有配置,仓库不内置任何人的时段;缺失或不合契约即停止) |
-| 记录一次巡检 | 已落地 | `jobagent patrol record --schedule <私有 PatrolSchedule>`(开工占位;不到时间或上一次仍在进行时拒绝) |
+| 节奏判断 | 已落地 | `jobagent patrol next`(须带 `--schedule <私有 PatrolSchedule>`;时段与间隔只来自本人私有配置,仓库不内置任何人的时段;缺失或不合契约即停止) |
+| 记录一次巡检 | 已落地 | `jobagent patrol record`(须带 `--schedule`;开工占位;不到时间或上一次仍在进行时拒绝) |
 | 消息页快照 | 已落地 | `jobagent patrol snapshot`(把一个站的消息列表整份存进本地库,返回与上一份快照的差异:新会话、新消息、消失的会话、对方的新消息) |
 | 快照历史 | 已落地 | `jobagent patrol snapshots`(按站列出保存过的快照) |
 | 消息回执回填 | 已落地 | `jobagent patrol receipts`(按时间顺序重放已存快照，按来源可观测性声明提取已读/送达；每条对话每种状态只追加首次记录，无法唯一匹配的交人) |

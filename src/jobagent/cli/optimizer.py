@@ -5,11 +5,12 @@ import typing
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 
 import typer
 from pydantic import ValidationError
 
+from jobagent.cli.private_io import fail
 from jobagent.errors import (
     AgentHandoffRequiredError,
     CapabilityRegistryError,
@@ -90,22 +91,6 @@ def _compile_snapshot() -> CapabilityRegistrySnapshot:
 _snapshot_provider: Callable[[], CapabilityRegistrySnapshot] = _compile_snapshot
 
 
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {
-                "error": {
-                    "code": error.code,
-                    "message": error.message,
-                    "details": error.details,
-                }
-            },
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
-
-
 @optimizer_app.command("capabilities")
 def capabilities(
     kind: Annotated[
@@ -152,7 +137,7 @@ def capabilities(
             )
         )
     except (CapabilityRegistryError, ContractValidationError) as error:
-        _fail(error)
+        fail(error)
 
 
 def _observed_language(statements: Sequence[str]) -> str:
@@ -190,7 +175,7 @@ def base_resume(
         )
         typer.echo(document.model_dump_json(indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @optimizer_app.command("tailor")
@@ -262,7 +247,7 @@ def tailor(
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def _origin(
@@ -357,7 +342,7 @@ def review(
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @optimizer_app.command("assemble")
@@ -404,11 +389,11 @@ def assemble(
         if not verification.passed:
             raise typer.Exit(code=1)
     except ValidationError as error:
-        _fail(
+        fail(
             ContractValidationError(
                 "The assembled variant did not satisfy its contract.",
                 details={"variant_id": variant_id, "error_count": error.error_count()},
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)

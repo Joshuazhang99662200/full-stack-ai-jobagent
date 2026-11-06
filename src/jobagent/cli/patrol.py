@@ -9,12 +9,12 @@ import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 
 import typer
 from pydantic import TypeAdapter, ValidationError
 
-from jobagent.cli.private_io import read_model
+from jobagent.cli.private_io import fail, read_model
 from jobagent.errors import ContractValidationError, JobAgentError
 from jobagent.patrol.receipts import receipts_from_snapshot
 from jobagent.patrol.schedule import decide
@@ -51,16 +51,6 @@ ScheduleOption = Annotated[
 
 def _emit(value: object) -> None:
     typer.echo(json.dumps(value, ensure_ascii=False, indent=2, default=str))
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(1)
 
 
 def _now(value: str | None) -> datetime:
@@ -125,7 +115,7 @@ def next_check(
         decision = _decide(moment, read_model(schedule, PatrolSchedule), checks, conversations)
         _emit(decision.model_dump(mode="json"))
     except (JobAgentError, ValueError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @patrol_app.command("record")
@@ -152,7 +142,7 @@ def record(
         checks.record(check)
         _emit(check.model_dump(mode="json"))
     except (JobAgentError, ValueError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @patrol_app.command("finish")
@@ -166,7 +156,7 @@ def finish(
         checks, _ = _stores(database)
         _emit(checks.finish(check_id, _now(now)).model_dump(mode="json"))
     except (JobAgentError, ValueError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @patrol_app.command("snapshot")
@@ -229,7 +219,7 @@ def snapshot(
         if status == "intervention":
             raise typer.Exit(1)
     except (JobAgentError, ValueError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @patrol_app.command("snapshots")
@@ -257,7 +247,7 @@ def snapshots(
             ]
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @patrol_app.command("receipts")
@@ -284,4 +274,4 @@ def receipts(database: DatabaseOption = DEFAULT_DATABASE) -> None:
             }
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)

@@ -5,7 +5,7 @@ import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any, Never, TypeVar
+from typing import Annotated, Any, Never
 from urllib.parse import urlsplit
 
 import typer
@@ -18,10 +18,12 @@ from jobagent.bridge.preference_reasoning import CodexPreferenceProvider
 from jobagent.capabilities import ReasoningOutputT
 from jobagent.cli.greetings import _find_executable, _load_settings, _private_path
 from jobagent.cli.jd_knowledge import register_knowledge_commands
+from jobagent.cli.private_io import fail, read_model
 from jobagent.cli.sourcing import register_sourcing_commands
 from jobagent.connectors.extraction import MIN_JD_LENGTH
 from jobagent.connectors.factory import build_detail_fetcher, build_listing_source
 from jobagent.connectors.observations import check_observation
+from jobagent.digest import canonical_digest
 from jobagent.errors import (
     ContractValidationError,
     InvalidProviderOutputError,
@@ -31,7 +33,7 @@ from jobagent.errors import (
 )
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
-from jobagent.jobs.jd_snapshot import canonical_digest, capture_from_record
+from jobagent.jobs.jd_snapshot import capture_from_record
 from jobagent.jobs.matching import MatchAggregator
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.jobs.ports import JobDiscoverySource, JobListingSource
@@ -110,7 +112,6 @@ SourceOption = Annotated[
         help="Read-only discovery connector: 'mock' (synthetic fixture) or 'liepin' (liepin-cli).",
     ),
 ]
-ModelT = TypeVar("ModelT", bound=ContractModel)
 
 jobs_app = typer.Typer(
     help="Search and evaluate jobs locally with typed, read-only intelligence.",
@@ -118,28 +119,8 @@ jobs_app = typer.Typer(
 )
 
 
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
-
-
 def _input_error(message: str) -> Never:
-    _fail(ContractValidationError(message))
-
-
-def _load_model(path: Path, model_type: type[ModelT]) -> ModelT:
-    try:
-        return model_type.model_validate_json(path.read_text(encoding="utf-8"))
-    except (OSError, ValidationError) as error:
-        raise ContractValidationError(
-            "Reviewed JSON input could not be loaded.",
-            details={"file_name": path.name, "contract": model_type.__name__},
-        ) from error
+    fail(ContractValidationError(message))
 
 
 def _load_assessments(path: Path) -> list[JobAssessment]:
@@ -311,7 +292,7 @@ def _validated_requirements(
     database: Path | None = None,
 ) -> tuple[NormalizedJob, JobRequirementProfile]:
     job = _resolve_job(job_ref, fixture, database)
-    reviewed = _load_model(reviewed_path, JobRequirementProfile)
+    reviewed = read_model(reviewed_path, JobRequirementProfile)
     return job, ReasoningJobRequirementExtractor(_ReviewedProvider(reviewed)).extract(job)
 
 
@@ -361,7 +342,7 @@ def listings(
             attempt_id=attempt_id, items=list(results), loaded=True, access_state="public",
         ), now=datetime.now(UTC)))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("fetch-jd")
@@ -374,10 +355,10 @@ def fetch_jd(
     yielding a partial JD.
     """
     try:
-        listing = _load_model(listing_path, JobListing)
+        listing = read_model(listing_path, JobListing)
         _emit_model(build_detail_fetcher(_registry().get(listing.source)).fetch(listing))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("ingest-jd")
@@ -392,7 +373,7 @@ def ingest_jd(
     scraped and no gate is worked around.
     """
     try:
-        listing = _load_model(listing_path, JobListing)
+        listing = read_model(listing_path, JobListing)
         try:
             jd_original = jd_path.read_text(encoding="utf-8")
             jd_raw = jd_original.strip()
@@ -421,7 +402,7 @@ def ingest_jd(
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("add-jd")
@@ -490,15 +471,14 @@ def add_jd(
             "observation_id": "MANUAL_"+captured.observation_id,
             "discovery_kind": "manual",
         })
-        with jobs.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with jobs.database.transaction() as connection:
             jobs.save_observation(record, job, connection=connection)
             SqliteJDSnapshotRepository(jobs.database).capture(captured, connection=connection)
         _emit_model(job)
     except ValidationError:
-        _fail(ContractValidationError("The posting details are invalid (check --url)."))
+        fail(ContractValidationError("The posting details are invalid (check --url)."))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("import-observations")
@@ -549,8 +529,7 @@ def import_observations(
             snapshot_id = None
             snapshot_status = "timestamp_missing_timezone"
             try:
-                with jobs.database.connect() as connection, connection:
-                    connection.execute("BEGIN IMMEDIATE")
+                with jobs.database.transaction() as connection:
                     jobs.save_observation(record, job, connection=connection)
                     if record.collected_at.tzinfo is not None:
                         captured = SqliteJDSnapshotRepository(jobs.database).capture(
@@ -587,7 +566,7 @@ def import_observations(
             )
         _emit_model(report)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("reserve-read")
@@ -598,7 +577,7 @@ def reserve_read(
 ) -> None:
     """Reserve one attempt before the host reads; no external action is performed."""
     try:
-        request = _load_model(request_path, ReadReservation)
+        request = read_model(request_path, ReadReservation)
         manifest = _registry().get(request.source)
         spec = manifest.host_browser
         if spec is None:
@@ -635,28 +614,28 @@ def reserve_read(
             {"rules_version": rules.version} if rules else {}
         )}, ensure_ascii=False, indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("record-read")
 def record_read(outcome_path: Path, database: DatabaseOption = DEFAULT_DATABASE) -> None:
     """Record an actual read outcome, preserving the consumed attempt."""
     try:
-        outcome = _load_model(outcome_path, ReadOutcome)
+        outcome = read_model(outcome_path, ReadOutcome)
         _repositories(database)
         SqliteReadRepository(Database(database)).record(outcome, now=datetime.now(UTC))
         _emit_model(outcome)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("check-coverage")
 def check_coverage(report_path: Path) -> None:
     """Require a disposition for every input; incomplete runs retain a checkpoint."""
     try:
-        _emit_model(_load_model(report_path, SourcingCompletion))
+        _emit_model(read_model(report_path, SourcingCompletion))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("observation-history")
@@ -670,7 +649,7 @@ def observation_history(job_id: str, database: DatabaseOption = DEFAULT_DATABASE
             "collected_at": item.normalized.collected_at.isoformat(),
         } for item in jobs.observations(job_id)], ensure_ascii=False, indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("search-log")
@@ -703,7 +682,7 @@ def search_log(
     except ValidationError as error:
         _input_error(str(error))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("search-plan")
@@ -808,7 +787,7 @@ def search_plan(
             }
         typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("triage")
@@ -831,7 +810,7 @@ def triage(
     one batch for the host to fill before running triage again.
     """
     try:
-        context = _load_model(filter_context, CandidateFilterContext)
+        context = read_model(filter_context, CandidateFilterContext)
         rules = load_effective_rule_snapshot(rules_file, candidate_id, database)
         if rules:
             context = bind_filter_context(rules, context)
@@ -991,7 +970,7 @@ def triage(
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def _triage_row(job: NormalizedJob, *, reasons: Sequence[FilterReason] = ()) -> dict[str, object]:
@@ -1036,7 +1015,7 @@ def suggest_queries(
             deriver.derive(profile, evidence, location=location, target_roles=target_role or [])
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("search")
@@ -1055,7 +1034,7 @@ def search(
         )
         _emit_models(list(results))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("fetch")
@@ -1068,7 +1047,7 @@ def fetch(
     try:
         _emit_model(_source(fixture, source).fetch_job(source_job_id))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("normalize")
@@ -1091,7 +1070,7 @@ def normalize(
             jobs.save_job(job)
         _emit_model(job)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("dedupe")
@@ -1112,7 +1091,7 @@ def dedupe(
         _emit_model(result)
     except (JobAgentError, ValidationError) as error:
         if isinstance(error, JobAgentError):
-            _fail(error)
+            fail(error)
         _input_error("Deduplication policy is invalid.")
 
 
@@ -1130,7 +1109,7 @@ def requirements(
         )
         _emit_model(profile)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("filter")
@@ -1147,7 +1126,7 @@ def filter_job(
         job, profile = _validated_requirements(
             job_ref, reviewed_requirements, fixture, database
         )
-        context = _load_model(filter_context, CandidateFilterContext)
+        context = read_model(filter_context, CandidateFilterContext)
         rules = load_effective_rule_snapshot(rules_file, context.candidate_id, database)
         if rules:
             context = bind_filter_context(rules, context)
@@ -1160,7 +1139,7 @@ def filter_job(
         else:
             _emit_model(filtered)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("match")
@@ -1183,7 +1162,7 @@ def match(
                 "Candidate profile was not found.", details={"candidate_id": candidate_id}
             )
         evidence = candidate_repository.list_evidence(candidate_id)
-        reviewed = _load_model(reviewed_mappings, RequirementMatchSet)
+        reviewed = read_model(reviewed_mappings, RequirementMatchSet)
         mappings = ReasoningJobMatcher(_ReviewedProvider(reviewed)).map(
             job, profile, candidate_id, evidence
         )
@@ -1195,16 +1174,16 @@ def match(
         )
         _emit_model(result)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("learn-search")
 def learn_search_command(signals_path: Path) -> None:
     """Derive bounded search priorities from private owner signals, without I/O side effects."""
     try:
-        _emit_model(learn_search(_load_model(signals_path, SearchLearningRequest)))
+        _emit_model(learn_search(read_model(signals_path, SearchLearningRequest)))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("rank")
@@ -1213,7 +1192,7 @@ def rank(assessments_path: Path) -> None:
     try:
         _emit_models(JobRanker().rank(_load_assessments(assessments_path)))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @jobs_app.command("pipeline")
@@ -1228,7 +1207,7 @@ def pipeline(
 ) -> None:
     """Run the complete offline intelligence pipeline from reviewed JSON inputs."""
     try:
-        context = _load_model(filter_context, CandidateFilterContext)
+        context = read_model(filter_context, CandidateFilterContext)
         rules = load_effective_rule_snapshot(rules_file, candidate_id, database)
         if rules:
             context = bind_filter_context(rules, context)
@@ -1255,7 +1234,7 @@ def pipeline(
         else:
             _emit_model(run)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 register_sourcing_commands(jobs_app)

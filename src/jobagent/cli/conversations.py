@@ -9,11 +9,12 @@ reads or clicks a page.
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 
 import typer
 from pydantic import ValidationError
 
+from jobagent.cli.private_io import fail
 from jobagent.conversation.service import (
     UNKNOWN_TITLES,
     ConversationService,
@@ -62,16 +63,6 @@ def _emit(value: ContractModel | dict[str, object] | list[object]) -> None:
         typer.echo(value.model_dump_json(indent=2))
     else:
         typer.echo(json.dumps(value, ensure_ascii=False, indent=2, default=str))
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
 
 
 def _stores(path: Path) -> tuple[SqliteConversationRepository, SqliteOutreachRepository]:
@@ -139,7 +130,7 @@ def sync_outreach(database: DatabaseOption = DEFAULT_DATABASE) -> None:
             opened.append(_state(conversation, [event]))
         _emit({"opened": opened})
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def _refuse_duplicate(store: SqliteConversationRepository, platform: str, company: str) -> None:
@@ -200,9 +191,9 @@ def open_inbound(
             }
         )
     except OSError as error:
-        _fail(ContractValidationError(f"Filter context could not be read: {error}"))
+        fail(ContractValidationError(f"Filter context could not be read: {error}"))
     except (JobAgentError, ValidationError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @conversations_app.command("adopt")
@@ -229,7 +220,7 @@ def adopt(
         store.save_conversation(conversation)
         _append(store, conversation, [], [event])
     except (JobAgentError, ValidationError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @conversations_app.command("inbound")
@@ -259,7 +250,7 @@ def inbound(
             store, conversation, events, SERVICE.receive(conversation, events, message, now=now)
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("transition")
@@ -276,7 +267,7 @@ def transition(
         event = SERVICE.transition(conversation, events, to, reason=reason, now=datetime.now(UTC))
         _append(store, conversation, events, [event])
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("ask-intent")
@@ -289,7 +280,7 @@ def ask_intent(conversation_id: str, database: DatabaseOption = DEFAULT_DATABASE
         store.save_ask(question)
         _emit(question)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("confirm-intent")
@@ -314,7 +305,7 @@ def confirm_intent(
         )
         _append(store, conversation, events, [event])
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("attach-resume")
@@ -345,7 +336,7 @@ def attach_resume(
         )
         _append(store, conversation, events, [event])
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("draft-reply")
@@ -379,7 +370,7 @@ def draft_reply(
         store.save_ask(question)
         _emit(question)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("approve-reply")
@@ -404,7 +395,7 @@ def approve_reply(
         )
         _append(store, conversation, events, [event])
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def _gate(
@@ -437,7 +428,7 @@ def reply_gate(
         conversation, events = _load(store, conversation_id)
         _emit(_gate(store, outreach, conversation, events, session))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("record-reply")
@@ -480,7 +471,7 @@ def record_reply(
 
         _append(store, conversation, events, new)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("due")
@@ -495,7 +486,7 @@ def due(database: DatabaseOption = DEFAULT_DATABASE) -> None:
         items = SERVICE.due(loaded, now=datetime.now(UTC))
         _emit([item.model_dump(mode="json") for item in items])
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("show")
@@ -511,7 +502,7 @@ def show(conversation_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> N
             }
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @conversations_app.command("list")
@@ -532,4 +523,4 @@ def list_conversations(
             ]
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)

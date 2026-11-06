@@ -8,13 +8,14 @@ and reports each attempt with `record`. Every attempt leaves one immutable row.
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 from uuid import uuid4
 
 import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.bridge.greeting_freshness import verify_greeting_sources
+from jobagent.cli.private_io import fail
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.versioning import read_harness_version
 from jobagent.jobs.preferences import preference_score
@@ -51,16 +52,6 @@ def _emit(value: ContractModel | dict[str, object]) -> None:
         typer.echo(value.model_dump_json(indent=2))
     else:
         typer.echo(json.dumps(value, ensure_ascii=False, indent=2))
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
 
 
 def _database(path: Path) -> Database:
@@ -179,7 +170,7 @@ def draft_batch(
             store.save_batch(report.batch)
         _emit(report)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("ask")
@@ -197,7 +188,7 @@ def ask(batch_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
         store.save_ask(question)
         _emit(question)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("approve")
@@ -228,7 +219,7 @@ def approve(
         store.save_approval(approval)
         _emit(approval)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("withdraw")
@@ -255,7 +246,7 @@ def withdraw(
         store.withdraw(batch_id, reason.strip(), datetime.now(UTC))
         _emit({"batch_id": batch_id, "withdrawn": True, "reason": reason.strip()})
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("lease")
@@ -280,7 +271,7 @@ def lease(
             )
         _emit({"platform": platform, "session": session, "ttl_seconds": LEASE_SECONDS})
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("next")
@@ -304,7 +295,7 @@ def next_item(
         )
         _emit(decision)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("record")
@@ -353,7 +344,7 @@ def record(
         store.append_audit(audit)
         _emit(audit)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("status")
@@ -386,4 +377,4 @@ def status(batch_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
             }
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)

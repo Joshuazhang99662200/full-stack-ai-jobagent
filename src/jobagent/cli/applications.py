@@ -8,7 +8,7 @@ There is deliberately no command that walks a list.
 import json
 import sys
 from pathlib import Path
-from typing import Annotated, Never, NoReturn, TypeVar
+from typing import Annotated, NoReturn, TypeVar
 
 import typer
 from pydantic import ValidationError
@@ -22,6 +22,7 @@ from jobagent.applications.audit import ApplicationAuditor
 from jobagent.applications.delivery import DeliveryGate
 from jobagent.applications.ports import ApplicationDeliverySource
 from jobagent.applications.preview import ApplicationPreviewService
+from jobagent.cli.private_io import fail
 from jobagent.connectors.factory import build_delivery_source
 from jobagent.errors import (
     ApprovalRequiredError,
@@ -86,16 +87,6 @@ def _installed_connector(platform: str) -> ApplicationDeliverySource:
 
 
 _connector_provider = _installed_connector
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
 
 
 def _confirmation_code(package: ApplicationPackage) -> str:
@@ -257,7 +248,7 @@ def preview(
         _validate_final_artifact(package)
         _emit(package)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @applications_app.command("ask")
@@ -276,7 +267,7 @@ def ask(
         _validate_final_artifact(package)
         _emit(ApplicationApprovalService().ask(package, DeliveryPolicy()))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @applications_app.command("approve")
@@ -335,7 +326,7 @@ def approve(
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @applications_app.command("send")
@@ -377,7 +368,7 @@ def send(
         gate = DeliveryGate(source=source, auditor=_auditor(database), policy=DeliveryPolicy())
         _emit(gate.send(request, package))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @applications_app.command("audit-log")
@@ -399,4 +390,4 @@ def audit_log(
             )
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)

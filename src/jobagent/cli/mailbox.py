@@ -7,11 +7,12 @@ approval itself, which is still registered with `outreach approve`.
 
 import json
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 
 import typer
 
 from jobagent.bridge import mailbox
+from jobagent.cli.private_io import fail
 from jobagent.errors import JobAgentError
 
 mailbox_app = typer.Typer(
@@ -26,16 +27,6 @@ DEFAULT_MAILBOX = Path("candidate/private")
 
 def _emit(value: object) -> None:
     typer.echo(json.dumps(value, ensure_ascii=False, indent=2, default=str))
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(1)
 
 
 @mailbox_app.command("inbox")
@@ -55,7 +46,7 @@ def ack(
     try:
         _emit(mailbox.acknowledge(folder, entry_id, status, reason))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @mailbox_app.command("notify")
@@ -70,7 +61,7 @@ def notify(
     try:
         _emit(mailbox.notify_cowork(folder, text, refs=ref))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @mailbox_app.command("register-session")
@@ -84,7 +75,7 @@ def register_session(
     try:
         _emit(mailbox.register_session(folder, role, session_id, name=name))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @mailbox_app.command("peers")

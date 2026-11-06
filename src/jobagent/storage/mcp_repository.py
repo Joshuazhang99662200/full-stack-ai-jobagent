@@ -115,7 +115,6 @@ class SqliteMcpRepository:
 
     def start_round(self, request: McpRoundRequest, *, now: datetime) -> McpRound:
         request = McpRoundRequest.model_validate(request.model_dump(mode="json"))
-        _day(now)
         digest = canonical_digest(request.model_dump(mode="json"))
         with self._write() as connection:
             rules = current_rule_snapshot(connection, request.candidate_id)

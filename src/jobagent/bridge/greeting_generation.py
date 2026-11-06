@@ -6,8 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from jobagent.bridge.codex_runner import CodexTextRunner
-from jobagent.capabilities import ReasoningOutputT
+from jobagent.capabilities import ReasoningOutputT, TextRunner
 from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
 from jobagent.outreach.generation import DRAFT_PROMPT, REVIEW_PROMPT
@@ -37,7 +36,7 @@ _TASKS = {
 
 
 class CodexGreetingProvider:
-    def __init__(self, runner: CodexTextRunner) -> None:
+    def __init__(self, runner: TextRunner) -> None:
         self.runner = runner
 
     def generate(

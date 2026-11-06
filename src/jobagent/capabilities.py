@@ -5,6 +5,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from jobagent.schemas.applications import ApplicationPackage, DeliveryRequest, DeliveryResult
 from jobagent.schemas.common import ContractModel
+from jobagent.schemas.coordinator import CodexTextRequest
 from jobagent.schemas.jobs import NormalizedJob, RecruiterInfo
 
 InputT_contra = TypeVar("InputT_contra", bound=ContractModel, contravariant=True)
@@ -47,3 +48,15 @@ class ReasoningProvider(Protocol):
         context: Mapping[str, Any],
         output_type: type[ReasoningOutputT],
     ) -> ReasoningOutputT: ...
+
+
+ModelT = TypeVar("ModelT", bound=ContractModel)
+
+
+class TextRunner(Protocol):
+    """A bounded, text-only model invocation: one task in, one validated contract out.
+
+    Implemented by the local Codex and Gemini CLI runners; providers never see which.
+    """
+
+    def run(self, request: CodexTextRequest, output_contract: type[ModelT]) -> ModelT: ...

@@ -17,6 +17,8 @@
 - 新增 `jobagent memory effect` 与 `memory simulate`：按显式观察窗口和最小样本把已发送招呼关联到招聘方来信，用 Wilson / Newcombe 区间比较各记忆版本与规则；未结束的窗口不计入，样本不足如实报告。模拟在已知真实效果的合成数据上检验误报率与检出率。
 - Muse 面板接通首条招呼逐条决定：`console materials`、`console decide`、`console operation` 对应面板的 getMaterials、recordDecision、getOperation。批准只认提问时的准确原文并走原审批门禁，修改记为改写反馈；批量审批不再能重复批准已逐条决定的条目。
 - `console list` 的 `approvals` 现在列出归属本人的首条招呼及其决定、批准原话与发送结果，面板与各对话读到同一份状态。
+- 新增本机 Gemini CLI 运行器与 `jobagent roleplay` 合成角色扮演验证：本机 Claude 扮演合成人设、Gemini 起草与复核，生成方看不到人设，只能经反馈与记忆学习；报告给出不变式、隐藏偏好捕获与通过率趋势。协议见 `roleplay-memory-eval.md`。
+- Gemini 运行器支持 Antigravity CLI（`agy`）：配置 `protocol: "agy_stream_json"` 后，任务以 stream-json 消息传入，并从过程事件判断有无工具调用（任何非文本步骤、未知步骤或被拒动作都判失败）；配置拒绝自动批准工具的参数。
 - 内部整理：摘要统一由 `jobagent.digest` 计算且字节不变；写事务统一为 `Database.transaction()`；CLI 共用失败输出与私有输入读取；删除无引用的 `pipeline_sql.py` 与猎聘投递连接器中不起作用的参数和校验。
 
 ## 未发布 — 品牌与入口对齐

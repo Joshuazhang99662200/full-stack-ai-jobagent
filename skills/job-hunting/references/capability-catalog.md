@@ -32,6 +32,11 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 记忆实际使用核验 | 已落地(招呼) | `jobagent memory usage`：从外联账本统计各偏好记忆版本、偏好规则与动态规则版本实际进入起草、批准、发送的条目数；`greetings generate` 产出的定向稿在来源绑定中记录生成输入摘要、记忆版本与所选规则。无记录的旧稿或手写稿计为未归因，不推测；回复结果见 `memory effect`，不代表因果结论 |
 | 记忆效果对比 | 已落地(观察性) | `jobagent memory effect`：须显式给出 `--window-days` 观察窗口与 `--min-sample` 最小样本，把有正向发送记录的招呼按岗位与渠道关联到窗口内的招聘方来信；窗口未结束的计为待定、不进任何分母。各记忆版本与规则对比未使用记忆的招呼，用 Wilson / Newcombe 95% 区间，样本不足报 insufficient_sample，区间跨 0 报 no_clear_difference。非随机分配，只是相关性 |
 | 效果判定模拟 | 已落地 | `jobagent memory simulate`：在已知真实效果的合成数据上重复判定，给出检出率、误报率与反向误判率，用于估计需要多少样本；固定种子可复现 |
+| 角色扮演工作区 | 已落地(仅合成) | `jobagent roleplay init`：在当前目录 `.jobagent/roleplay` 建立独立合成工作区：合成候选人、经 `confirm` 确认的合成证据与合成岗位；已存在即拒绝 |
+| 模拟本人人设 | 已落地(仅合成) | `jobagent roleplay persona`：只给扮演本人的会话看人设与隐藏偏好；生成方的任何请求都不包含这些内容 |
+| 角色扮演一轮生成 | 已落地(仅合成) | `jobagent roleplay round`：须带私有 `--gemini-config`。刷新偏好记忆、选规则，由本机 Gemini CLI 起草并独立复核招呼，入清单并提问；上一轮未决定时拒绝。Gemini 回执须证明没有工具调用（Gemini CLI 报告次数为 0，或 agy 事件流中无工具步骤），否则失败不重试 |
+| 模拟本人决定 | 已落地(仅合成) | `jobagent roleplay decide`：批准走原审批门禁，改写与回绝走 `outreach feedback`；理由写在 note，否则单次决定不能成为通用偏好。不发送 |
+| 角色扮演验收报告 | 已落地(仅合成) | `jobagent roleplay report`：六项不变式（决定均入账、生成前记忆已消费、规则只引用已记录事件、每稿记录记忆来源、批准只对应批准决定、所选规则进入账本），隐藏偏好捕获情况与前后半程通过率 |
 
 ## 职位情报(Jobs)
 
@@ -378,6 +383,7 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 宿主阶段观察 | 已落地 | `jobagent console event` | 仅私有宿主观察，关联已有运行；不授予审批、发送或修改岗位状态权限 |
 | 面板待审材料 | 已落地 | `jobagent console materials` | 面板 getMaterials：按候选人与流水线联系返回仍待本人决定的首条招呼准确全文，版本即条目摘要；已决定、已批准或已撤回的不再出现 |
 | 面板逐条决定 | 已落地(首条招呼) | `jobagent console decide` | 面板 recordDecision：须带 `--actor`。批准只接受提问时的准确原文，在单条清单上走原审批门禁并留下面板操作原话；保存修改记为改写反馈、待重新生成复核；回绝记为反馈。同一清单逐条决定完即撤回原清单，之后批量审批不能再批已决定的条目。不发送；材料批准、待办回答等尚未接入的种类明确拒绝 |
+| 面板宿主状态 | 已落地(只读) | `jobagent console host-state` | 面板 getHostState：按候选人列出各流水线联系的首条招呼材料（revision 与 `console materials` 一致，待决定的排在最后）和已保存的面板决定事件（event_id 与回执一致）。待办、渠道与执行批次由宿主提供，此处留空并在 sync 中说明，不代表没有待办 |
 | 面板操作回读 | 已落地 | `jobagent console operation` | 面板 getOperation：按操作键回读真实保存结果，不重复执行；无记录即未保存 |
 | 本地 React 控制台 | 已落地 | `jobagent console serve` | 仅本机 GET，显式加载前端构建；缺阶段时间不补造；无法归属到候选人的旧外联条目不显示 |
 

@@ -67,6 +67,7 @@ pipeline 动态策略兼容性已在生产写入边界检查；MCP 搜索与查�
 - **批量发首条招呼**时,先按 message-generation.md「首条招呼」起草,再走 `jobagent outreach draft-batch → ask → approve → lease → next → record`:人逐字看过编号清单并回答后才可发送;每条发送前由 `next` 复核租约、审批时效、间隔与每日上限;失败或风控当天叫停该站。宿主只在 `next` 放行后操作浏览器。
 - 处理预览、审批、投递、批量时,阅读 [references/hitl-approval.md](references/hitl-approval.md)。
 - 处理审计记录或投递结果回流时,阅读 [references/audit-feedback.md](references/audit-feedback.md)。
+- 本人要求用合成人设长程验证记忆系统（本机 Claude 扮演本人、本机 Gemini 生成）时，加载 [references/roleplay-memory-eval.md](references/roleplay-memory-eval.md)；只在独立合成工作区运行，不发送、不用于真实投递。
 - 处理已读/送达回执、漏斗评测或在线简历版本时,阅读 [references/evals.md](references/evals.md)：先区分已落地的 P0 埋点与后续设计，不用迁移表的存在推断能力可执行。
 - 通过聊天前端信箱接手时，先读 `jobagent mailbox inbox`；中继审批仍需核对原始提问、用户原话与当前摘要，并在正式审批命令登记后才生效。
 - 任何环节需要判断"该不该停"时,阅读 [references/stop-conditions.md](references/stop-conditions.md)。

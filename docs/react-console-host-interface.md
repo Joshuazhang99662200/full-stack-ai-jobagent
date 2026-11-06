@@ -19,6 +19,7 @@ const source = createHttpSource();
 | 接口 | 约束 |
 |---|---|
 | `recordDecision` | 候选人、岗位、联系轮次、材料版本、准确正文、附件摘要及去重键绑定；只记录决定 |
+| `getHostState` | `jobagent console host-state --candidate <ID>` | 只读：各联系的首条招呼材料与已保存的面板决定事件，回执的 `event_id` 可在 `jobs[].events` 中找到；待办、渠道、执行批次由宿主补充 |
 | `getOperation` | 核验同一去重键的真实业务结果；未知不自动重试 |
 | `createExecutionBatch` | 先检查去重、屏蔽、业务状态、渠道、材料与审批；返回全文材料和排除原因 |
 | `confirmExecution` | 只处理明确勾选项，核对当前材料与批准；逐项通过已有业务能力执行和回读 |

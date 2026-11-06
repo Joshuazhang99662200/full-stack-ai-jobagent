@@ -22,6 +22,7 @@ from jobagent.cli.patrol import patrol_app
 from jobagent.cli.pipeline import pipeline_app
 from jobagent.cli.profile import profile_app
 from jobagent.cli.public_careers import public_careers_app
+from jobagent.cli.roleplay import roleplay_app
 from jobagent.cli.rules import rules_app
 from jobagent.cli.tracking import tracking_app
 from jobagent.cli.worker import worker_app
@@ -65,6 +66,7 @@ app.add_typer(tracking_app, name="tracking")
 app.add_typer(mailbox_app, name="mailbox")
 app.add_typer(worker_app, name="worker")
 app.add_typer(rules_app, name="rules")
+app.add_typer(roleplay_app, name="roleplay")
 app.add_typer(mcp_app, name="mcp")
 app.add_typer(memory_app, name="memory")
 

@@ -14,6 +14,7 @@ from jobagent.bridge.panel_decisions import (
     record_panel_decision,
 )
 from jobagent.console.activities import record_activity
+from jobagent.console.host_state import host_state
 from jobagent.console.projection import definitions as field_definitions
 from jobagent.console.projection import snapshot
 from jobagent.console.server import make_server
@@ -84,6 +85,15 @@ def _receipt(receipt: HostReceipt) -> None:
     typer.echo(receipt.model_dump_json(indent=2))
     if receipt.status != "saved":
         raise typer.Exit(1)
+
+
+@console_app.command("host-state")
+def host_state_command(
+    candidate: Annotated[str, typer.Option("--candidate")],
+    database: DatabaseOption = Path(".jobagent/jobagent.sqlite3"),
+) -> None:
+    """Read-only HostState (getHostState): greeting materials and saved panel decisions."""
+    _output(lambda: host_state(database, candidate).model_dump(mode="json"))
 
 
 @console_app.command("decide")

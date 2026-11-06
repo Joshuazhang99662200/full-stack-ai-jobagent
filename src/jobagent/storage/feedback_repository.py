@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from jobagent.errors import ContractValidationError, StorageError
 from jobagent.outreach.feedback import build_outreach_feedback
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem
+from jobagent.schemas.console_host import HostEvent
 from jobagent.schemas.jobs import NormalizedJob
 from jobagent.schemas.outreach import OutreachApproval, OutreachAsk, OutreachBatch, OutreachItem
 from jobagent.schemas.sourcing_feedback import (
@@ -152,6 +153,7 @@ class SqliteFeedbackRepository:
         feedback: SourcingFeedback | None = None,
         approval_bundle: tuple[OutreachBatch, OutreachAsk, OutreachApproval] | None = None,
         withdraw_parent: bool = False,
+        panel_event: HostEvent | None = None,
     ) -> str:
         """Atomically persist the one decision, its exact approval and dedup key."""
         try:
@@ -190,6 +192,12 @@ class SqliteFeedbackRepository:
                     )
                 connection.execute("INSERT INTO paged_card_events VALUES (?, ?, ?)",
                                    (event_id, state.message_id, now.isoformat()))
+                if panel_event is not None:
+                    connection.execute(
+                        "INSERT INTO panel_operations VALUES (?, ?, ?, ?, ?, ?)",
+                        (event_id, state.candidate_id, panel_event.operation_key,
+                         panel_event.contact_id, panel_event.model_dump_json(), now.isoformat()),
+                    )
             return "stored"
         except sqlite3.Error as error:
             raise StorageError("Could not persist paged approval.") from error
@@ -337,3 +345,19 @@ def _feedback_context(
         None if approval_json is None else OutreachApproval.model_validate_json(approval_json)
     )
     return batch, OutreachAsk.model_validate_json(ask_json), approval, jobs, owned
+
+
+def panel_events(
+    connection: sqlite3.Connection, candidate_id: str
+) -> list[HostEvent]:
+    """Stored panel operations for one candidate, oldest first."""
+    if "panel_operations" not in _tables(connection):
+        return []
+    return [
+        HostEvent.model_validate_json(row[0])
+        for row in connection.execute(
+            "SELECT event_json FROM panel_operations WHERE candidate_id = ? "
+            "ORDER BY recorded_at, event_id",
+            (candidate_id,),
+        )
+    ]

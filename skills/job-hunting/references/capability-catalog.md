@@ -383,6 +383,7 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 宿主阶段观察 | 已落地 | `jobagent console event` | 仅私有宿主观察，关联已有运行；不授予审批、发送或修改岗位状态权限 |
 | 面板待审材料 | 已落地 | `jobagent console materials` | 面板 getMaterials：按候选人与流水线联系返回仍待本人决定的首条招呼准确全文，版本即条目摘要；已决定、已批准或已撤回的不再出现 |
 | 面板逐条决定 | 已落地(首条招呼) | `jobagent console decide` | 面板 recordDecision：须带 `--actor`。批准只接受提问时的准确原文，在单条清单上走原审批门禁并留下面板操作原话；保存修改记为改写反馈、待重新生成复核；回绝记为反馈。同一清单逐条决定完即撤回原清单，之后批量审批不能再批已决定的条目。不发送；材料批准、待办回答等尚未接入的种类明确拒绝 |
+| 面板宿主状态 | 已落地(只读) | `jobagent console host-state` | 面板 getHostState：按候选人列出各流水线联系的首条招呼材料（revision 与 `console materials` 一致，待决定的排在最后）和已保存的面板决定事件（event_id 与回执一致）。待办、渠道与执行批次由宿主提供，此处留空并在 sync 中说明，不代表没有待办 |
 | 面板操作回读 | 已落地 | `jobagent console operation` | 面板 getOperation：按操作键回读真实保存结果，不重复执行；无记录即未保存 |
 | 本地 React 控制台 | 已落地 | `jobagent console serve` | 仅本机 GET，显式加载前端构建；缺阶段时间不补造；无法归属到候选人的旧外联条目不显示 |
 

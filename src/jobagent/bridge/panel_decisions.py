@@ -16,7 +16,12 @@ from jobagent.bridge.greeting_freshness import verify_greeting_sources
 from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import JobAgentError
 from jobagent.outreach.service import OutreachService, contacted_job_ids, policy_digest
-from jobagent.schemas.console_host import HostDecisionRequest, HostMaterial, HostReceipt
+from jobagent.schemas.console_host import (
+    HostDecisionRequest,
+    HostEvent,
+    HostMaterial,
+    HostReceipt,
+)
 from jobagent.schemas.outreach import (
     OutreachApproval,
     OutreachAsk,
@@ -27,7 +32,7 @@ from jobagent.schemas.outreach import (
 from jobagent.schemas.sourcing_feedback import PagedCardState, SourcingFeedback
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
-from jobagent.storage.feedback_repository import SqliteFeedbackRepository
+from jobagent.storage.feedback_repository import SqliteFeedbackRepository, panel_events
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 from jobagent.storage.pipeline_repository import PipelineRepository
@@ -51,7 +56,7 @@ def _state_id(ask_id: str) -> str:
     return "PANEL_" + ask_id
 
 
-def _owned(db: Database, candidate_id: str) -> set[str]:
+def owned_evidence(db: Database, candidate_id: str) -> set[str]:
     return {
         e.id for e in SqliteCandidateRepository(db).list_evidence(candidate_id)
         if e.user_confirmed and e.confidence.value != "weak"
@@ -83,12 +88,12 @@ def _normalized_job_id(db: Database, candidate_id: str, contact_id: str) -> tupl
     return job.job_id, meta.normalized_job_id
 
 
-def _open_items(
+def open_items(
     db: Database, candidate_id: str, normalized_job_id: str
 ) -> list[tuple[OutreachBatch, OutreachAsk, OutreachItem]]:
     """Asked, unapproved, unwithdrawn items for this job that no decision has closed."""
     store, feedback = SqliteOutreachRepository(db), SqliteFeedbackRepository(db)
-    owned = _owned(db, candidate_id)
+    owned = owned_evidence(db, candidate_id)
     with db.connect() as connection:
         asks = [
             OutreachAsk.model_validate_json(row[0])
@@ -122,7 +127,7 @@ def panel_materials(database: Path, candidate_id: str, contact_id: str) -> list[
             revision=item.item_digest, label=f"首条招呼（待你决定，清单第 {item.number} 条）",
             body=item.text, attachments=[],
         )
-        for _, _, item in _open_items(db, candidate_id, job_id)
+        for _, _, item in open_items(db, candidate_id, job_id)
     ]
 
 
@@ -137,6 +142,17 @@ def _stored(db: Database, event_id: str) -> SourcingFeedback | None:
 def panel_operation(database: Path, candidate_id: str, operation_key: str) -> HostReceipt:
     """Read back one panel operation; an absent record was never stored."""
     db = Database(database)
+    with db.connect() as connection:
+        stored = next(
+            (e for e in panel_events(connection, candidate_id) if e.operation_key == operation_key),
+            None,
+        )
+    if stored is not None:
+        return HostReceipt(
+            operation_key=operation_key, status="saved", event_id=stored.event_id,
+            message=receipt_message(stored.kind),
+        )
+    # Decisions saved before operations were stored are found by their derived event id.
     event_id = _event_id(candidate_id, operation_key)
     event = _stored(db, event_id)
     if event is None or event.candidate_id != candidate_id:
@@ -148,6 +164,11 @@ def panel_operation(database: Path, candidate_id: str, operation_key: str) -> Ho
         operation_key=operation_key, status="saved", event_id=event_id,
         message=_MESSAGES[event.action],
     )
+
+
+def receipt_message(kind: str) -> str:
+    """The person-facing receipt for a saved panel decision kind."""
+    return _MESSAGES[_ACTIONS[kind]]
 
 
 _MESSAGES = {
@@ -188,7 +209,7 @@ def record_panel_decision(
         if platform_job != request.job_id:
             raise _Rejected("岗位与面板联系记录不一致。")
         matches = [
-            entry for entry in _open_items(db, request.candidate_id, job_id)
+            entry for entry in open_items(db, request.candidate_id, job_id)
             if entry[2].item_digest == request.material_revision
         ]
         if not matches:
@@ -242,9 +263,18 @@ def _commit(
         revised_text=request.body if action == "revise" else None,
         jd_text=job.jd_raw, job_title=job.title, company=job.company,
     )
+    panel_event = HostEvent(
+        event_id=event_id, operation_key=request.operation_key, job_id=request.job_id,
+        contact_id=request.contact_id, kind=request.kind, occurred_at=now, detail=request.note,
+        material=HostMaterial(
+            revision=item.item_digest, label=f"首条招呼（清单第 {item.number} 条）",
+            body=request.body, attachments=[],
+        ),
+    )
     saved = feedback_store.commit(
         revised, expected_revision=state.revision, event_id=event_id, now=now,
         feedback=feedback, approval_bundle=bundle, withdraw_parent=revised.closed,
+        panel_event=panel_event,
     )
     if saved == "duplicate":
         return panel_operation(db.path, request.candidate_id, request.operation_key)
@@ -279,7 +309,7 @@ def _approval(
     report = service.build_batch(
         [draft], jobs={item.job_id: job} if job else {},
         already_contacted=contacted_job_ids(store.list_audits()),
-        confirmed_evidence_ids=_owned(db, request.candidate_id), batch_id=child_id,
+        confirmed_evidence_ids=owned_evidence(db, request.candidate_id), batch_id=child_id,
         created_at=now, policy=batch.policy,
         match_tiers=tiers,
         harness_version=batch.harness_version,

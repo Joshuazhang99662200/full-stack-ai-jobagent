@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMuseActions, useMuseConfiguration } from "./context";
 import type { MuseGetJobResponse } from "./contracts";
 import { ChannelTag } from "./ChannelTag";
+import { refreshAfterWrite } from "./refresh";
 
 export function useSelectionQueue() {
   const api = useMuseActions();
@@ -35,7 +36,11 @@ export function SelectionQueueBar({
     onSuccess: (r) => {
       setMessage(r.message ?? "执行请求待核验");
       if (r.batchId != null) onWatch(r.batchId, r.excluded.length);
-      void client.invalidateQueries();
+      void refreshAfterWrite(client, {
+        ranks: [...r.queued, ...r.excluded].map((item) => item.rank),
+        batchId: r.batchId,
+        selection: true,
+      });
     },
     onError: () => setMessage("执行请求结果未知，请先核验，不要重复提交。"),
   });
@@ -203,7 +208,7 @@ export function RegenerateGreetingControl({
         setMessage(
           "新版全文已保存，仍是拟发送，需重新审阅。旧版保留在材料与历史。",
         );
-        await client.invalidateQueries();
+        await refreshAfterWrite(client, { ranks: [rank] });
       } catch {
         setUnknown(true);
         setMessage("生成保存结果待核验，不重复提交。");
@@ -245,7 +250,7 @@ export function RegenerateGreetingControl({
         }
         onSaved();
         setMessage("修改已保存，旧版及改前/改后全文保留。");
-        await client.invalidateQueries();
+        await refreshAfterWrite(client, { ranks: [rank] });
       } catch {
         setUnknown(true);
         setMessage("修改回读未完成，请先核验。");
@@ -344,7 +349,11 @@ export function ExecutionWorkflow({
     onSuccess: (r) => {
       setMessage(r.message ?? "请求待核验");
       if (r.batchId != null) onWatch(r.batchId);
-      void client.invalidateQueries();
+      void refreshAfterWrite(client, {
+        ranks: [detail.job!.rank],
+        batchId: r.batchId,
+        selection: true,
+      });
     },
     onError: () => setMessage("再次执行请求结果未知，请先核验。"),
   });

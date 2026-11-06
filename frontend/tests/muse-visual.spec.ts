@@ -47,7 +47,7 @@ for (const width of [375, 860, 1440])
     context,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
-    await page.goto("/?demo=1");
+    await page.goto("/?demo=1&template=current");
     await page.locator(".muse-current [data-open]").first().waitFor();
     const root = page.locator(".muse-current"),
       offset = (await root.boundingBox())!.y;

@@ -10,12 +10,13 @@ import {
 } from "./context";
 import { MuseApp } from "./MuseApp";
 import { MuseCurrentApp } from "./MuseCurrentApp";
+import { MuseSpaceApp } from "./MuseSpaceApp";
 import { createMuseActions } from "./adapter";
 import "./theme.css";
 
 export interface MusePanelProps {
   actions: MuseActions;
-  appearance?: "current" | "zip";
+  appearance?: "space" | "current" | "zip";
   configuration?: MuseConfiguration;
   cvFiles?: MuseCvFiles;
   syncActions?: Partial<MuseSyncActions>;
@@ -24,7 +25,7 @@ export interface MusePanelProps {
 /** Source-derived Muse UI; the host supplies its own RPC implementation and assets. */
 export function MusePanel({
   actions,
-  appearance = "current",
+  appearance = "space",
   configuration = {},
   cvFiles = {},
   dataRevision = 0,
@@ -47,7 +48,13 @@ export function MusePanel({
     <QueryClientProvider client={client}>
       <MuseContext.Provider value={{ actions, configuration, cvFiles }}>
         <div className="hatch-space-root" data-hatch-space-root>
-          {appearance === "zip" ? <MuseApp /> : <MuseCurrentApp />}
+          {appearance === "zip" ? (
+            <MuseApp />
+          ) : appearance === "current" ? (
+            <MuseCurrentApp />
+          ) : (
+            <MuseSpaceApp />
+          )}
         </div>
       </MuseContext.Provider>
     </QueryClientProvider>

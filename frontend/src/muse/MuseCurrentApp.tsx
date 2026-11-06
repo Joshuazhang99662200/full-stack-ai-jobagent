@@ -22,6 +22,7 @@ import {
   MaterialList,
 } from "./MuseApp";
 import { saveMuseDecision } from "./decisions";
+import { refreshAfterWrite } from "./refresh";
 import "./current.css";
 import { ChannelTag } from "./ChannelTag";
 import {
@@ -129,8 +130,8 @@ function Meta({ job, row }: { job: NonNullable<JobDetail["job"]>; row?: Row }) {
     <div className="meta">
       {job.company ? `${job.company} · ` : ""}
       <ChannelTag channel={job.platform} /> · {job.location ?? "地点待核实"} ·{" "}
-      <span className="salary">{job.salary ?? "薪资待核实"}</span> · 入库{" "}
-      {row?.intakeAt ? row.intakeAt.slice(0, 10) : "时间未记录"}
+      <span className="salary">{job.salary ?? "薪资待核实"}</span> ·{" "}
+      {row?.intakeAt ? `入库 ${row.intakeAt.slice(0, 10)}` : "入库时间未记录"}
     </div>
   );
 }
@@ -466,7 +467,9 @@ export function MuseCurrentApp() {
                           <b>{txt(r.run.executor) || "执行者未记录"}</b> ·{" "}
                           {r.activities
                             .map((a) =>
-                              plainText(txt(a.message) || "工作详情尚未接入"),
+                              plainText(
+                                txt(a.message) || "工作详情尚未接入",
+                              ).replace(/[。；]+$/u, ""),
                             )
                             .join("；") || "运行详情尚未接入"}
                           {r.run.status !== "completed" && "（完成状态待核对）"}
@@ -832,7 +835,7 @@ function CurrentJobDialog({
                       disabled={blocked || ended}
                       onClick={() => setShowNote(true)}
                     >
-                      岗位行，稿要改
+                      岗位可以，招呼语要改
                     </button>
                     <button
                       className="btn"
@@ -934,7 +937,7 @@ function CurrentJobDialog({
                           "accept_original",
                         ],
                         [
-                          "岗位行，稿要改",
+                          "岗位可以，招呼语要改",
                           "只记录反馈，等新版全文出来再单独批准发送。",
                           "accept_revise",
                         ],
@@ -1114,6 +1117,7 @@ function CurrentExecution({
   });
   function execute() {
     if (busy || dispatched || echo.batchId == null) return;
+    const ranks = echo.items.map((item) => item.rank);
     setDispatched(true);
     onWatch(echo.batchId);
     onClose();
@@ -1121,11 +1125,11 @@ function CurrentExecution({
       .confirmExecution({ batchId: echo.batchId })
       .then((r) => {
         onNotice(r.message ?? "执行结果待核验");
-        void client.invalidateQueries();
+        void refreshAfterWrite(client, { ranks, batchId: echo.batchId });
       })
       .catch(() => {
         onNotice("执行请求结果未知，请先核验，不重复执行。");
-        void client.invalidateQueries();
+        void refreshAfterWrite(client, { ranks, batchId: echo.batchId });
       });
   }
 

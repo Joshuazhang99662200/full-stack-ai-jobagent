@@ -33,5 +33,22 @@
     "items": 5,
     "client_snapshot": "2026-11-02 23:29",
     "later_progress_addendum_in_code": false
+  },
+  "space_source": {
+    "name": "任务状态面板代码包-2026-11-06.zip",
+    "zip_sha256": "33916e9aa035f45d8ce8d06601ec8447bb6ec653bdf88640d9425711188b123a",
+    "app_sha256": "4f3200b381cde2bba6aaa59aaf878034c57c78595b7fd79ba54b12770a011c24",
+    "app_lines": 4141,
+    "render_target": "frontend/src/muse/MuseSpaceApp.tsx",
+    "changes": [
+      "Comments removed; actions, configuration and CV files injected through the Muse context",
+      "Personal seed, repair, reconcile and patrol-sync migrations removed; no automatic progress generation",
+      "Approval and sending split into two clicks; edited text is saved and read back before re-approval",
+      "One-click execution consumes only approved materials; click-as-approval copy and entry removed",
+      "Unconnected services disabled with reasons; unknown counts shown as ?; no demo fallback on source failure",
+      "Refresh and batch intervals, progress limit and execution cadence read from host configuration",
+      "Writes refresh only affected queries; host sync still refreshes everything",
+      "Copy revised per the 2026-11-06 review list; host text is no longer rewritten by regular expressions"
+    ]
   }
 }

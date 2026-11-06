@@ -31,6 +31,11 @@ console.log(
 
 const { MusePanel } = await import("../muse-lib/muse.js");
 const muse = renderToString(createElement(MusePanel, { actions: {} }));
-assert.ok(muse.includes("任务进度"));
-assert.ok(muse.includes("muse-current"));
-console.log("Muse current template SSR smoke passed without browser globals.");
+assert.ok(muse.includes("muse-space"));
+assert.ok(muse.includes("读取求职队列中"));
+const current = renderToString(
+  createElement(MusePanel, { actions: {}, appearance: "current" }),
+);
+assert.ok(current.includes("任务进度"));
+assert.ok(current.includes("muse-current"));
+console.log("Muse default and current template SSR smoke passed without browser globals.");

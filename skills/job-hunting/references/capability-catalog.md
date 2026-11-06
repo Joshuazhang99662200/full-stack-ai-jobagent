@@ -29,7 +29,9 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 来源盘点 | 已落地 | `jobagent memory status`：显式私有配置，区分缺失、空、无效及未接入；不创建或迁移业务库 |
 | 不可变来源快照 | 已落地 | `jobagent memory compile`：只写独立私有元数据 sidecar，同源幂等，不复制业务正文、不调用模型、不激活规则 |
 | 搜索与招呼上下文 | 已落地 | `jobagent memory context`：重验来源摘要，确定性筛选已验证软偏好与既有本人确认规则；角色语义条件及 pipeline 范围未接入，回复与简历返回未接入；不证明实际注入或学习效果 |
-| 记忆实际使用核验 | 已落地(招呼) | `jobagent memory usage`：从外联账本统计各偏好记忆版本、偏好规则与动态规则版本实际进入起草、批准、发送的条目数；`greetings generate` 产出的定向稿在来源绑定中记录生成输入摘要、记忆版本与所选规则。无记录的旧稿或手写稿计为未归因，不推测；回复与约面结果尚未关联，不代表效果结论 |
+| 记忆实际使用核验 | 已落地(招呼) | `jobagent memory usage`：从外联账本统计各偏好记忆版本、偏好规则与动态规则版本实际进入起草、批准、发送的条目数；`greetings generate` 产出的定向稿在来源绑定中记录生成输入摘要、记忆版本与所选规则。无记录的旧稿或手写稿计为未归因，不推测；回复结果见 `memory effect`，不代表因果结论 |
+| 记忆效果对比 | 已落地(观察性) | `jobagent memory effect`：须显式给出 `--window-days` 观察窗口与 `--min-sample` 最小样本，把有正向发送记录的招呼按岗位与渠道关联到窗口内的招聘方来信；窗口未结束的计为待定、不进任何分母。各记忆版本与规则对比未使用记忆的招呼，用 Wilson / Newcombe 95% 区间，样本不足报 insufficient_sample，区间跨 0 报 no_clear_difference。非随机分配，只是相关性 |
+| 效果判定模拟 | 已落地 | `jobagent memory simulate`：在已知真实效果的合成数据上重复判定，给出检出率、误报率与反向误判率，用于估计需要多少样本；固定种子可复现 |
 
 ## 职位情报(Jobs)
 

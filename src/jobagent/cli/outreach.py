@@ -8,14 +8,14 @@ and reports each attempt with `record`. Every attempt leaves one immutable row.
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 from uuid import uuid4
 
 import typer
 from pydantic import TypeAdapter, ValidationError
 
-from jobagent.bridge.feishu_push import auto_push
 from jobagent.bridge.greeting_freshness import verify_greeting_sources
+from jobagent.cli.private_io import fail, read_model
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.versioning import read_harness_version
 from jobagent.jobs.preferences import preference_score
@@ -29,10 +29,12 @@ from jobagent.schemas.outreach import (
     OutreachDraft,
     OutreachResult,
 )
+from jobagent.schemas.sourcing_feedback import OutreachFeedbackRequest
 from jobagent.skill_resources import default_skill_root
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
 from jobagent.storage.evals_repository import SqliteEvalsRepository
+from jobagent.storage.feedback_repository import SqliteFeedbackRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 
@@ -52,16 +54,6 @@ def _emit(value: ContractModel | dict[str, object]) -> None:
         typer.echo(value.model_dump_json(indent=2))
     else:
         typer.echo(json.dumps(value, ensure_ascii=False, indent=2))
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
 
 
 def _database(path: Path) -> Database:
@@ -180,7 +172,7 @@ def draft_batch(
             store.save_batch(report.batch)
         _emit(report)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("ask")
@@ -197,11 +189,8 @@ def ask(batch_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
         verify_greeting_sources(store.database, batch.items)
         store.save_ask(question)
         _emit(question)
-        pushed = auto_push(database)
-        if pushed is not None:
-            typer.echo(json.dumps({"feishu": pushed}, ensure_ascii=False), err=True)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("approve")
@@ -226,13 +215,39 @@ def approve(
                 details={"batch_id": batch_id},
             )
         verify_greeting_sources(store.database, batch.items)
+        numbers = _numbers(items)
+        decided = SqliteFeedbackRepository(store.database).decided_numbers(batch_id)
+        if overlap := sorted(decided & set(numbers)):
+            raise ApprovalRequiredError(
+                "These items were already decided one by one; approve only the rest.",
+                details={"batch_id": batch_id, "already_decided": overlap},
+            )
         approval = OutreachService().approve(
-            batch, ask=store.get_ask(request), numbers=_numbers(items), attestation=answer
+            batch, ask=store.get_ask(request), numbers=numbers, attestation=answer
         )
         store.save_approval(approval)
         _emit(approval)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
+
+
+@outreach_app.command("feedback")
+def feedback(
+    request_path: Annotated[
+        Path, typer.Argument(help="OutreachFeedbackRequest JSON with the person's own words.")
+    ],
+    database: DatabaseOption = DEFAULT_DATABASE,
+) -> None:
+    """Record the person's per-item feedback on an asked list. Approves and sends nothing.
+
+    Declines and revisions feed preference memory and the next fetch strategy; an
+    approve signal only mirrors an approval already registered with `approve`.
+    """
+    try:
+        request = read_model(request_path, OutreachFeedbackRequest)
+        _emit(SqliteFeedbackRepository(_database(database)).record_outreach_feedback(request))
+    except JobAgentError as error:
+        fail(error)
 
 
 @outreach_app.command("withdraw")
@@ -259,7 +274,7 @@ def withdraw(
         store.withdraw(batch_id, reason.strip(), datetime.now(UTC))
         _emit({"batch_id": batch_id, "withdrawn": True, "reason": reason.strip()})
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("lease")
@@ -284,7 +299,7 @@ def lease(
             )
         _emit({"platform": platform, "session": session, "ttl_seconds": LEASE_SECONDS})
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("next")
@@ -308,7 +323,7 @@ def next_item(
         )
         _emit(decision)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("record")
@@ -357,7 +372,7 @@ def record(
         store.append_audit(audit)
         _emit(audit)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @outreach_app.command("status")
@@ -390,4 +405,4 @@ def status(batch_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
             }
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)

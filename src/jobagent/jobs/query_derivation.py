@@ -10,8 +10,8 @@ from collections.abc import Sequence
 from datetime import datetime
 from itertools import product
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.lexicon import lexicon_digest
 from jobagent.jobs.search_learning import latest_owner_signals, rebuild_lexicon
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem, Experience

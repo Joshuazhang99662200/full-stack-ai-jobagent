@@ -10,9 +10,9 @@ one confirmed evidence item, verbatim, so the base resume can never contain a
 claim the candidate has not confirmed.
 """
 
-import hashlib
 from collections.abc import Sequence
 
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError
 from jobagent.schemas.candidate import EvidenceItem, EvidenceType
 from jobagent.schemas.optimizer import BaseResumeDocument, BaseResumeItem
@@ -80,4 +80,4 @@ class BaseResumeBuilder:
         payload = "\n".join(
             [candidate_id, *(f"{item.id}\0{item.section}\0{item.text}" for item in items)]
         )
-        return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+        return text_digest(payload)

@@ -63,7 +63,7 @@ def test_standard_form_exactly_matches_master_and_history_is_append_only(tmp_pat
 
 
 def test_state_and_history_change_atomically_and_send_proof_is_single_use(tmp_path):
-    from jobagent.jobs.jd_snapshot import text_digest
+    from jobagent.digest import text_digest
 
     store = repo(tmp_path)
     record = create(

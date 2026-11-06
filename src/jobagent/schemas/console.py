@@ -77,11 +77,41 @@ class ConsolePublicCareers(ContractModel):
     runs: list[PublicCareerRun] = Field(default_factory=list)
 
 
+class ConsoleOutreachDecision(ContractModel):
+    """One listed first greeting and what the person decided, read from the ledger.
+
+    Projection only: it grants nothing, and items that cannot be tied to this
+    candidate through confirmed evidence or a source binding are not shown.
+    """
+
+    batch_id: NonEmptyString
+    ask_id: NonEmptyString | None
+    number: int = Field(ge=1)
+    job_id: NonEmptyString
+    platform: NonEmptyString
+    company: NonEmptyString
+    title: NonEmptyString
+    text: NonEmptyString
+    item_digest: NonEmptyString
+    asked_at: AwareDatetime | None
+    state: Literal[
+        "not_asked", "awaiting_answer", "approved", "not_selected", "revision_requested",
+        "declined", "withdrawn",
+    ]
+    decided_via: Literal["batch_approval", "item_decision"] | None = None
+    revised_text: str | None = None
+    approval_id: NonEmptyString | None = None
+    approved_at: AwareDatetime | None = None
+    approval_attestation: str | None = None
+    send_result: NonEmptyString | None = None
+    sent_at: AwareDatetime | None = None
+
+
 class ConsoleSnapshot(ContractModel):
     candidate_id: CandidateId
     generated_at: AwareDatetime
     sources: list[ConsoleSource] = Field(default_factory=list)
     jobs: list[ConsoleJob] = Field(default_factory=list)
     runs: list[ConsoleRun] = Field(default_factory=list)
-    approvals: list[dict[str, object]] = Field(default_factory=list)
+    approvals: list[ConsoleOutreachDecision] = Field(default_factory=list)
     public_careers: ConsolePublicCareers = Field(default_factory=ConsolePublicCareers)

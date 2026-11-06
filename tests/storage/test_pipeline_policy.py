@@ -43,7 +43,7 @@ def activate(database, values, candidate="CAND_DEMO"):
 
 
 def sent(store):
-    from jobagent.jobs.jd_snapshot import text_digest
+    from jobagent.digest import text_digest
 
     record = create(
         store, draft_greeting="Synthetic", draft_digest=text_digest("Synthetic"), draft_version="v1"

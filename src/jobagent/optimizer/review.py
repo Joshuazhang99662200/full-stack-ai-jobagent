@@ -1,10 +1,8 @@
 """Bind independent semantic review to artifacts and check complete item coverage."""
 
-import hashlib
-import json
 from collections.abc import Sequence
-from typing import Any
 
+from jobagent.digest import canonical_digest
 from jobagent.optimizer.verification import ClaimVerifier
 from jobagent.schemas.candidate import EvidenceItem
 from jobagent.schemas.optimizer import (
@@ -17,17 +15,13 @@ from jobagent.schemas.optimizer import (
 )
 
 
-def content_digest(value: Any) -> str:
-    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
 def draft_digest(draft: TailoredDraft) -> str:
-    return content_digest(draft.model_dump(mode="json"))
+    return canonical_digest(draft.model_dump(mode="json"))
 
 
 def evidence_digest(evidence: Sequence[EvidenceItem]) -> str:
-    return content_digest([e.model_dump(mode="json") for e in sorted(evidence, key=lambda e: e.id)])
+    ordered = sorted(evidence, key=lambda e: e.id)
+    return canonical_digest([e.model_dump(mode="json") for e in ordered])
 
 
 def _normalized(text: str) -> str:

@@ -8,8 +8,9 @@ from pydantic import ValidationError
 
 from jobagent.bridge.codex_runner import CodexTextRunner
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import DRAFT_PROMPT, REVIEW_PROMPT, content_digest
+from jobagent.outreach.generation import DRAFT_PROMPT, REVIEW_PROMPT
 from jobagent.schemas.coordinator import CodexTextRecord, CodexTextRequest
 from jobagent.schemas.greeting import GreetingDraft, GreetingRequest, GreetingReview
 from jobagent.skill_resources import read_reference
@@ -60,7 +61,7 @@ class CodexGreetingProvider:
         try:
             request = GreetingRequest.model_validate(context["request"])
             payload = request.model_dump(mode="json")
-            if content_digest(payload) != context["input_digest"]:
+            if canonical_digest(payload) != context["input_digest"]:
                 raise ValueError("stale input")
             if prompt_id == REVIEW_PROMPT:
                 self._validate_review_context(context)
@@ -74,7 +75,7 @@ class CodexGreetingProvider:
                 ):
                     raise ValueError("invalid revision problems")
             policy = read_reference(POLICY_REFERENCE)
-            if request.policy_digest != content_digest(policy):
+            if request.policy_digest != canonical_digest(policy):
                 raise ValueError("policy changed")
             body = json.dumps(dict(context), ensure_ascii=False, sort_keys=True, allow_nan=False)
             instruction = (
@@ -84,7 +85,7 @@ class CodexGreetingProvider:
                 "read them in order. Never use tools, approve, send or execute anything.\n\n"
                 + policy
             )
-            identity = content_digest([prompt_id, instruction, body]).split(":", 1)[1].upper()
+            identity = canonical_digest([prompt_id, instruction, body]).split(":", 1)[1].upper()
             model_request = CodexTextRequest(
                 request_id="CTX_" + identity,
                 instruction=instruction,

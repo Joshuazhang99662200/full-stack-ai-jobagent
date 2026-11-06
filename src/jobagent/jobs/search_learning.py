@@ -3,8 +3,8 @@
 import hashlib
 import json
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.lexicon import lexicon_digest
 from jobagent.schemas.lexicon import JDFeatureSet, Lexicon, LexiconTerm, LexiconUpdateResult
 from jobagent.schemas.search_learning import (

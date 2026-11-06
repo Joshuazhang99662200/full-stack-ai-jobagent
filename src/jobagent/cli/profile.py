@@ -11,11 +11,12 @@ import json
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never
+from typing import Annotated
 
 import typer
 from pydantic import TypeAdapter, ValidationError
 
+from jobagent.cli.private_io import fail
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.profile import next_profile_version, profile_digest
 from jobagent.evals.profile_flywheel import ProfileFlywheel
@@ -43,16 +44,6 @@ DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 
 def _emit(value: object) -> None:
     typer.echo(json.dumps(value, ensure_ascii=False, indent=2, default=str))
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(1)
 
 
 def _now(value: str | None) -> datetime:
@@ -150,7 +141,7 @@ def snapshot(
             }
         )
     except (JobAgentError, ValueError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @profile_app.command("versions")
@@ -162,7 +153,7 @@ def versions(
     try:
         _emit([v.model_dump(mode="json") for v in _store(database).profile_versions(platform)])
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @profile_app.command("propose")
@@ -209,7 +200,7 @@ def propose(
             }
         )
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @profile_app.command("ask")
@@ -224,7 +215,7 @@ def ask(proposal_id: str, database: DatabaseOption = DEFAULT_DATABASE) -> None:
         store.save_profile_ask(question)
         _emit(question.model_dump(mode="json"))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @profile_app.command("approve")
@@ -254,7 +245,7 @@ def approve(
         store.save_profile_approval(approval)
         _emit(approval.model_dump(mode="json"))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @profile_app.command("gate")
@@ -276,7 +267,7 @@ def gate(
         )
         _emit(decision.model_dump(mode="json"))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @profile_app.command("record")
@@ -332,4 +323,4 @@ def record(
             }
         )
     except (JobAgentError, ValueError) as error:
-        _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
+        fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))

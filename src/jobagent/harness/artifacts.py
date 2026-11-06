@@ -1,6 +1,5 @@
 """Read-only final-file inspection and content binding before employer delivery."""
 
-import hashlib
 import io
 import zipfile
 from pathlib import Path
@@ -9,6 +8,7 @@ from xml.etree import ElementTree
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from jobagent.digest import bytes_digest
 from jobagent.errors import ContractValidationError
 from jobagent.harness.artifact_rules import (
     compare_variant_text,
@@ -112,7 +112,7 @@ def check_artifact(
     ):
         issues.append("unreadable_artifact")
     return ArtifactCheckReport(
-        digest="sha256:" + hashlib.sha256(content).hexdigest(),
+        digest=bytes_digest(content),
         media_type=media_type,
         passed=not issues,
         issues=list(dict.fromkeys(issues)),

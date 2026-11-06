@@ -29,6 +29,9 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 来源盘点 | 已落地 | `jobagent memory status`：显式私有配置，区分缺失、空、无效及未接入；不创建或迁移业务库 |
 | 不可变来源快照 | 已落地 | `jobagent memory compile`：只写独立私有元数据 sidecar，同源幂等，不复制业务正文、不调用模型、不激活规则 |
 | 搜索与招呼上下文 | 已落地 | `jobagent memory context`：重验来源摘要，确定性筛选已验证软偏好与既有本人确认规则；角色语义条件及 pipeline 范围未接入，回复与简历返回未接入；不证明实际注入或学习效果 |
+| 记忆实际使用核验 | 已落地(招呼) | `jobagent memory usage`：从外联账本统计各偏好记忆版本、偏好规则与动态规则版本实际进入起草、批准、发送的条目数；`greetings generate` 产出的定向稿在来源绑定中记录生成输入摘要、记忆版本与所选规则。无记录的旧稿或手写稿计为未归因，不推测；回复结果见 `memory effect`，不代表因果结论 |
+| 记忆效果对比 | 已落地(观察性) | `jobagent memory effect`：须显式给出 `--window-days` 观察窗口与 `--min-sample` 最小样本，把有正向发送记录的招呼按岗位与渠道关联到窗口内的招聘方来信；窗口未结束的计为待定、不进任何分母。各记忆版本与规则对比未使用记忆的招呼，用 Wilson / Newcombe 95% 区间，样本不足报 insufficient_sample，区间跨 0 报 no_clear_difference。非随机分配，只是相关性 |
+| 效果判定模拟 | 已落地 | `jobagent memory simulate`：在已知真实效果的合成数据上重复判定，给出检出率、误报率与反向误判率，用于估计需要多少样本；固定种子可复现 |
 
 ## 职位情报(Jobs)
 
@@ -102,6 +105,7 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 站点租约 | 已落地 | `jobagent outreach lease`(一个站同一时间只允许一个会话发送) |
 | 发送前复核 | 已落地 | `jobagent outreach next`(租约、审批时效、当天叫停、最小间隔 30 秒、每站每日上限 50) |
 | 发送记账 | 已落地 | `jobagent outreach record`(每条一行,只追加;失败或风控即叫停该站当天;`withdrawn` 表示已批但决定不发,不叫停、不算联系过) |
+| 逐条反馈登记 | 已落地 | `jobagent outreach feedback`(宿主中立:按已提问清单逐条登记本人的回绝、改写或已批准信号及原话;绑定提问、条目与准确文字,同一条只能有一个决定,重放幂等;批准信号必须已有 `approve` 登记。只供偏好记忆与下一轮找岗策略使用,不批准、不发送) |
 | 作废审批单 | 已落地 | `jobagent outreach withdraw`(作废还没人批的审批单,须写原因;作废后不能再批) |
 | 进度 | 已落地 | `jobagent outreach status` |
 | 跟进回复 | 已落地 | 见下方「对话跟进」 |
@@ -132,8 +136,8 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
-| 节奏判断 | 已落地 | `jobagent patrol next`(周日 20:00-24:00、周一至周四全天、周五 0:00-20:00;每小时一次,一小时内有新来信则每 15 分钟一次) |
-| 记录一次巡检 | 已落地 | `jobagent patrol record`(开工占位;不到时间或上一次仍在进行时拒绝) |
+| 节奏判断 | 已落地 | `jobagent patrol next`(须带 `--schedule <私有 PatrolSchedule>`;时段与间隔只来自本人私有配置,仓库不内置任何人的时段;缺失或不合契约即停止) |
+| 记录一次巡检 | 已落地 | `jobagent patrol record`(须带 `--schedule`;开工占位;不到时间或上一次仍在进行时拒绝) |
 | 消息页快照 | 已落地 | `jobagent patrol snapshot`(把一个站的消息列表整份存进本地库,返回与上一份快照的差异:新会话、新消息、消失的会话、对方的新消息) |
 | 快照历史 | 已落地 | `jobagent patrol snapshots`(按站列出保存过的快照) |
 | 消息回执回填 | 已落地 | `jobagent patrol receipts`(按时间顺序重放已存快照，按来源可观测性声明提取已读/送达；每条对话每种状态只追加首次记录，无法唯一匹配的交人) |
@@ -171,18 +175,9 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 给 Cowork 留言 | 已落地 | `jobagent mailbox notify`(Cowork 用 MCP `notes_from_claude_code` 读) |
 | 登记会话身份 | 已落地 | `jobagent mailbox register-session` / `jobagent mailbox peers`(哪个会话担任 claude_code / cowork;回执与留言带上 session_id) |
 
-## 手机推送(飞书 bot)
-
-账本有新东西时,经飞书 bot(`lark-cli im +messages-send --as bot`)给本人推一条消息。会触发推送的有：待审批问题(含招呼原文)、招聘方新来信、新入库的强匹配和可能匹配职位、当天被叫停的站。巡检完成只会捎带进消息，单独不会触发推送。每一项按键去重，发送成功才记入 `.jobagent/feishu_push_state.json`，失败的下次重试，重跑不会重复发。接收人写在 `.jobagent/feishu_push.json`，三选一：`chat_id`、`user_id`(应用 bot，经 lark-cli 发)，或 `webhook` 加可选 `secret`(群自定义机器人，不需要建应用，也不需要企业认证)。没有这个文件就不推送。**推送本身只是告知**；审批可回到对话里回复，也可在飞书审批卡片上提交(见下表)。
-
-| 能力 | 状态 | 入口 |
-|---|---|---|
-| 推送更新 | 已落地 | `jobagent notify feishu`(`--dry-run` 只打印不发、不记)。`patrol finish`(可带 `--report <文件>`，把巡检汇报原文一并推送，超过 6000 字截断)与 `outreach ask` 结束后在配置存在时自动推送，结果写到 stderr，失败不影响原命令 |
-| 飞书卡片审批 | 已落地 | 应用 bot 配置下，`outreach ask` 后自动给每个待批问题发一张审批卡片(勾选 + 可改原文 + 提交)，`jobagent notify feishu` 也会补发。`jobagent notify feishu-listen`(`--hours 8`)在本机监听提交：只认 `user_id`/`owner` 本人、只认本机发出且未处理的卡片、每张卡只登记一次；勾选即批准、没有第二轮：未改的条目以提交内容为原话登记；改过的条目按本人改写生成新批次，并以卡片里的原文为原话当场登记(仍须过首条招呼规则，不过则卡片写明原因、可改后重交)。卡片不触发发送，发送仍由浏览器会话按租约和节奏执行 |
-
 ## 消息与投递(Message / Application / Cluster)
 
-原生逐岗位首条招呼卡片已支持上一条/下一条、编辑草稿留存、单项批准与显式回绝，宿主入口为 `feishu_approval.send_question_card`；旧卡兼容。回绝反馈可由 `bridge.sourcing_feedback.next_fetch_strategy` 在下一次显式采集前消费，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。`demo_mode=True` 仅用于合成 UI 验证，不产生真实审批或偏好。详见 `docs/feishu-paged-approval-2026-10-26.md`。此能力不包含定向简历的原生卡片审批桥或通用自进化编排。
+回绝与改写反馈的读取侧仍在：`bridge.sourcing_feedback.next_fetch_strategy` 与偏好记忆可消费已保存的 `sourcing_feedback_events`，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。写入方为宿主中立的 `jobagent outreach feedback`；旧飞书卡片留下的历史反馈仍按原绑定读取。
 
 | 能力 | 状态 | 入口 |
 |---|---|---|
@@ -379,9 +374,12 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 能力 | 状态 | 入口 | 边界 |
 |---|---|---|---|
 | 控制台字段定义 | 已落地 | `jobagent console definitions` | 从权威契约生成完整 JSON Schema；MCP console_definitions 同源 |
-| 控制台统一清单 | 已落地 | `jobagent console list` | 候选人隔离，完整 job/meta/history 与运行及来源诊断；不迁移数据库 |
+| 控制台统一清单 | 已落地 | `jobagent console list` | 候选人隔离，完整 job/meta/history 与运行及来源诊断；`approvals` 列出按已确认证据或来源绑定归属本人的首条招呼及其状态（待答、已批准及来源、未选中、改写、回绝、撤回）、批准原话与发送结果，任何对话与面板读到同一份；不迁移数据库、不授予任何权限 |
 | 宿主阶段观察 | 已落地 | `jobagent console event` | 仅私有宿主观察，关联已有运行；不授予审批、发送或修改岗位状态权限 |
-| 本地 React 控制台 | 已落地 | `jobagent console serve` | 仅本机 GET，显式加载前端构建；缺阶段时间不补造，旧审批缺候选人归属时标 unsupported |
+| 面板待审材料 | 已落地 | `jobagent console materials` | 面板 getMaterials：按候选人与流水线联系返回仍待本人决定的首条招呼准确全文，版本即条目摘要；已决定、已批准或已撤回的不再出现 |
+| 面板逐条决定 | 已落地(首条招呼) | `jobagent console decide` | 面板 recordDecision：须带 `--actor`。批准只接受提问时的准确原文，在单条清单上走原审批门禁并留下面板操作原话；保存修改记为改写反馈、待重新生成复核；回绝记为反馈。同一清单逐条决定完即撤回原清单，之后批量审批不能再批已决定的条目。不发送；材料批准、待办回答等尚未接入的种类明确拒绝 |
+| 面板操作回读 | 已落地 | `jobagent console operation` | 面板 getOperation：按操作键回读真实保存结果，不重复执行；无记录即未保存 |
+| 本地 React 控制台 | 已落地 | `jobagent console serve` | 仅本机 GET，显式加载前端构建；缺阶段时间不补造；无法归属到候选人的旧外联条目不显示 |
 
 ## 公开职位补充渠道
 

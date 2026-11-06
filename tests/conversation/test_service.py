@@ -130,12 +130,6 @@ def test_reply_drafts_follow_the_level_and_wording_rules() -> None:
     with pytest.raises(ContractValidationError, match="too_long"):
         SERVICE.draft_reply(conversation, replied, long_answer, now=NOW)
 
-    cliche = ReplyDraft(
-        kind=ReplyKind.ANSWER, text="很感兴趣，期望 22-35K。", in_reply_to=last_inbound.event_id
-    )
-    with pytest.raises(ContractValidationError, match="banned_phrase"):
-        SERVICE.draft_reply(conversation, replied, cliche, now=NOW)
-
     numbers_ok = ReplyDraft(
         kind=ReplyKind.ANSWER, text="期望 22-35K，可按职级沟通。", in_reply_to=last_inbound.event_id
     )

@@ -8,8 +8,8 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline import advance_pipeline, observe_pipeline, silence_deadline
 from jobagent.schemas.pipeline import (
@@ -226,8 +226,7 @@ class PipelineRepository:
             [job.model_dump(mode="json"), meta.model_dump(mode="json"), evidence_reference]
         )
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 old = self.replay(connection, event_id, job.candidate_id, digest)
                 if old:
                     return old
@@ -274,8 +273,7 @@ class PipelineRepository:
         data = event.model_dump(mode="json")
         digest = input_digest or canonical_digest(data)
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 old = self.replay(connection, event.event_id, event.candidate_id, digest)
                 if old:
                     return old

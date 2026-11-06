@@ -10,13 +10,13 @@ the same artifacts yields the same digest, while editing a single character does
 not.
 """
 
-import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import (
     ApprovalRequiredError,
     ContractValidationError,
@@ -48,18 +48,8 @@ def _content_only(value: Any) -> Any:
     return value
 
 
-def _digest_text(text: str) -> str:
-    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
-
-
 def _digest_model(value: ContractModel) -> str:
-    canonical = json.dumps(
-        _content_only(value.model_dump(mode="json")),
-        sort_keys=True,
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-    return _digest_text(canonical)
+    return canonical_digest(_content_only(value.model_dump(mode="json")))
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,7 +78,7 @@ def compute_digests(
     """Digest one package deterministically. Identical content, identical output."""
     resume_digest = _digest_model(package.resume_variant)
     if package.artifact is not None:
-        resume_digest = _digest_text(
+        resume_digest = text_digest(
             json.dumps(
                 {
                     "variant": resume_digest,
@@ -103,7 +93,7 @@ def compute_digests(
         application_id=package.application_id,
         job_digest=_digest_model(package.job),
         resume_digest=resume_digest,
-        message_digest=_digest_text(package.message),
+        message_digest=text_digest(package.message),
         policy_digest=_digest_model(policy if policy is not None else DeliveryPolicy()),
     )
 

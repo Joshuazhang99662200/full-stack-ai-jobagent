@@ -4,7 +4,7 @@ import json
 import sqlite3
 from datetime import datetime
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.lexicon import serialize_lexicon
 from jobagent.jobs.query_derivation import SearchQueryDeriver

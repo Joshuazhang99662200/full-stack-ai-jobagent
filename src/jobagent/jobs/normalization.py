@@ -1,13 +1,13 @@
 """Deterministic source-record normalization."""
 
 import hashlib
-import json
 import re
 import unicodedata
 from decimal import Decimal
 
 from pydantic import ValidationError
 
+from jobagent.digest import spaced_json_digest, text_digest
 from jobagent.errors import JobNormalizationError
 from jobagent.schemas.common import MoneyRange, ProvenanceRecord
 from jobagent.schemas.job_intelligence import SourceJobRecord
@@ -91,10 +91,8 @@ class JobNormalizer:
                 )
             ],
             warnings=warnings,
-            observation_id="sha256:" + hashlib.sha256(json.dumps(
-                record.model_dump(mode="json"), sort_keys=True, ensure_ascii=False,
-            ).encode("utf-8")).hexdigest(),
-            jd_digest="sha256:" + hashlib.sha256(record.jd_raw.encode("utf-8")).hexdigest(),
+            observation_id=spaced_json_digest(record.model_dump(mode="json")),
+            jd_digest=text_digest(record.jd_raw),
             capture_kind=record.capture_kind,
             panel_locator=record.panel_locator,
             read_attempt_id=record.read_attempt_id,

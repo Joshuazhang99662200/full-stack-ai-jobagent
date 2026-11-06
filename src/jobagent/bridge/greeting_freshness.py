@@ -8,8 +8,8 @@ from typing import Never
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import JobAgentError, StaleApprovalError
-from jobagent.outreach.generation import content_digest
 from jobagent.reasoning.job_matcher import is_admissible
 from jobagent.schemas.greeting import GreetingJob
 from jobagent.schemas.outreach import OutreachDraft, OutreachItem
@@ -67,7 +67,7 @@ def verify_greeting_sources(
         snapshot = _SnapshotDatabase(database.path, connection)
         candidates = SqliteCandidateRepository(snapshot)
         jobs = SqliteJobRepository(snapshot)
-        policy_digest = content_digest(read_reference("references/greeting-ai.md"))
+        policy_digest = canonical_digest(read_reference("references/greeting-ai.md"))
         for item in bound:
             binding = item.source_binding
             assert binding is not None
@@ -86,7 +86,7 @@ def verify_greeting_sources(
             source_evidence = [
                 available[eid].model_dump(mode="json") for eid in binding.evidence_ids
             ]
-            if content_digest(source_evidence) != binding.evidence_digest:
+            if canonical_digest(source_evidence) != binding.evidence_digest:
                 _stale("evidence_changed")
             job = jobs.get_job(item.job_id)
             if job is None:
@@ -96,9 +96,9 @@ def verify_greeting_sources(
                 url=str(job.url), jd_raw=job.jd_raw,
             )
             if (item.platform != job.source
-                    or content_digest(target.model_dump(mode="json")) != binding.job_digest):
+                    or canonical_digest(target.model_dump(mode="json")) != binding.job_digest):
                 _stale("job_changed")
-            if content_digest(item.text) != binding.text_digest:
+            if canonical_digest(item.text) != binding.text_digest:
                 _stale("text_changed")
             if policy_digest != binding.policy_digest:
                 _stale("policy_changed")

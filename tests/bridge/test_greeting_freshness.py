@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 
 from jobagent.bridge.greeting_freshness import verify_greeting_sources
+from jobagent.digest import canonical_digest
 from jobagent.errors import StaleApprovalError
 from jobagent.jobs.normalization import JobNormalizer
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.candidate import CandidateProfile, Confidence, EvidenceItem
 from jobagent.schemas.greeting import GreetingJob
 from jobagent.schemas.job_intelligence import SourceJobRecord
@@ -50,10 +50,10 @@ def sources(tmp_path: Path):
     text = "Hello, I built research agents. May we talk?"
     binding = OutreachSourceBinding(
         candidate_id="CAND_TEST", evidence_ids=[item.id for item in evidence],
-        evidence_digest=content_digest([item.model_dump(mode="json") for item in evidence]),
-        job_digest=content_digest(target.model_dump(mode="json")),
-        text_digest=content_digest(text),
-        policy_digest=content_digest(read_reference("references/greeting-ai.md")),
+        evidence_digest=canonical_digest([item.model_dump(mode="json") for item in evidence]),
+        job_digest=canonical_digest(target.model_dump(mode="json")),
+        text_digest=canonical_digest(text),
+        policy_digest=canonical_digest(read_reference("references/greeting-ai.md")),
     )
     draft = OutreachDraft(
         job_id=job.id, platform=job.source, text=text, evidence_ids=["EVID_A"],

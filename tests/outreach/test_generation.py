@@ -4,8 +4,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import InvalidProviderOutputError, UserInterventionRequiredError
-from jobagent.outreach.generation import GreetingGenerator, content_digest
+from jobagent.outreach.generation import GreetingGenerator
 from jobagent.schemas.greeting import GreetingRequest
 
 
@@ -17,7 +18,7 @@ def request(*, targeted: bool = False) -> GreetingRequest:
     }
     return GreetingRequest.model_validate({
         "candidate_id": "CAND_TEST", "display_name": "Alex",
-        "policy_digest": content_digest("synthetic-policy"),
+        "policy_digest": canonical_digest("synthetic-policy"),
         "mode": "targeted" if targeted else "default",
         "job": job if targeted else None,
         "interests": [{"job": job, "selection_id": "OAPPROVAL_TEST"}],
@@ -100,8 +101,8 @@ def test_targeted_export_preserves_reviewed_source_and_text_digests():
     assert binding is not None and binding.candidate_id == data.candidate_id
     assert binding.evidence_digest == result.evidence_digest
     assert binding.evidence_ids == [e.id for e in data.evidence]
-    assert binding.job_digest == content_digest(data.job.model_dump(mode="json"))
-    assert binding.text_digest == content_digest(result.outreach_draft.text)
+    assert binding.job_digest == canonical_digest(data.job.model_dump(mode="json"))
+    assert binding.text_digest == canonical_digest(result.outreach_draft.text)
     assert binding.policy_digest == data.policy_digest
 
 
@@ -184,7 +185,7 @@ def test_review_must_bind_and_cover_the_whole_draft(change_kind):
         if "review" not in prompt_id:
             return
         if change_kind == "stale":
-            data["draft_digest"] = content_digest("different")
+            data["draft_digest"] = canonical_digest("different")
         elif change_kind == "missing_claim":
             data["claims"] = []
         else:

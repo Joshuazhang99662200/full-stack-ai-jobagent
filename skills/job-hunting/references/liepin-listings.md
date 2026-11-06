@@ -24,7 +24,7 @@ jobagent jobs listings "软件工程师" --location 上海
 
 `liepin-cli` 的 `resume` 写入子命令(`update-*`、`add-*`)**不接入**。按 JD 定制只产出附件简历；三站通用的在线简历当前保持只读，后续仅经 [evals.md](evals.md) 的版本摘要审批与回读流程更新。`resume get` 只读,可用于接地。
 
-`LiepinCliDeliverySource` **已落地为人工交接边界**，只能被 `DeliveryGate` 在重新校验人工审批后触达。当前 `job apply` 无法传递获批附件与消息，因此连接器在平台调用前返回 `USER_INTERVENTION_REQUIRED`，交人提交。寻源与投递连接器分开注册；`job_kind` 仍须来自搜索结果，缺失即拒绝，不猜默认值。
+`LiepinCliDeliverySource` **已落地为人工交接边界**，只能被 `DeliveryGate` 在重新校验人工审批后触达。当前 `job apply` 无法传递获批附件与消息，因此连接器在平台调用前返回 `USER_INTERVENTION_REQUIRED`，交人提交。寻源与投递连接器分开注册；连接器不启动任何进程，`job_kind` 只在将来具备附件传输能力时才需校验，届时仍须来自搜索结果、不猜默认值。
 
 ## listing 能做什么
 

@@ -6,8 +6,8 @@ from typing import Any
 from pydantic import ValidationError
 
 from jobagent.capabilities import ReasoningOutputT, ReasoningProvider
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, InvalidProviderOutputError
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.preference_memory import (
     PreferenceApplication,
     PreferenceMemory,
@@ -21,14 +21,14 @@ SELECT_PROMPT = "preference.memory.select.v1"
 
 
 def memory_digest(memory: PreferenceMemory) -> str:
-    return content_digest(memory.model_dump(mode="json"))
+    return canonical_digest(memory.model_dump(mode="json"))
 
 
 def _feedback_digest(event: SourcingFeedback) -> str:
     payload = event.model_dump(mode="json")
     if event.occurred_at.utcoffset() is not None:
         payload["occurred_at"] = event.occurred_at.astimezone(UTC).isoformat()
-    return content_digest(payload)
+    return canonical_digest(payload)
 
 
 class PreferenceLearner:
@@ -78,7 +78,7 @@ class PreferenceLearner:
             return memory
         context = {"memory": memory.model_dump(mode="json"),
                    "events": [event.model_dump(mode="json") for event in fresh]}
-        identity = content_digest(context)
+        identity = canonical_digest(context)
         proposal = self._generate(
             SUMMARIZE_PROMPT, {**context, "input_digest": identity}, PreferenceUpdate,
         )
@@ -118,7 +118,7 @@ class PreferenceLearner:
         try:
             result = PreferenceMemory(
                 candidate_id=memory.candidate_id,
-                version="PMEM_" + content_digest([memory.version, identity,
+                version="PMEM_" + canonical_digest([memory.version, identity,
                                                    proposal.model_dump(mode="json")])[7:27].upper(),
                 previous_version=memory.version, consumed_event_ids=consumed,
                 consumed_event_digests={
@@ -150,7 +150,7 @@ class PreferenceLearner:
         # The model may only choose IDs from host-filtered applicable categories.
         view = memory.model_copy(update={"rules": eligible}).model_dump(mode="json")
         payload = {"memory": view, "task": task, "job_id": job_id, "context": context}
-        identity = content_digest(payload)
+        identity = canonical_digest(payload)
         applied = self._generate(SELECT_PROMPT, {**payload, "input_digest": identity},
                                  PreferenceApplication)
         by_id = {rule.rule_id: rule for rule in eligible}

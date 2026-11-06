@@ -15,6 +15,7 @@ from jobagent.candidate.gaps import GapDetector
 from jobagent.candidate.interview import AdaptiveInterview
 from jobagent.candidate.readiness import CandidateReadinessService
 from jobagent.capabilities import ReasoningProvider
+from jobagent.cli.private_io import fail
 from jobagent.errors import AgentHandoffRequiredError, ContractValidationError, JobAgentError
 from jobagent.parsing.pdf_resume import PdfResumeParser
 from jobagent.reasoning.candidate_extractor import ReasoningCandidateDraftExtractor
@@ -53,18 +54,8 @@ def _emit(value: ContractModel | None) -> None:
     typer.echo("null" if value is None else value.model_dump_json(indent=2))
 
 
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {"error": {"code": error.code, "message": error.message, "details": error.details}},
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(code=1)
-
-
 def _input_error(message: str) -> Never:
-    _fail(ContractValidationError(message))
+    fail(ContractValidationError(message))
 
 
 def _parse_metric(raw: str) -> MetricFact:
@@ -133,7 +124,7 @@ def ingest(
         repository.save_resume(parsed)
         _emit(parsed)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @candidate_app.command("onboard")
@@ -172,7 +163,7 @@ def onboard(
     except AgentHandoffRequiredError as handoff:
         _emit_handoff(handoff)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @candidate_app.command("import-draft")
@@ -188,7 +179,7 @@ def import_draft(
     except (OSError, ValidationError) as error:
         _input_error(f"Candidate draft could not be loaded: {type(error).__name__}.")
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @candidate_app.command("question")
@@ -230,7 +221,7 @@ def question(
             )
         _emit(selected)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @candidate_app.command("answer")
@@ -273,7 +264,7 @@ def answer(
         _emit(outcome)
     except (JobAgentError, ValidationError) as error:
         if isinstance(error, JobAgentError):
-            _fail(error)
+            fail(error)
         _input_error("Interview answer is invalid.")
 
 
@@ -291,7 +282,7 @@ def confirm(
         )
         _emit(confirmed)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 @candidate_app.command("status")
@@ -311,7 +302,7 @@ def status(
         )
         _emit(result)
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def _find_question(

@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline_metrics import EXCLUSION_REASONS, metric_slice, rate, same_slice
 from jobagent.schemas.pipeline import PipelineState

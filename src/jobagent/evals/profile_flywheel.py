@@ -9,11 +9,11 @@ is: a mismatch, a failure, or a page that wants a person.
 """
 
 import hashlib
-import json
 import re
 from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, StaleApprovalError
 from jobagent.evals.profile import next_profile_version, profile_digest
 from jobagent.schemas.applications import ApprovalChannel
@@ -40,9 +40,6 @@ SELF_JUSTIFICATION = ("沉淀了", "具备", "练就", "熟练", "深度使用�
 _ENTRY_SUFFIX = re.compile(r"#\d+$")
 
 
-def _digest(value: object) -> str:
-    canonical = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 def _short(seed: str) -> str:
@@ -109,7 +106,7 @@ class ProfileFlywheel:
             **draft.model_dump(),
             proposal_id=proposal_id,
             expected_digests=expected,
-            proposal_digest=_digest({**content, "expected_digests": expected}),
+            proposal_digest=canonical_digest({**content, "expected_digests": expected}),
             created_at=created_at,
         )
 

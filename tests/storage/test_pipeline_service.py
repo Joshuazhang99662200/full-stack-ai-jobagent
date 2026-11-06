@@ -70,7 +70,7 @@ def test_transition_validation_is_logged_without_private_text(tmp_path):
 
 
 def test_legacy_send_binding_requires_exact_proof_and_never_fabricates_a_send_time(tmp_path):
-    from jobagent.jobs.jd_snapshot import text_digest
+    from jobagent.digest import text_digest
     from jobagent.schemas.jobs import NormalizedJob
     from jobagent.storage.job_repository import SqliteJobRepository
     from jobagent.storage.pipeline_repository import PipelineRepository
@@ -231,7 +231,7 @@ def test_matching_readback_mismatch_pauses_original_state_once_until_owner_resum
 
 
 def test_wrong_target_or_unknown_send_cannot_pause_the_current_pipeline(tmp_path):
-    from jobagent.jobs.jd_snapshot import canonical_digest
+    from jobagent.digest import canonical_digest
     from jobagent.storage.outreach_repository import SqliteOutreachRepository
     from tests.jobs.test_sent_tracking import outreach_records
     from tests.storage.test_pipeline_proofs import command

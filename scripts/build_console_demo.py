@@ -8,7 +8,7 @@ from typing import Literal
 
 from jobagent.console.activities import validate_activities
 from jobagent.console.projection import definitions
-from jobagent.jobs.jd_snapshot import text_digest
+from jobagent.digest import text_digest
 from jobagent.schemas.console import (
     ConsoleActivity,
     ConsoleFilterContext,

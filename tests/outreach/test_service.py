@@ -84,7 +84,7 @@ def test_batch_lists_valid_drafts_and_rejects_the_rest_with_reasons() -> None:
     report = build(
         [
             draft(0),
-            draft(1, text="专家修订率降到 26%。方便聊聊吗？"),
+            draft(1, evidence_ids=["EVID_UNCONFIRMED"]),
             draft(2, platform="boss"),
             draft(0),
             OutreachDraft(job_id="JOB_UNKNOWN", platform="boss", text=GREETING),
@@ -94,7 +94,7 @@ def test_batch_lists_valid_drafts_and_rejects_the_rest_with_reasons() -> None:
     assert report.batch is not None
     assert [item.job_id for item in report.batch.items] == [IDS[0]]
     reasons = {rejection.index: rejection.reasons for rejection in report.rejected}
-    assert "contains_number" in reasons[1] and "banned_phrase:修订率" in reasons[1]
+    assert reasons[1] == ["unconfirmed_evidence"]
     assert reasons[2] == ["platform_mismatch"]
     assert reasons[3] == ["duplicate_in_batch"]
     assert reasons[4] == ["job_not_stored"]
@@ -302,7 +302,8 @@ def test_a_withdrawn_item_neither_halts_the_platform_nor_counts_as_contact() -> 
 
 
 def test_strategy_tags_ride_on_the_item_and_bind_its_digest() -> None:
-    from jobagent.outreach.service import _digest, _job_content
+    from jobagent.digest import canonical_digest
+    from jobagent.outreach.service import _job_content
 
     plain = build([draft(0)])
     tagged = build(
@@ -319,7 +320,7 @@ def test_strategy_tags_ride_on_the_item_and_bind_its_digest() -> None:
     assert item.item_digest != plain.batch.items[0].item_digest
     # An untagged item keeps the digest it always had, so stored batches stay valid.
     job = JOBS[IDS[0]]
-    assert plain.batch.items[0].item_digest == _digest(
+    assert plain.batch.items[0].item_digest == canonical_digest(
         {"job": _job_content(job), "platform": "boss", "text": GREETING}
     )
 

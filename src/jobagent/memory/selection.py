@@ -1,11 +1,11 @@
 """Deterministic scope filtering; free-text conditions are not executable predicates."""
 
-from jobagent.outreach.generation import content_digest
+from jobagent.digest import canonical_digest
 from jobagent.schemas.memory import MemoryItem, MemorySnapshot
 
 
 def snapshot_identity(snapshot: MemorySnapshot) -> str:
-    return content_digest(
+    return canonical_digest(
         {
             "candidate_id": snapshot.candidate_id,
             "config_digest": snapshot.config_digest,

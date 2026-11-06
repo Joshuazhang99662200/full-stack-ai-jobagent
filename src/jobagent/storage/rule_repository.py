@@ -39,8 +39,7 @@ class SqliteRuleRepository:
     def save_proposal(self, proposal: RuleProposal) -> None:
         from jobagent.storage.configuration_repository import require_owner_change_request
 
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             require_owner_change_request(connection, proposal)
             current = self._current(connection, proposal.candidate_id)
             expected = make_proposal(proposal.request, current, now=proposal.proposed_at)
@@ -78,8 +77,7 @@ class SqliteRuleRepository:
         )
 
         confirmation = RuleConfirmation.model_validate(confirmation.model_dump(mode="json"))
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             row = connection.execute(
                 "SELECT proposal_json FROM dynamic_rule_proposals WHERE proposal_id=? "
                 "AND candidate_id=?",
@@ -153,8 +151,7 @@ class SqliteRuleRepository:
     ) -> None:
         if not reference.strip() or at.tzinfo is None:
             raise ContractValidationError("Notification receipt requires a reference and time.")
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             row = connection.execute(
                 "SELECT snapshot_json FROM dynamic_rule_versions "
                 "WHERE version=? AND candidate_id=?",

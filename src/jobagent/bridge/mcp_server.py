@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from jobagent import __version__
 from jobagent.bridge import mailbox, status
 from jobagent.console.projection import definitions as console_definitions
 from jobagent.console.projection import snapshot as console_snapshot
@@ -131,7 +132,7 @@ class McpServer:
             return self._ok(rid, {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "jobagent", "version": "0.2.0"},
+                "serverInfo": {"name": "jobagent", "version": __version__},
             })
         if method == "ping":
             return self._ok(rid, {})

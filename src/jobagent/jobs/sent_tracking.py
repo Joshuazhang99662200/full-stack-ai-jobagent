@@ -6,8 +6,8 @@ from typing import Never
 
 from pydantic import HttpUrl
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
 from jobagent.jobs.pipeline import SILENCE_LIMIT
 from jobagent.outreach.service import OutreachService, policy_digest
 from jobagent.schemas.conversation import Conversation, ConversationEvent, EventKind, ReplyResult

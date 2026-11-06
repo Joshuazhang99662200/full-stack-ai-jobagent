@@ -170,7 +170,7 @@ def test_invalid_json_is_structured_without_private_input(tmp_path):
 
 
 def reply_events(database):
-    from jobagent.jobs.jd_snapshot import canonical_digest
+    from jobagent.digest import canonical_digest
     from jobagent.schemas.conversation import ConversationEvent, EventKind, ReplyDraft, ReplyResult
     from jobagent.schemas.jobs import NormalizedJob
     from jobagent.storage.conversation_repository import SqliteConversationRepository

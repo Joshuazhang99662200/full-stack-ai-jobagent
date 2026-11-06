@@ -8,7 +8,7 @@ from pathlib import Path
 
 from jobagent.errors import StorageError
 
-LATEST_SCHEMA_VERSION = 34
+LATEST_SCHEMA_VERSION = 35
 _MIGRATION_FILES = {
     1: "0001_candidate.sql",
     2: "0002_jobs.sql",
@@ -44,6 +44,7 @@ _MIGRATION_FILES = {
     32: "0032_query_receipts.sql",
     33: "0033_mcp_calls.sql",
     34: "0034_public_careers.sql",
+    35: "0035_outreach_feedback.sql",
 }
 
 
@@ -69,6 +70,13 @@ class Database:
             yield connection
         finally:
             connection.close()
+
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """One write transaction: take the write lock first, commit or roll back as a unit."""
+        with self.connect() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            yield connection
 
     def migrate(self) -> None:
         try:

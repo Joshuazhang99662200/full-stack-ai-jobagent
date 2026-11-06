@@ -14,15 +14,15 @@ from pydantic import ValidationError
 
 from jobagent.bridge.greeting_context import _owned, _real_job
 from jobagent.capabilities import ReasoningProvider
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import content_digest
 from jobagent.outreach.preference_memory import PreferenceLearner, memory_digest
 from jobagent.outreach.service import policy_digest
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem
 from jobagent.schemas.jobs import NormalizedJob
-from jobagent.schemas.outreach import OutreachAsk, OutreachBatch
 from jobagent.schemas.preference_memory import PreferenceMemory
-from jobagent.schemas.sourcing_feedback import PagedCardState, SourcingFeedback
+from jobagent.schemas.sourcing_feedback import SourcingFeedback
+from jobagent.storage.feedback_repository import bound_feedback
 
 _META = "\n<!-- typed-preference-memory -->\n```json\n"
 _CHECKSUM = re.compile(r"\A<!-- preference-memory-sha256: ([a-f0-9]{64}) -->\n")
@@ -96,6 +96,9 @@ def _document(memory: PreferenceMemory) -> str:
         + " -->\n"
         + body
     )
+
+
+_DECISION = {"approve": "approved", "revise": "revision_requested", "decline": "declined"}
 
 
 class MarkdownPreferenceStore:
@@ -213,7 +216,7 @@ class MarkdownPreferenceStore:
 
 
 def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFeedback]:
-    """Read source-bound real card decisions; never infer legacy feedback classes."""
+    """Read source-bound real owner decisions; never infer legacy feedback classes."""
     try:
         with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as conn:
             conn.execute("BEGIN")
@@ -222,8 +225,6 @@ def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFe
             }
             required = {
                 "sourcing_feedback_events",
-                "paged_card_events",
-                "paged_card_states",
                 "outreach_batches",
                 "outreach_asks",
                 "candidate_profiles",
@@ -256,46 +257,30 @@ def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFe
                     for row in conn.execute("SELECT job_json FROM normalized_jobs")
                 )
             }
-            rows = conn.execute(
-                "SELECT f.event_id,f.idempotency_key,f.source,f.occurred_at,f.event_json,"
-                "e.message_id,s.state_json,b.batch_json,q.ask_json "
-                "FROM sourcing_feedback_events f "
-                "JOIN paged_card_events e ON e.event_id=f.event_id "
-                "JOIN paged_card_states s ON s.message_id=e.message_id "
-                "JOIN outreach_batches b ON b.batch_id=json_extract(s.state_json,'$.batch_id') "
-                "JOIN outreach_asks q ON q.ask_id=json_extract(s.state_json,'$.ask_id') "
-                "ORDER BY f.occurred_at,f.event_id"
-            )
             result: list[SourcingFeedback] = []
-            for row in rows:
+            for bound in bound_feedback(conn):
+                event, batch, ask = bound.event, bound.batch, bound.ask
                 try:
-                    event = SourcingFeedback.model_validate_json(row[4])
-                    state = PagedCardState.model_validate_json(row[6])
-                    batch = OutreachBatch.model_validate_json(row[7])
-                    ask = OutreachAsk.model_validate_json(row[8])
                     job = jobs.get(event.job_id)
                     if (
                         event.candidate_id != candidate_id
-                        or state.candidate_id != candidate_id
-                        or state.demo_mode
+                        or bound.owner_id != candidate_id
+                        or bound.demo_mode
                         or job is None
                         or not _real_job(job)
-                        or event.event_id != row[0]
-                        or event.idempotency_key != row[1]
                         or event.idempotency_key != event.event_id
-                        or event.source != row[2]
-                        or event.occurred_at != datetime.fromisoformat(row[3])
-                        or state.message_id != row[5]
-                        or state.batch_id != batch.batch_id
-                        or state.ask_id != ask.ask_id
                         or ask.batch_id != batch.batch_id
                         or ask.batch_digest != batch.batch_digest
                         or ask.policy_digest != batch.policy_digest
                         or policy_digest(batch.policy) != batch.policy_digest
-                        or content_digest([[i.number, i.item_digest] for i in batch.items])
+                        or canonical_digest([[i.number, i.item_digest] for i in batch.items])
                         != batch.batch_digest
                         or batch.created_at > ask.asked_at
-                        or not ask.asked_at <= event.occurred_at < state.expires_at
+                        or event.occurred_at < ask.asked_at
+                        or (
+                            bound.valid_until is not None
+                            and event.occurred_at >= bound.valid_until
+                        )
                         or not event.jd_text
                         or not event.jd_text.strip()
                         or not event.job_title
@@ -303,14 +288,7 @@ def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFe
                         or not event.original_text
                     ):
                         continue
-                    for item in batch.items:
-                        key = str(item.number)
-                        words = state.drafts.get(key, item.text)
-                        decision = {
-                            "approve": "approved",
-                            "revise": "revision_requested",
-                            "decline": "declined",
-                        }[event.action]
+                    for item, words, decision in bound.choices:
                         if (
                             item.job_id != event.job_id
                             or item.platform != event.source
@@ -318,9 +296,8 @@ def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFe
                             or not _owned(item, owned)
                             or item.text not in ask.question
                             or event.original_text != item.text
-                            or state.decisions.get(key) != decision
-                            or "sha256:" + hashlib.sha256(words.encode()).hexdigest()
-                            != event.content_digest
+                            or decision != _DECISION[event.action]
+                            or text_digest(words) != event.content_digest
                             or (event.action == "revise" and event.revised_text != words)
                             or (event.action != "revise" and event.revised_text is not None)
                             or (event.action == "approve" and words != event.original_text)

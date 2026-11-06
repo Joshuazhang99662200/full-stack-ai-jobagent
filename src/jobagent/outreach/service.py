@@ -8,13 +8,11 @@ cap must allow it, and this session must hold the platform's lease. The host doe
 the clicking; this service only decides whether the next click may happen.
 """
 
-import hashlib
-import json
 from collections.abc import Collection, Mapping, Sequence
 from datetime import UTC, datetime, timedelta, timezone
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ApprovalRequiredError, StaleApprovalError
-from jobagent.outreach.rules import first_greeting_problems
 from jobagent.schemas.applications import ApprovalChannel
 from jobagent.schemas.jobs import NormalizedJob
 from jobagent.schemas.outreach import (
@@ -37,9 +35,6 @@ _HALTING = frozenset({OutreachResult.FAILED, OutreachResult.INTERVENTION})
 _COUNTS_AS_CONTACT = frozenset({OutreachResult.SENT, OutreachResult.DUPLICATE_FOUND})
 
 
-def _digest(value: object) -> str:
-    canonical = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 def _job_content(job: NormalizedJob) -> object:
@@ -67,12 +62,16 @@ def _item_digest(job: NormalizedJob, draft: OutreachDraft) -> str:
     if draft.written_by == "person":
         content["written_by"] = "person"
     if draft.source_binding is not None:
-        content["source_binding"] = draft.source_binding.model_dump(mode="json")
-    return _digest(content)
+        binding = draft.source_binding.model_dump(mode="json")
+        # Bindings stored before generation provenance existed keep their digest.
+        if binding.get("generation") is None:
+            binding.pop("generation", None)
+        content["source_binding"] = binding
+    return canonical_digest(content)
 
 
 def policy_digest(policy: OutreachPolicy) -> str:
-    return _digest(policy.model_dump(mode="json"))
+    return canonical_digest(policy.model_dump(mode="json"))
 
 
 def contacted_job_ids(audits: Sequence[OutreachAudit]) -> set[str]:
@@ -98,7 +97,8 @@ class OutreachService:
         """Recompute approved content, including the current source job and exact text."""
         if (
             batch.policy_digest != policy_digest(batch.policy)
-            or batch.batch_digest != _digest([[i.number, i.item_digest] for i in batch.items])
+            or batch.batch_digest
+            != canonical_digest([[i.number, i.item_digest] for i in batch.items])
         ):
             raise StaleApprovalError("Outreach batch content changed after approval.")
         for item in batch.items:
@@ -197,7 +197,7 @@ class OutreachService:
                 items=items,
                 policy=policy,
                 policy_digest=policy_digest(policy),
-                batch_digest=_digest([[item.number, item.item_digest] for item in items]),
+                batch_digest=canonical_digest([[item.number, item.item_digest] for item in items]),
                 created_at=created_at,
                 harness_version=harness_version,
             ),
@@ -221,7 +221,7 @@ class OutreachService:
             return ["already_contacted"]
         if draft.job_id in listed:
             return ["duplicate_in_batch"]
-        reasons = first_greeting_problems(draft.text)
+        reasons: list[str] = []
         if any(evidence not in confirmed_evidence_ids for evidence in draft.evidence_ids):
             reasons.append("unconfirmed_evidence")
         return reasons

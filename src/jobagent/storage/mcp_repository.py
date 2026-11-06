@@ -5,9 +5,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
 from jobagent.harness.runtime import runtime_fingerprint
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.mcp_calls import bind_mcp_round
 from jobagent.jobs.sourcing import SOURCING_DAY, refusal_reason
 from jobagent.schemas.mcp_calls import (
@@ -44,8 +44,7 @@ class SqliteMcpRepository:
     @contextmanager
     def _write(self) -> Iterator[sqlite3.Connection]:
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 yield connection
         except sqlite3.Error as error:
             raise StorageError("MCP ledger unavailable; no automatic retry.") from error
@@ -115,7 +114,6 @@ class SqliteMcpRepository:
 
     def start_round(self, request: McpRoundRequest, *, now: datetime) -> McpRound:
         request = McpRoundRequest.model_validate(request.model_dump(mode="json"))
-        _day(now)
         digest = canonical_digest(request.model_dump(mode="json"))
         with self._write() as connection:
             rules = current_rule_snapshot(connection, request.candidate_id)

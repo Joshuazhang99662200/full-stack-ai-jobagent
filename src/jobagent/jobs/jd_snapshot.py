@@ -1,18 +1,8 @@
 """Pure raw-text snapshot construction; no normalization or I/O."""
 
-import hashlib
-import json
-
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.schemas.jd_snapshot import JDSnapshot, JDSnapshotInput
 from jobagent.schemas.job_intelligence import SourceJobRecord
-
-
-def text_digest(text: str) -> str:
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def canonical_digest(value: object) -> str:
-    return text_digest(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
 
 def snapshot_content_digest(request: JDSnapshotInput) -> str:

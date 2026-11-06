@@ -80,7 +80,7 @@ def test_decline_is_stored_as_feedback_and_closes_the_item_without_approval(tmp_
 
 def test_approval_goes_through_the_gate_on_the_exact_asked_text(tmp_path):
     path, _ = setup(tmp_path)
-    receipt = record(path, decision(path, "approve_text"))
+    receipt = record(path, decision(path, "approve_material"))
 
     assert receipt.status == "saved"
     store = SqliteOutreachRepository(Database(path))
@@ -96,9 +96,22 @@ def test_approval_goes_through_the_gate_on_the_exact_asked_text(tmp_path):
 
 def test_edited_text_is_never_approved_directly(tmp_path):
     path, _ = setup(tmp_path)
-    receipt = record(path, decision(path, "approve_text", body="Edited words."))
+    receipt = record(path, decision(path, "approve_material", body="Edited words."))
     assert receipt.status == "rejected"
     assert SqliteOutreachRepository(Database(path)).list_batches()[-1].batch_id == "OBATCH_FIXTURE"
+
+
+def test_a_text_opinion_is_never_taken_as_approval(tmp_path):
+    """The panel protocol's approve_text means "the wording is fine", not "approved"."""
+    path, _ = setup(tmp_path)
+    receipt = record(path, decision(path, "approve_text"))
+
+    assert receipt.status == "rejected" and receipt.event_id is None
+    assert "approve_material" in receipt.message
+    store = SqliteOutreachRepository(Database(path))
+    assert [b.batch_id for b in store.list_batches()] == ["OBATCH_FIXTURE"]
+    assert load_preference_events(path, "CAND_TEST") == []
+    assert len(panel_materials(path, "CAND_TEST", PIPE)) == 1
 
 
 def test_saved_edit_is_a_revision_request_not_an_approval(tmp_path):
@@ -139,7 +152,7 @@ def test_replays_return_the_same_receipt_and_operations_read_back(tmp_path):
     assert panel_operation(path, "CAND_TEST", "OP_1").event_id == first.event_id
     assert panel_operation(path, "CAND_TEST", "OP_UNSEEN").status == "rejected"
     conflicting = record(
-        path, decision(path, "approve_text", key="OP_2", revision=request.material_revision)
+        path, decision(path, "approve_material", key="OP_2", revision=request.material_revision)
     )
     assert conflicting.status == "rejected"
 

@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 from jobagent.console.activities import TERMINAL_PHASES, read_activities, validate_activities
 from jobagent.console.assessments import attach_assessments
+from jobagent.console.outreach import read_outreach_decisions
 from jobagent.console.public_careers import read_public_careers
 from jobagent.errors import JobAgentError
 from jobagent.schemas.candidate import CandidateId
@@ -159,11 +160,8 @@ def snapshot(
                 status=activities_status,
                 message="Host observations only; unrecorded phase timing stays unknown.",
             ),
-            ConsoleSource(
-                name="approvals",
-                status="unsupported",
-                message="Legacy outreach batches lack candidate ownership; not joined.",
-            ),
         ]
     )
+    result.approvals, approvals_source = read_outreach_decisions(database, candidate)
+    result.sources.append(approvals_source)
     return result

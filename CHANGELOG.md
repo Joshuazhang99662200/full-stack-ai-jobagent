@@ -7,6 +7,9 @@
 - 删除内置的个人招呼禁用词与数字写法检查；写作偏好改由私有 `GreetingSettings` 驱动生成与独立复核，证据确认、去重与逐项审批不变。
 - 新增 `jobagent outreach feedback`：宿主中立地按条登记本人对已提问清单的回绝、改写与已批准信号，绑定提问、条目与准确文字，供偏好记忆与下一轮找岗策略使用；不批准、不发送。
 - 新增 `jobagent memory usage`：招呼定向稿在来源绑定中记录生成时的记忆版本、所选偏好规则与动态规则版本，可从外联账本核对它们实际进入起草、批准与发送的条目；旧稿的条目摘要保持不变。
+- 新增 `jobagent memory effect` 与 `memory simulate`：按显式观察窗口和最小样本把已发送招呼关联到招聘方来信，用 Wilson / Newcombe 区间比较各记忆版本与规则；未结束的窗口不计入，样本不足如实报告。模拟在已知真实效果的合成数据上检验误报率与检出率。
+- Muse 面板接通首条招呼逐条决定：`console materials`、`console decide`、`console operation` 对应面板的 getMaterials、recordDecision、getOperation。批准只认提问时的准确原文并走原审批门禁，修改记为改写反馈；批量审批不再能重复批准已逐条决定的条目。
+- `console list` 的 `approvals` 现在列出归属本人的首条招呼及其决定、批准原话与发送结果，面板与各对话读到同一份状态。
 - 内部整理：摘要统一由 `jobagent.digest` 计算且字节不变；写事务统一为 `Database.transaction()`；CLI 共用失败输出与私有输入读取；删除无引用的 `pipeline_sql.py` 与猎聘投递连接器中不起作用的参数和校验。
 
 ## 未发布 — 品牌与入口对齐

@@ -8,7 +8,7 @@
 | 使用公开职位补充渠道 | [来源、预算与只读命令](public-careers.md)；企业 board 尚需在实际环境验收 |
 | 接入 Muse 或其他个人 Agent | [宿主入口](../hosts/personal-ai/README.md)、[私有记忆](../hosts/personal-ai/memory.md)、[任务协议](../hosts/personal-ai/tasks.md) |
 | 维护既有本机 MCP / 信箱交接 | [兼容交接说明](cowork-handoff.md)，不作为 Muse 的默认入口 |
-| 实现岗位面板 | [当前面板要求](muse-panel.md)、[默认 Muse 模板](muse-source-template-2026-11-02.md)、[同步接入](panel-sync-merge-2026-11-03.md)、[宿主接口](react-console-host-interface.md) |
+| 实现岗位面板 | [当前面板要求](muse-panel.md)、[默认面板模板](muse-space-template-2026-11-06.md)、[上一版模板](muse-source-template-2026-11-02.md)、[同步接入](panel-sync-merge-2026-11-03.md)、[宿主接口](react-console-host-interface.md) |
 | 读取统一记忆 | [已实现的 P1 调用](unified-memory-p1-2026-11-02.md)；[完整方案](unified-memory-muse-plan-2026-11-01.md)中的后续阶段仍需独立实现与验收 |
 | 整理记忆资料或实验集 | [Muse 资料模板](muse-memory-handoff-request-2026-11-02.md)、[实验字段模板](memory-experiment-data-template-2026-11-02.md)；它们是资料格式，不是每次运行的补件清单 |
 | 理解代码边界 | [架构](architecture.md)、[领域模型](domain-model.md)、[贡献指南](../CONTRIBUTING.md)、[编码 Agent 说明](../AGENTS.md) |

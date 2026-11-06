@@ -4,7 +4,7 @@ import demo from "../src/demo.json" with { type: "json" };
 test("progress explains AI authorship and concise factual summaries", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   await expect(page.locator(".muse-current .trow.head")).toContainText(
     "AI 填写 · 约20～50字",
   );
@@ -21,7 +21,7 @@ test("readonly Muse keeps personal counts unknown and disables unavailable write
   page,
 }) => {
   await page.route("**/api/snapshot", (route) => route.fulfill({ json: demo }));
-  await page.goto("/");
+  await page.goto("/?template=current");
   await expect(page.getByRole("alert")).toContainText("待办来源读取未完成");
   await expect(page.getByRole("tab", { name: /等你处理/ })).toContainText("?");
   await page.getByRole("tab", { name: /^全部/ }).click();
@@ -41,7 +41,7 @@ test("readonly Muse keeps personal counts unknown and disables unavailable write
 test("current Muse uses the live navigation, table widths and modal hierarchy", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   const surface = page.locator(".muse-current");
   await expect(surface.locator(".topbar-in")).toBeVisible();
   await expect(surface.locator(".wrap")).toHaveCSS("max-width", "1280px");
@@ -69,7 +69,7 @@ test("current Muse uses the live navigation, table widths and modal hierarchy", 
 test("current Muse todo opens independently and saves approval without execution", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   await page.locator(".muse-current .todo-btn").first().click();
   const modal = page.getByRole("dialog");
   await expect(
@@ -98,7 +98,7 @@ test("current Muse todo opens independently and saves approval without execution
 test("current Muse secondary pages keep live table structure and explain counts", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   await page.getByRole("tab", { name: "运行记录", exact: true }).click();
   await expect(page.locator(".cols-run.head")).toContainText("已完成的工作");
   await page.getByRole("tab", { name: "沟通进展", exact: true }).click();
@@ -118,7 +118,7 @@ test("unavailable real source is diagnosed, without a silent demo fallback", asy
   await page.route("**/api/snapshot", (route) =>
     route.fulfill({ status: 503, body: "unavailable" }),
   );
-  await page.goto("/");
+  await page.goto("/?template=current");
   await expect(page.getByRole("alert")).toContainText("来源尚未接通");
   await expect(
     page.getByText("合成演示 · 不访问真实招聘渠道", { exact: true }),

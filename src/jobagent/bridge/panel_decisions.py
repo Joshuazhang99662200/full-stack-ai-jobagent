@@ -33,7 +33,9 @@ from jobagent.storage.outreach_repository import SqliteOutreachRepository
 from jobagent.storage.pipeline_repository import PipelineRepository
 
 CHANNEL = "Muse 面板"
-_ACTIONS = {"approve_text": "approve", "save_draft": "revise", "decline": "decline"}
+# Same meaning as the panel transport everywhere else: approve_material approves the
+# exact material; approve_text only says the wording is fine and never approves.
+_ACTIONS = {"approve_material": "approve", "save_draft": "revise", "decline": "decline"}
 _DECIDED = {"approve": "approved", "revise": "revision_requested", "decline": "declined"}
 
 
@@ -149,6 +151,10 @@ def record_panel_decision(
     db = Database(database)
     db.migrate()
     action = _ACTIONS.get(request.kind)
+    if request.kind == "approve_text":
+        return rejected(
+            "文案意见不构成批准，也没有保存；要批准这条原文，请提交 approve_material。"
+        )
     if action is None:
         return rejected("这个操作还没有接入面板保存，请在对话中处理。")
     if request.attachment_digests:

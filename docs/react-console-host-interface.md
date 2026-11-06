@@ -34,8 +34,10 @@ Muse 等宿主的适配器可把三项接口接到同版本 CLI，替代已删�
 | 面板接口 | CLI | 行为 |
 |---|---|---|
 | `getMaterials` | `jobagent console materials --candidate <ID> --contact <PIPE_*>` | 仍待本人决定的首条招呼准确全文；`revision` 为条目摘要 |
-| `recordDecision` | `jobagent console decide <HostDecisionRequest.json> --actor <操作人>` | `approve_text`：仅原文，单条清单上走原审批门禁；`save_draft`：改写反馈，待重新生成复核；`decline`：回绝反馈。其他种类返回 rejected |
+| `recordDecision` | `jobagent console decide <HostDecisionRequest.json> --actor <操作人>` | `approve_material`：仅原文，单条清单上走原审批门禁；`save_draft`：改写反馈，待重新生成复核；`decline`：回绝反馈。`approve_text` 只是文案意见，不构成批准，返回 rejected 且不保存；其他种类同样返回 rejected |
 | `getOperation` | `jobagent console operation <operation_key> --candidate <ID>` | 按操作键回读；无记录即未保存，可重新提交 |
+
+`approve_material` 与 `approve_text` 的含义和前端、演示宿主保持一致：只有前者是批准。宿主状态里当前材料的 `revision` 必须取 `console materials` 返回的值，否则决定会因材料已变化被拒绝。前端在改稿后先保存草稿再批准；接 CLI 时草稿保存为改写反馈、原文不变，前端据此提示需重新生成复核，不会批准改动后的文字。
 
 回执状态为 saved 时退出码为 0，rejected 为 1，JSON 回执始终输出。决定都不发送；已批准的条目仍由现有租约与 `outreach next` 节奏发送并回读。
 
@@ -100,3 +102,11 @@ Muse 等宿主的适配器可把三项接口接到同版本 CLI，替代已删�
 `regenerateGreeting`、`getGreetingSignals` 由宿主提供：用已确认事实生成、追加保存原文与新稿、使旧批准失效、不发送、不自动修改词库。前端重新读取新稿和 signal 后才确认已保存。保存失败或回读未知时保留未确认，不自动重复生成或写入。
 
 执行结果回调属于宿主，不开放成浏览器可伪造成功的写入入口。正向回读必须绑定所执行材料、准确内容及观察依据；失败保存原因原文，未知保留未知。真实宿主保存排除事件和进展更新标记；合成演示只在独立演示存储中追加记录。前端缺少宿主 AI 摘要时可展示实际回读或排除原文，不声称已生成并持久保存 AI 摘要。
+
+## 点击只记录，后台分步推进（2026-11-06）
+
+点击处理只做两件事：校验并持久保存这次操作意图（决定、批次、执行项、排除原因），然后立即返回。派发执行任务、AI 生成进展和重新生成招呼语等耗时步骤，由宿主写入持久工作队列，后台逐条小步完成；每步写回状态，失败保存原因原文，中断后按队列恢复。不得在点击请求内同步等待模型或执行代理，也不得由浏览器串联多步请求推进业务状态，页面关闭或刷新不能让流水线停在半途。
+
+队列只改变“何时处理”，不改变“是否获准”：入队不等于批准，派发不等于已发送，仍只认已有准确批准与正向回读。
+
+写入成功后，前端只刷新受影响的岗位、列表行、待办，以及相关的批次和选择队列（`frontend/src/muse/refresh.ts`）。完整快照和渠道登录状态按各自周期读取，只有宿主同步才触发全量刷新。宿主广播的失效通知也应限定到受影响的数据。

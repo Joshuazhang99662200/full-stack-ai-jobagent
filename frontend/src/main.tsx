@@ -58,9 +58,11 @@ function App() {
     <MuseSourcePanel
       source={source}
       appearance={
-        new URLSearchParams(location.search).get("template") === "zip"
-          ? "zip"
-          : "current"
+        ({ zip: "zip", current: "current" } as const)[
+          new URLSearchParams(location.search).get("template") as
+            | "zip"
+            | "current"
+        ] ?? "space"
       }
     />
   );

@@ -73,7 +73,7 @@ test("injected regeneration preserves full history, blocks concurrent edits and 
 test("quick execution excludes unapproved selection and shows its reason in that job's progress", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   await page
     .getByRole("checkbox", { name: "选择岗位：数据工程师", exact: true })
     .click();
@@ -96,7 +96,7 @@ test("quick execution excludes unapproved selection and shows its reason in that
 test("shared channel badges use the supplied brand palette in list and detail", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   const badge = page.locator('.muse-current [data-channel="BOSS"]').first();
   await expect(badge).toHaveCSS("background-color", "rgb(0, 168, 160)");
   await expect(badge).toHaveCSS("color", "rgb(255, 255, 255)");
@@ -111,7 +111,7 @@ test("shared channel badges use the supplied brand palette in list and detail", 
 test("selection survives reload and inversion is scoped to visible jobs", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   const bar = page.getByRole("region", { name: "选择队列与一键投递" });
   await bar.getByRole("button", { name: "全选当前列表", exact: true }).click();
   await expect(bar).toContainText("已选 1 个岗位");
@@ -124,7 +124,7 @@ test("selection survives reload and inversion is scoped to visible jobs", async 
 test("regeneration is a distinct unavailable capability without a host AI service", async ({
   page,
 }) => {
-  await page.goto("/?demo=1");
+  await page.goto("/?demo=1&template=current");
   await page
     .getByRole("button", { name: "查看详情：数据工程师", exact: true })
     .click();

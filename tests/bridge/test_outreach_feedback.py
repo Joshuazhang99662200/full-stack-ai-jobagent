@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001  -- the person's answer is quoted verbatim in Chinese.
 """Host-neutral owner feedback on an asked outreach list feeds memory, never approval."""
 
 import json

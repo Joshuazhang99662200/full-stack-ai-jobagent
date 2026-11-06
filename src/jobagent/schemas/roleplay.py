@@ -79,6 +79,7 @@ class RoleplayRound(ContractModel):
     memory_version: NonEmptyString
     memory_rule_count: int = Field(ge=0)
     selected_rules: list[str] = Field(default_factory=list)
+    selected_rule_texts: list[str] = Field(default_factory=list)
     unconsumed_events_before_generation: int = Field(ge=0)
     started_at: AwareDatetime
 

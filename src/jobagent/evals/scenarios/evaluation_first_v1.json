@@ -1,0 +1,217 @@
+{
+  "scenario_id": "evaluation_first_v1",
+  "candidate_id": "CAND_ROLEPLAY",
+  "display_name": "林舟（合成人设）",
+  "persona": "你是林舟，一位合成的求职者，五年 AI 应用产品经验，做过知识库问答和研究报告生成两款产品，最擅长的是搭评测体系、找出模型答错的地方并推动改进。你正在找 AI 产品经理类岗位。你说话直接，讨厌套话。你只按下面的隐藏偏好和常识做决定，不要把这些偏好直接告诉生成方，只能通过批准、改写或回绝以及你自己的一句话反馈表达。",
+  "evidence": [
+    {
+      "evidence_id": "EVID_RP_QA_EVAL",
+      "statement": "在知识库问答产品中主导搭建评测集与评分规范，覆盖幻觉、引用错误与拒答三类问题，每周输出评测报告推动检索与提示词迭代。",
+      "skills": [
+        "评测",
+        "大模型应用",
+        "RAG"
+      ]
+    },
+    {
+      "evidence_id": "EVID_RP_REPORT",
+      "statement": "负责研究报告生成产品从 0 到 1，定义报告结构与引用规范，建立人工事实核查流程。",
+      "skills": [
+        "产品规划",
+        "内容生成"
+      ]
+    },
+    {
+      "evidence_id": "EVID_RP_FAILURES",
+      "statement": "整理问答产品的典型失败案例库，按根因分类后与算法团队共同制定修复优先级。",
+      "skills": [
+        "问题分析",
+        "跨团队协作"
+      ]
+    },
+    {
+      "evidence_id": "EVID_RP_AB",
+      "statement": "为问答排序策略设计并分析 AB 实验，用答案采纳率作为主要指标。",
+      "skills": [
+        "实验设计",
+        "数据分析"
+      ]
+    },
+    {
+      "evidence_id": "EVID_RP_LABEL",
+      "statement": "与标注团队制定评测数据的标注规范和抽检流程。",
+      "skills": [
+        "数据质量"
+      ]
+    },
+    {
+      "evidence_id": "EVID_RP_AGENT",
+      "statement": "参与智能体工作流的需求定义，负责工具调用失败场景的验收标准。",
+      "skills": [
+        "智能体",
+        "验收标准"
+      ]
+    }
+  ],
+  "hidden_preferences": [
+    {
+      "preference_id": "P_EVAL_FIRST",
+      "category": "greetings",
+      "description": "招呼开头先讲自己搭评测体系、找出模型错误的经历，再讲其他产品经历；没有把评测放在前面的稿子要改写。",
+      "rule_keywords": [
+        "评测",
+        "评估",
+        "质量验证"
+      ]
+    },
+    {
+      "preference_id": "P_NO_PLEASANTRIES",
+      "category": "greetings",
+      "description": "不要出现“很感兴趣”“期待交流”“非常荣幸”之类的客套话，出现就改写删掉。",
+      "rule_keywords": [
+        "客套",
+        "寒暄",
+        "套话",
+        "很感兴趣",
+        "期待交流"
+      ]
+    },
+    {
+      "preference_id": "P_ONE_CONCRETE",
+      "category": "greetings",
+      "description": "只讲一个具体项目和它的结果，不要堆砌技术名词；名词超过三个就改写。",
+      "rule_keywords": [
+        "具体",
+        "一个项目",
+        "堆砌",
+        "术语",
+        "名词"
+      ]
+    },
+    {
+      "preference_id": "P_NO_SALES",
+      "category": "jobs",
+      "description": "不考虑售前、销售、客户成功这类背商务指标的岗位，直接回绝，理由选 direction。",
+      "rule_keywords": [
+        "售前",
+        "销售",
+        "商务",
+        "客户成功"
+      ]
+    }
+  ],
+  "jobs": [
+    {
+      "source_job_id": "rp-01",
+      "company": "澄言智能（合成）",
+      "title": "AI 产品经理（问答质量方向）",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-01",
+      "jd_raw": "负责企业知识库问答产品的质量体系：设计评测集与指标，定位幻觉与引用错误，推动模型与检索策略迭代。需要有大模型应用评测或数据质量相关经验，能和算法、标注团队协作。"
+    },
+    {
+      "source_job_id": "rp-02",
+      "company": "衡石数据（合成）",
+      "title": "售前解决方案经理",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-02",
+      "jd_raw": "面向金融客户进行售前方案讲解、需求调研与招投标材料撰写，配合销售完成签单目标。需要优秀的客户沟通能力，有 SaaS 或数据产品售前经验优先，接受出差。"
+    },
+    {
+      "source_job_id": "rp-03",
+      "company": "明栈科技（合成）",
+      "title": "大模型应用产品经理",
+      "location": "杭州",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-03",
+      "jd_raw": "负责文档助手类产品的规划与落地，梳理用户场景，定义需求与验收标准，跟进上线后的效果数据。熟悉 RAG、Agent 等常见应用形态，有 0 到 1 产品经验优先。"
+    },
+    {
+      "source_job_id": "rp-04",
+      "company": "知微研究（合成）",
+      "title": "AI 评测产品专家",
+      "location": "北京",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-04",
+      "jd_raw": "建设通用与行业大模型的评测平台：评测任务设计、人工与自动评分流程、评测报告与模型对比看板。需要理解评测方法论，能把评测结果转化为可执行的改进建议。"
+    },
+    {
+      "source_job_id": "rp-05",
+      "company": "云帆软件（合成）",
+      "title": "客户成功经理（AI 方向）",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-05",
+      "jd_raw": "负责已签约客户的上线交付与续约，组织培训，收集客户反馈并推动产品改进，承担续费与增购指标。需要较强的商务沟通能力。"
+    },
+    {
+      "source_job_id": "rp-06",
+      "company": "澜图智能（合成）",
+      "title": "AI 产品经理（研究助手）",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-06",
+      "jd_raw": "负责研究报告生成产品：定义报告结构、引用规范与事实核查流程，和算法团队一起提升生成质量与可追溯性。需要有内容类或研究类产品经验，重视细节。"
+    },
+    {
+      "source_job_id": "rp-07",
+      "company": "砺石数科（合成）",
+      "title": "数据标注运营主管",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-07",
+      "jd_raw": "管理标注团队与外包供应商，制定标注规范与质检流程，控制成本与交付周期，支持大模型训练与评测数据生产。需要团队管理经验。"
+    },
+    {
+      "source_job_id": "rp-08",
+      "company": "启明云（合成）",
+      "title": "解决方案售前（大模型）",
+      "location": "北京",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-08",
+      "jd_raw": "支持销售团队完成大模型解决方案的售前交流、POC 演示与方案撰写，对接客户技术团队，跟进商机推进。有 AI 行业售前经验优先，需频繁出差。"
+    },
+    {
+      "source_job_id": "rp-09",
+      "company": "青简科技（合成）",
+      "title": "智能体平台产品经理",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-09",
+      "jd_raw": "负责企业智能体编排平台：工作流配置、工具调用、可观测与评估能力建设，定义平台指标并推动迭代。需要理解智能体的失败模式，有平台类产品经验。"
+    },
+    {
+      "source_job_id": "rp-10",
+      "company": "深瞳信息（合成）",
+      "title": "搜索与问答产品经理",
+      "location": "杭州",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-10",
+      "jd_raw": "负责站内搜索与智能问答的体验与效果：检索相关性评估、答案质量监控、AB 实验设计与分析。有搜索、推荐或问答产品经验，数据分析能力强。"
+    },
+    {
+      "source_job_id": "rp-11",
+      "company": "拓疆数据（合成）",
+      "title": "大客户销售经理（AI 产品）",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-11",
+      "jd_raw": "开拓央国企与大型企业客户，负责 AI 产品的商务谈判、合同签署与回款，完成年度销售指标。需要行业客户资源与销售经验。"
+    },
+    {
+      "source_job_id": "rp-12",
+      "company": "墨问智能（合成）",
+      "title": "内容生成产品经理",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-12",
+      "jd_raw": "负责营销内容生成产品，定义生成质量标准与人工审核流程，提升生成内容的可用率与合规性。需要有内容产品或 AIGC 产品经验。"
+    },
+    {
+      "source_job_id": "rp-13",
+      "company": "千寻知识（合成）",
+      "title": "知识库产品经理",
+      "location": "北京",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-13",
+      "jd_raw": "负责企业知识库的接入、切分、检索与权限体系，建设问答效果的评测与反馈闭环。需要理解文档处理与检索链路，有 ToB 产品经验。"
+    },
+    {
+      "source_job_id": "rp-14",
+      "company": "极光实验室（合成）",
+      "title": "AI 产品经理（评测与安全）",
+      "location": "上海",
+      "url": "https://jobs.roleplay-lab.org/postings/rp-14",
+      "jd_raw": "负责模型上线前的评测与安全审查流程：红队测试组织、风险分类、评测基线维护与发布门禁。需要严谨的验证思路与跨团队推动能力。"
+    }
+  ]
+}

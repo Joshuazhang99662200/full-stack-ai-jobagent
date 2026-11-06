@@ -229,3 +229,26 @@ def test_batch_approval_cannot_reapprove_items_already_decided_in_the_panel(tmp_
     assert refused.exit_code == 1 and "already decided" in refused.stdout
     allowed = approve("2")
     assert allowed.exit_code == 0, allowed.stdout
+
+
+@pytest.mark.parametrize("kind", ["approve_material", "decline", "save_draft"])
+def test_liepin_contacts_get_their_own_refusal_not_greeting_wording(tmp_path, kind):
+    """Liepin delivers the platform online resume directly; it has no greeting item."""
+    from jobagent.jobs.normalization import JobNormalizer
+    from jobagent.schemas.job_intelligence import SourceJobRecord
+    from jobagent.storage.job_repository import SqliteJobRepository
+
+    path, _ = setup(tmp_path)
+    SqliteJobRepository(Database(path)).save_job(JobNormalizer().normalize(SourceJobRecord(
+        source="liepin", source_job_id="lp-001", company="Liepin Labs", title="AI Product",
+        location="Shanghai", jd_raw="Own evaluation for grounded research answers.",
+        url="https://www.liepin.com/job/lp-001.shtml", collected_at=NOW,
+    )))
+    receipt = record(path, decision(
+        path, kind, job_id="lp-001", contact_id="LIEPIN_CONTACT", revision="sha256:" + "2" * 64,
+    ))
+
+    assert receipt.status == "rejected" and receipt.event_id is None
+    assert "猎聘" in receipt.message and "在线简历" in receipt.message
+    assert "这条招呼" not in receipt.message
+    assert panel_materials(path, "CAND_TEST", "LIEPIN_CONTACT") == []

@@ -58,6 +58,21 @@ def _owned(db: Database, candidate_id: str) -> set[str]:
     }
 
 
+LIEPIN_NOT_WIRED = (
+    "猎聘用平台上的统一在线简历直接投递，没有首条招呼；"
+    "猎聘的投递批准尚未接入面板，没有保存，请在对话中处理。"
+)
+
+
+def _is_liepin_job(db: Database, platform_job_id: str) -> bool:
+    with db.connect() as connection:
+        return connection.execute(
+            "SELECT 1 FROM normalized_jobs WHERE json_extract(job_json, '$.source') = 'liepin' "
+            "AND json_extract(job_json, '$.source_job_id') = ? LIMIT 1",
+            (platform_job_id,),
+        ).fetchone() is not None
+
+
 def _normalized_job_id(db: Database, candidate_id: str, contact_id: str) -> tuple[str, str]:
     try:
         job, meta = PipelineRepository(db).get(contact_id, candidate_id)
@@ -166,6 +181,8 @@ def record_panel_decision(
                 and previous.content_digest == text_digest(request.body))
         return panel_operation(database, request.candidate_id, request.operation_key) if same \
             else rejected("同一操作键已保存了不同的决定，已停止写入。")
+    if _is_liepin_job(db, request.job_id):
+        return rejected(LIEPIN_NOT_WIRED)
     try:
         platform_job, job_id = _normalized_job_id(db, request.candidate_id, request.contact_id)
         if platform_job != request.job_id:

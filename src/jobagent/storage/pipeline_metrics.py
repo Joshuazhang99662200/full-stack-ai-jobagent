@@ -6,8 +6,8 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline_diagnosis import diagnose
 from jobagent.jobs.pipeline_metrics import compute_metrics, salary_band
@@ -363,8 +363,7 @@ class PipelineMetricsService:
             public = PipelineMetricsComputeInput.model_validate(data)
         except ValidationError as error:
             raise ContractValidationError("Stored metric request is invalid.") from error
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             request = PipelineMetricRequest(
                 candidate_id=public.candidate_id,
                 window_start=public.window_start,
@@ -406,8 +405,7 @@ class PipelineMetricsService:
             )
         except ValidationError as error:
             raise ContractValidationError("Stored diagnosis request is invalid.") from error
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             require_pipeline_policy(connection, public.candidate_id, "diagnosis", now=now)
             current = [
                 self._metric(connection, key, public.candidate_id)

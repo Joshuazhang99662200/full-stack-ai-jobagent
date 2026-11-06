@@ -33,23 +33,17 @@ class PatrolWindow(ContractModel):
         return self
 
 
-def _default_windows() -> list[PatrolWindow]:
-    windows = [PatrolWindow(weekday=6, start=time(20, 0))]
-    windows += [PatrolWindow(weekday=day, start=time(0, 0)) for day in range(4)]
-    windows.append(PatrolWindow(weekday=4, start=time(0, 0), end=time(20, 0)))
-    return windows
-
-
 class PatrolSchedule(ContractModel):
-    """Sunday 20:00-24:00, Monday to Thursday all day, Friday 00:00-20:00.
+    """The person's own patrol windows and cadence, loaded from private configuration.
 
-    One check an hour; within an hour of a recruiter's message, one every 15
-    minutes. `slack_minutes` absorbs a scheduler that wakes a few minutes late.
+    The repository ships no personal default: a host without a confirmed schedule
+    stops instead of patrolling on someone else's hours. `slack_minutes` absorbs a
+    scheduler that wakes a few minutes late.
     """
 
-    windows: list[PatrolWindow] = Field(default_factory=_default_windows, min_length=1)
-    base_interval_minutes: Annotated[int, Field(ge=15)] = 60
-    escalated_interval_minutes: Annotated[int, Field(ge=15)] = 15
+    windows: list[PatrolWindow] = Field(min_length=1)
+    base_interval_minutes: Annotated[int, Field(ge=15)]
+    escalated_interval_minutes: Annotated[int, Field(ge=15)]
     escalation_minutes: Annotated[int, Field(ge=1)] = 60
     slack_minutes: Annotated[int, Field(ge=0, le=5)] = 3
     # A check started this long ago without finishing was cut off (for example the

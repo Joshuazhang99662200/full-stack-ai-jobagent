@@ -2,8 +2,8 @@
 
 from typing import Never
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.schemas.job_intake import IntakeRecord, IntakeRequest
 
 

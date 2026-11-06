@@ -9,14 +9,13 @@ makes that approval stale before anything is sent.
 # ruff: noqa: RUF001  -- Questions to the person are written in Chinese.
 
 import hashlib
-import json
 import re
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timedelta
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, StaleApprovalError
 from jobagent.jobs.hard_filter import excluded_role_term
-from jobagent.outreach.rules import BANNED_PHRASES
 from jobagent.outreach.service import PLATFORM_DAY
 from jobagent.schemas.conversation import (
     HUMAN_ONLY_LEVELS,
@@ -66,9 +65,6 @@ SILENT_AFTER_DAYS = 3
 _HALTING_OUTREACH = frozenset({OutreachResult.FAILED, OutreachResult.INTERVENTION})
 
 
-def _digest(value: object) -> str:
-    canonical = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 def conversation_id_for(platform: str, key: str) -> str:
@@ -389,7 +385,7 @@ class ConversationService:
             )
         last = self._latest_inbound(events)
         heard = f"对方最新消息：{last.inbound.text}\n" if last is not None and last.inbound else ""
-        reply_digest = _digest(
+        reply_digest = canonical_digest(
             {"conversation": conversation.conversation_id, **draft.model_dump(mode="json")}
         )
         ask_id = self._ask_id(conversation, events, "R")
@@ -442,10 +438,6 @@ class ConversationService:
         )
         if len("".join(draft.text.split())) > limit:
             problems.append("too_long")
-        folded = draft.text.casefold()
-        problems.extend(
-            f"banned_phrase:{phrase}" for phrase in BANNED_PHRASES if phrase.casefold() in folded
-        )
         if draft.kind is ReplyKind.RESUME and self._attached_resume(events) is None:
             problems.append("no_verified_resume")
         return problems
@@ -586,7 +578,9 @@ class ConversationService:
             EventKind.RESUME_ATTACHED,
             now=now,
             resume_variant_id=variant.id,
-            resume_digest=_digest(variant.model_dump(mode="json", exclude={"generated_at"})),
+            resume_digest=canonical_digest(
+                variant.model_dump(mode="json", exclude={"generated_at"})
+            ),
             pdf_digest=pdf_digest,
         )
 

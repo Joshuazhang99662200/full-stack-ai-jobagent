@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from jobagent.jobs.jd_snapshot import text_digest
+from jobagent.digest import text_digest
 
 NOW = datetime(2026, 10, 28, 12, tzinfo=UTC)
 STATES = [

@@ -161,8 +161,7 @@ class SqliteConfigurationRepository:
     ) -> ConfigurationInitialization:
         if now.tzinfo is None:
             raise ContractValidationError("Initialization time requires a timezone.")
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             snapshot = SqliteRuleRepository._current(connection, candidate_id)
             if snapshot is None or snapshot.version != expected_version:
                 raise ContractValidationError("Initialization requires the current rules version.")

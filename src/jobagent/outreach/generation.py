@@ -1,14 +1,12 @@
 """Provider-neutral whole-message generation followed by fresh semantic review."""
 
-import hashlib
-import json
 from typing import Any
 
 from pydantic import ValidationError
 
 from jobagent.capabilities import ReasoningOutputT, ReasoningProvider
+from jobagent.digest import canonical_digest
 from jobagent.errors import InvalidProviderOutputError
-from jobagent.outreach.rules import first_greeting_problems
 from jobagent.schemas.greeting import (
     GreetingAttempt,
     GreetingDraft,
@@ -16,15 +14,10 @@ from jobagent.schemas.greeting import (
     GreetingRequest,
     GreetingReview,
 )
-from jobagent.schemas.outreach import OutreachDraft, OutreachSourceBinding
+from jobagent.schemas.outreach import GenerationProvenance, OutreachDraft, OutreachSourceBinding
 
 DRAFT_PROMPT = "greeting.ai.draft.v1"
 REVIEW_PROMPT = "greeting.ai.review.v1"
-
-
-def content_digest(value: object) -> str:
-    body = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
 class GreetingGenerator:
@@ -34,7 +27,7 @@ class GreetingGenerator:
     def generate(self, request: GreetingRequest) -> GreetingReport:
         request = GreetingRequest.model_validate(request.model_dump())
         payload = request.model_dump(mode="json")
-        identity = content_digest(payload)
+        identity = canonical_digest(payload)
         attempts: list[GreetingAttempt] = []
         revision: dict[str, Any] | None = None
         for _ in range(2):
@@ -45,7 +38,7 @@ class GreetingGenerator:
                 prompt_id=DRAFT_PROMPT, context=context, output_type=GreetingDraft,
             )
             self._validate_draft(request, draft, identity)
-            problems = first_greeting_problems(draft.text)
+            problems: list[str] = []
             if attempts and draft.text == attempts[-1].draft.text:
                 problems.append("unchanged_revision")
             review: GreetingReview | None = None
@@ -53,7 +46,7 @@ class GreetingGenerator:
                 # The reviewer never receives the author's angle or previous verdicts.
                 review_context = {
                     "request": payload, "input_digest": identity,
-                    "draft_digest": content_digest(draft.model_dump(mode="json")),
+                    "draft_digest": canonical_digest(draft.model_dump(mode="json")),
                     "draft": draft.model_dump(mode="json", exclude={"angle"}),
                 }
                 review = self._produce(
@@ -69,6 +62,7 @@ class GreetingGenerator:
             revision = {"draft": draft.model_dump(mode="json"), "problems": problems}
         passed = not attempts[-1].problems
         outreach = None
+        memory = request.preference_memory
         if passed and request.job is not None:
             draft = attempts[-1].draft
             outreach = OutreachDraft(
@@ -78,14 +72,22 @@ class GreetingGenerator:
                 source_binding=OutreachSourceBinding(
                     candidate_id=request.candidate_id,
                     evidence_ids=[e.id for e in request.evidence],
-                    evidence_digest=content_digest(payload["evidence"]),
-                    job_digest=content_digest(request.job.model_dump(mode="json")),
-                    text_digest=content_digest(draft.text), policy_digest=request.policy_digest,
+                    evidence_digest=canonical_digest(payload["evidence"]),
+                    job_digest=canonical_digest(request.job.model_dump(mode="json")),
+                    text_digest=canonical_digest(draft.text), policy_digest=request.policy_digest,
+                    generation=GenerationProvenance(
+                        input_digest=identity,
+                        memory_version=memory.memory_version if memory else None,
+                        memory_digest=memory.memory_digest if memory else None,
+                        preference_rule_ids=sorted(rule.rule_id for rule in memory.rules)
+                        if memory else [],
+                        dynamic_rules_version=request.dynamic_rules_version,
+                    ),
                 ),
             )
         return GreetingReport(
             candidate_id=request.candidate_id, mode=request.mode, input_digest=identity,
-            evidence_digest=content_digest(payload["evidence"]),
+            evidence_digest=canonical_digest(payload["evidence"]),
             status="passed" if passed else "rejected", attempts=attempts, outreach_draft=outreach,
         )
 

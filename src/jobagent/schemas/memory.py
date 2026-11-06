@@ -87,3 +87,99 @@ class MemoryContextBundle(ContractModel):
     usage_verified: Literal[False] = False
     learning_updated: Literal[False] = False
     injection_evidence: Literal["not_recorded"] = "not_recorded"
+
+
+class UsageCounts(ContractModel):
+    drafted: int = Field(default=0, ge=0)
+    approved: int = Field(default=0, ge=0)
+    sent: int = Field(default=0, ge=0)
+
+
+class MemoryVersionUsage(UsageCounts):
+    memory_version: NonEmptyString | None
+    dynamic_rules_version: NonEmptyString | None
+
+
+class PreferenceRuleUsage(UsageCounts):
+    rule_id: NonEmptyString
+    memory_version: NonEmptyString
+
+
+class MemoryUsageReport(ContractModel):
+    """Ledger evidence of which memory and rules reached real outreach items.
+
+    Counts only items whose source binding records the generation provenance;
+    older or hand-written items are reported as unattributed, not guessed.
+    """
+
+    candidate_id: CandidateId
+    memory_versions: list[MemoryVersionUsage] = Field(default_factory=list)
+    rules: list[PreferenceRuleUsage] = Field(default_factory=list)
+    unattributed: UsageCounts = Field(default_factory=UsageCounts)
+    evidence: Literal["outreach_ledger"] = "outreach_ledger"
+    grants_approval: Literal[False] = False
+
+
+class SentOutreach(ContractModel):
+    """One greeting with a positive send record, and the memory it was generated with."""
+
+    batch_id: NonEmptyString
+    number: int = Field(ge=1)
+    job_id: JobId
+    platform: NonEmptyString
+    sent_at: datetime
+    memory_version: NonEmptyString | None = None
+    preference_rule_ids: list[NonEmptyString] = Field(default_factory=list)
+
+
+class ReplyOutcome(SentOutreach):
+    # pending: the observation window has not closed, so it is in no denominator.
+    status: Literal["replied", "no_reply", "pending"]
+
+
+class RateComparison(ContractModel):
+    treated_replies: int = Field(ge=0)
+    treated_sent: int = Field(ge=0)
+    baseline_replies: int = Field(ge=0)
+    baseline_sent: int = Field(ge=0)
+    difference: float | None
+    interval_low: float | None
+    interval_high: float | None
+    verdict: Literal["insufficient_sample", "higher", "lower", "no_clear_difference"]
+
+
+class EffectGroup(ContractModel):
+    label: NonEmptyString
+    kind: Literal["memory_version", "rule"]
+    comparison: RateComparison
+
+
+class MemoryEffectReport(ContractModel):
+    """Reply rates of memory-shaped greetings against greetings made without memory.
+
+    Observational unless items carried a random assignment: a "higher" verdict is an
+    association inside closed windows, not proof that the memory caused it.
+    """
+
+    candidate_id: CandidateId
+    window_days: int = Field(ge=1)
+    min_sample: int = Field(ge=1)
+    observed_at: datetime
+    pending: int = Field(ge=0)
+    groups: list[EffectGroup] = Field(default_factory=list)
+    assignment: Literal["observational"] = "observational"
+    grants_approval: Literal[False] = False
+
+
+class SimulationResult(ContractModel):
+    """detection: correct-direction claims; false_claim: any claim when lift is 0;
+    wrong_direction: claims opposite to a non-zero lift."""
+
+    trials: int = Field(ge=1)
+    sample_size: int = Field(ge=1)
+    base_rate: float
+    lift: float
+    detection_rate: float
+    false_claim_rate: float
+    wrong_direction_rate: float
+    insufficient_rate: float

@@ -4,8 +4,9 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from jobagent.cli.greetings import greetings_app
+from jobagent.digest import canonical_digest
 from jobagent.errors import UserInterventionRequiredError
-from jobagent.outreach.generation import GreetingGenerator, content_digest
+from jobagent.outreach.generation import GreetingGenerator
 from jobagent.schemas.greeting import GreetingRequest
 from jobagent.storage.database import Database
 
@@ -30,7 +31,7 @@ def setup(tmp_path: Path, monkeypatch, *, targeted=False):
         {
             "candidate_id": "CAND_TEST",
             "display_name": "Alex",
-            "policy_digest": content_digest("Policy"),
+            "policy_digest": canonical_digest("Policy"),
             "mode": "targeted" if targeted else "default",
             "job": job if targeted else None,
             "interests": [{"job": job, "selection_id": "OAPPROVAL_TEST"}],

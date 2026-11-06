@@ -6,8 +6,8 @@ from decimal import Decimal
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.schemas.pipeline import (

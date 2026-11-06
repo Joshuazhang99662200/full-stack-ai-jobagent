@@ -3,12 +3,13 @@
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Never, TypeVar
+from typing import Annotated, TypeVar
 
 import typer
 from pydantic import ValidationError
 
 from jobagent.bridge.dynamic_rules import load_effective_rule_snapshot
+from jobagent.cli.private_io import fail
 from jobagent.errors import ContractValidationError, JobAgentError
 from jobagent.rules.bindings import bind_read_cap, bind_sourcing_run
 from jobagent.rules.rounds import apply_round_overrides
@@ -27,22 +28,6 @@ from jobagent.storage.sourcing_repository import SqliteSourcingRepository
 
 DatabaseOption = Annotated[Path, typer.Option("--database")]
 ModelT = TypeVar("ModelT", bound=ContractModel)
-
-
-def _fail(error: JobAgentError) -> Never:
-    typer.echo(
-        json.dumps(
-            {
-                "error": {
-                    "code": error.code,
-                    "message": error.message,
-                    "details": error.details,
-                }
-            },
-            ensure_ascii=False,
-        )
-    )
-    raise typer.Exit(1)
 
 
 def _load(path: Path, model: type[ModelT]) -> ModelT:
@@ -113,7 +98,7 @@ def start(
         result = _repository(database).start_run(request, now=datetime.now(UTC), daily_cap=cap)
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def reserve(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3")) -> None:
@@ -130,7 +115,7 @@ def reserve(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqli
         result = repo.reserve(request, now=datetime.now(UTC))
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def complete(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3")) -> None:
@@ -142,7 +127,7 @@ def complete(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sql
         )
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def take(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3")) -> None:
@@ -154,7 +139,7 @@ def take(path: Path, database: DatabaseOption = Path(".jobagent/jobagent.sqlite3
         )
         typer.echo(result.model_dump_json(indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def budget(
@@ -210,7 +195,7 @@ def budget(
                 row["rules_version"] = rules.version
         typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
     except JobAgentError as error:
-        _fail(error)
+        fail(error)
 
 
 def register_sourcing_commands(app: typer.Typer) -> None:

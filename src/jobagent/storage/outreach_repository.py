@@ -35,6 +35,16 @@ class SqliteOutreachRepository:
         )
         return None if row is None else OutreachBatch.model_validate_json(row)
 
+    def list_batches(self) -> list[OutreachBatch]:
+        try:
+            with self.database.connect() as connection:
+                rows = connection.execute(
+                    "SELECT batch_json FROM outreach_batches ORDER BY created_at, batch_id"
+                ).fetchall()
+        except sqlite3.Error as error:
+            self._raise("list outreach batches", error)
+        return [OutreachBatch.model_validate_json(row[0]) for row in rows]
+
     def save_ask(self, ask: OutreachAsk) -> None:
         self._write(
             "save outreach question",

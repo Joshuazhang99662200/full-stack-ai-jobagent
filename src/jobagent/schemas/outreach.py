@@ -39,6 +39,20 @@ class OutreachPolicy(ContractModel):
     halt_platform_on_failure: Literal[True] = True
 
 
+class GenerationProvenance(ContractModel):
+    """Which generation input, memory version and rules shaped a greeting.
+
+    Recorded so later outcomes can be traced to the memory actually used; it is
+    history, not a freshness requirement, and grants nothing.
+    """
+
+    input_digest: Digest
+    memory_version: NonEmptyString | None = None
+    memory_digest: Digest | None = None
+    preference_rule_ids: list[NonEmptyString] = Field(default_factory=list, max_length=24)
+    dynamic_rules_version: Digest | None = None
+
+
 class OutreachSourceBinding(ContractModel):
     """The source snapshot of an AI-reviewed greeting; never human approval."""
 
@@ -48,6 +62,7 @@ class OutreachSourceBinding(ContractModel):
     job_digest: Digest
     text_digest: Digest
     policy_digest: Digest
+    generation: GenerationProvenance | None = None
 
 
 class OutreachDraft(ContractModel):

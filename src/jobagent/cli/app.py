@@ -16,7 +16,6 @@ from jobagent.cli.jobs import jobs_app
 from jobagent.cli.mailbox import mailbox_app
 from jobagent.cli.mcp_calls import mcp_app
 from jobagent.cli.memory import memory_app
-from jobagent.cli.notify import notify_app
 from jobagent.cli.optimizer import optimizer_app
 from jobagent.cli.outreach import outreach_app
 from jobagent.cli.patrol import patrol_app
@@ -64,7 +63,6 @@ app.add_typer(profile_app, name="profile")
 app.add_typer(public_careers_app, name="public-careers")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(mailbox_app, name="mailbox")
-app.add_typer(notify_app, name="notify")
 app.add_typer(worker_app, name="worker")
 app.add_typer(rules_app, name="rules")
 app.add_typer(mcp_app, name="mcp")

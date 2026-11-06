@@ -1,6 +1,5 @@
 """Explicit private source adapters. Source SQL connections never migrate or create."""
 
-import hashlib
 import json
 import sqlite3
 from collections.abc import Iterator
@@ -11,9 +10,8 @@ from typing import Literal
 from pydantic import ValidationError
 
 from jobagent.bridge.preference_memory import MarkdownPreferenceStore
+from jobagent.digest import bytes_digest, canonical_digest, text_digest
 from jobagent.errors import ContractValidationError, JobAgentError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.candidate import CandidateProfile
 from jobagent.schemas.memory import (
     MemoryConfig,
@@ -106,7 +104,7 @@ class PrivateSourceReader:
             if path.stat().st_size > 20_000_000:
                 raise ValueError("oversized source")
             raw = path.read_bytes()
-            ref.digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+            ref.digest = bytes_digest(raw)
             if source.kind == "legacy_inventory":
                 ref.evidence_level = "host_reported"
                 ref.state = "ready" if raw.strip() else "empty"
@@ -248,7 +246,7 @@ class PrivateSourceReader:
             rules = MessageDiffRepository(_ReadDatabase(path, connection)).confirmed_rules(
                 source.candidate_id
             )
-            ref.digest = content_digest(provenance)
+            ref.digest = canonical_digest(provenance)
             ref.count = len(rules)
             ref.evidence_level = "owner_confirmed"
             ref.state = "ready" if rules else "empty"

@@ -3,8 +3,8 @@
 import json
 from datetime import datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.jobs.host_checks import page_decision
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.sent_tracking import ACTIVE
 from jobagent.schemas.host_checks import HostPageObservation
@@ -25,8 +25,7 @@ class HostPageService:
         digest = canonical_digest(observation.model_dump(mode="json"))
         if observation.observed_at > now:
             reject("Page evidence cannot come from the future.")
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             old = connection.execute(
                 "SELECT * FROM host_page_observations WHERE observation_id = ?",
                 (observation.observation_id,),

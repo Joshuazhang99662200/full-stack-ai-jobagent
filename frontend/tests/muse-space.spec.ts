@@ -26,6 +26,7 @@ const FORBIDDEN = [
   "接受原稿",
   "这版文案可以",
   "帮我改一下",
+  "先不批准",
 ];
 
 async function expectCleanCopy(page: Page) {

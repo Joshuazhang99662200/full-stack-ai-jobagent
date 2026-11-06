@@ -6,8 +6,8 @@ from datetime import timedelta
 import pytest
 
 from jobagent.conversation.service import ConversationService
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import text_digest
 from jobagent.schemas.conversation import (
     ConversationStage,
     EventKind,

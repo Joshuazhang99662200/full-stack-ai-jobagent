@@ -1,12 +1,12 @@
 """Track one workflow without performing candidate confirmation or delivery."""
 
-import hashlib
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+from jobagent.digest import bytes_digest
 from jobagent.errors import ContractValidationError
 from jobagent.harness.runtime import runtime_fingerprint
 from jobagent.schemas.applications import ApplicationPackage
@@ -102,7 +102,7 @@ class HarnessService:
         return RunArtifact(
             path=path.relative_to(self.workspace).as_posix(),
             contract=contract,
-            digest="sha256:" + hashlib.sha256(content).hexdigest(),
+            digest=bytes_digest(content),
         )
 
     def resume(

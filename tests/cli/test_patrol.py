@@ -1,38 +1,63 @@
 # ruff: noqa: RUF001  -- Chinese chat previews carry full-width punctuation by design.
+import json
 from pathlib import Path
 
 from tests.cli.test_outreach import invoke
 
 DECLARED = ("--access-state", "authenticated", "--coverage", "full", "--load-state", "loaded")
+SCHEDULE = {
+    "windows": [
+        {"weekday": 6, "start": "20:00"},
+        *({"weekday": day, "start": "00:00"} for day in range(4)),
+        {"weekday": 4, "start": "00:00", "end": "20:00"},
+    ],
+    "base_interval_minutes": 60,
+    "escalated_interval_minutes": 15,
+}
+
+
+def sched(tmp_path: Path) -> tuple[str, str]:
+    path = tmp_path / "patrol_schedule.json"
+    path.write_text(json.dumps(SCHEDULE), encoding="utf-8")
+    return ("--schedule", str(path))
+
+
+def test_next_without_private_schedule_stops(tmp_path: Path) -> None:
+    db = ("--database", str(tmp_path / "jobagent.sqlite3"))
+    missing = ("--schedule", str(tmp_path / "absent.json"))
+    code, result = invoke("patrol", "next", *missing, *db)
+    assert code == 1 and result["error"]["code"] == "CONTRACT_VALIDATION_ERROR"
 
 
 def test_next_is_due_until_a_check_is_recorded(tmp_path: Path) -> None:
+    sc = sched(tmp_path)
     db = ("--database", str(tmp_path / "jobagent.sqlite3"))
     now = ("--now", "2026-10-21T10:00:00+08:00")
 
-    code, first = invoke("patrol", "next", *now, *db)
+    code, first = invoke("patrol", "next", *sc, *now, *db)
     assert code == 0 and isinstance(first, dict)
     assert first["active"] and first["due"] and first["mode"] == "base"
 
-    code, recorded = invoke("patrol", "record", *now, *db)
+    code, recorded = invoke("patrol", "record", *sc, *now, *db)
     assert code == 0 and isinstance(recorded, dict) and recorded["mode"] == "base"
 
-    code, second = invoke("patrol", "next", "--now", "2026-10-21T10:30:00+08:00", *db)
+    code, second = invoke("patrol", "next", *sc, "--now", "2026-10-21T10:30:00+08:00", *db)
     assert code == 0 and isinstance(second, dict) and not second["due"]
 
 
 def test_a_recruiter_message_tightens_the_rhythm(tmp_path: Path) -> None:
+    sc = sched(tmp_path)
     db = ("--database", str(tmp_path / "jobagent.sqlite3"))
     context = tmp_path / "filter_context.json"
     context.write_text('{"candidate_id": "CAND_001"}', encoding="utf-8")
-    invoke("patrol", "record", "--now", "2026-10-21T10:00:00+08:00", *db)
+    invoke("patrol", "record", *sc, "--now", "2026-10-21T10:00:00+08:00", *db)
     invoke(
         "conversations", "open", "--platform", "zhaopin", "--company", "某公司",
         "--title", "AI 产品经理", "--filter-context", str(context), *db,
     )
 
     # The recruiter's message is recorded now, so judge from a moment just after it.
-    code, decision = invoke("patrol", "next", *db)
+    code, decision = invoke("patrol", "next", *sc, *db)
 
     assert code == 0 and isinstance(decision, dict)
     if decision["active"]:
@@ -40,8 +65,8 @@ def test_a_recruiter_message_tightens_the_rhythm(tmp_path: Path) -> None:
 
 
 def test_off_hours_are_reported_not_due(tmp_path: Path) -> None:
-    code, decision = invoke(
-        "patrol", "next", "--now", "2026-10-24T12:00:00+08:00",
+    sc = sched(tmp_path)
+    code, decision = invoke("patrol", "next", *sc, "--now", "2026-10-24T12:00:00+08:00",
         "--database", str(tmp_path / "jobagent.sqlite3"),
     )
 
@@ -53,21 +78,22 @@ def test_off_hours_are_reported_not_due(tmp_path: Path) -> None:
 def test_a_finished_check_paces_the_next_and_an_unfinished_one_is_resumed(
     tmp_path: Path,
 ) -> None:
+    sc = sched(tmp_path)
     db = ("--database", str(tmp_path / "jobagent.sqlite3"))
-    _, first = invoke("patrol", "record", "--now", "2026-10-21T10:00:00+08:00", *db)
+    _, first = invoke("patrol", "record", *sc, "--now", "2026-10-21T10:00:00+08:00", *db)
     assert isinstance(first, dict)
 
     code, finished = invoke(
         "patrol", "finish", first["check_id"], "--now", "2026-10-21T10:20:00+08:00", *db
     )
     assert code == 0 and isinstance(finished, dict)
-    _, waiting = invoke("patrol", "next", "--now", "2026-10-21T10:40:00+08:00", *db)
+    _, waiting = invoke("patrol", "next", *sc, "--now", "2026-10-21T10:40:00+08:00", *db)
     assert isinstance(waiting, dict) and not waiting["due"]
 
-    _, second = invoke("patrol", "record", "--now", "2026-10-21T11:00:00+08:00", *db)
+    _, second = invoke("patrol", "record", *sc, "--now", "2026-10-21T11:00:00+08:00", *db)
     assert isinstance(second, dict)
     # The run stopped without finishing; 50 minutes later the next wake resumes it.
-    _, resumed = invoke("patrol", "next", "--now", "2026-10-21T11:50:00+08:00", *db)
+    _, resumed = invoke("patrol", "next", *sc, "--now", "2026-10-21T11:50:00+08:00", *db)
     assert isinstance(resumed, dict) and resumed["due"]
     assert resumed["abandoned_check_id"] == second["check_id"]
 

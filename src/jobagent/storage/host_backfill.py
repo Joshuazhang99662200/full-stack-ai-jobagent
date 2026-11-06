@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.schemas.host_migration import LegacyBackfillBinding, LegacyPartialSnapshot
 from jobagent.storage.database import Database

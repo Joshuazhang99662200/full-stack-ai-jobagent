@@ -56,7 +56,7 @@ jobagent jobs learn-search search-signals.json
 
 该命令只有 JSON 输入与标准输出，没有浏览器、模型调用、数据库写入或推送。宿主先验证输出成功，再把计划作为私有版本快照保存并回读；失败时保留上一个有效快照。完整原始台账继续保留。
 
-候选人、职位导入、匹配、简历和审批按 [能力目录](../../skills/job-hunting/references/capability-catalog.md) 的现有命令调用。命令参数以同版本 `--help` 为准，显式使用该用户私有数据库。不要启动 `bridge`、`mailbox`、飞书监听或任何本机浏览器流程。既有本地模块仅供旧使用者兼容，不是本入口前置条件。
+候选人、职位导入、匹配、简历和审批按 [能力目录](../../skills/job-hunting/references/capability-catalog.md) 的现有命令调用。命令参数以同版本 `--help` 为准，显式使用该用户私有数据库。不要启动 `bridge`、`mailbox` 或任何本机浏览器流程。既有本地模块仅供旧使用者兼容，不是本入口前置条件。
 
 ## Muse 中的交互式岗位面板
 

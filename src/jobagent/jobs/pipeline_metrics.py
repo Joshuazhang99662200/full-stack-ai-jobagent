@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import get_args
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.schemas.pipeline import PipelineState
 from jobagent.schemas.pipeline_metrics import (

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.schemas.job_intake import IntakeRecord
 from jobagent.storage.database import Database
 from jobagent.storage.pipeline_repository import PipelineRepository

@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 import pytest
 
 from jobagent.bridge.preference_reasoning import CodexPreferenceProvider
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.preference_memory import (
     PreferenceApplication,
     PreferenceMemory,
@@ -42,7 +42,7 @@ def context():
         ),
         "events": [event.model_dump(mode="json")],
     }
-    return {**payload, "input_digest": content_digest(payload)}
+    return {**payload, "input_digest": canonical_digest(payload)}
 
 
 class Runner:
@@ -85,7 +85,7 @@ def test_provider_rejects_tampered_or_cross_candidate_context(monkeypatch, mutat
         data["input_digest"] = "sha256:old"
     elif mutation == "foreign":
         data["events"][0]["candidate_id"] = "CAND_OTHER"
-        data["input_digest"] = content_digest(
+        data["input_digest"] = canonical_digest(
             {k: v for k, v in data.items() if k != "input_digest"}
         )
     else:
@@ -116,7 +116,7 @@ def test_selection_is_a_distinct_model_call_and_current_task_stays_data(monkeypa
     result = CodexPreferenceProvider(runner).generate(
         prompt_id="preference.memory.select.v1",
         output_type=PreferenceApplication,
-        context={**payload, "input_digest": content_digest(payload)},
+        context={**payload, "input_digest": canonical_digest(payload)},
     )
     assert result.selected_rule_ids == [] and len(runner.calls) == 2
     assert runner.calls[0].request_id != runner.calls[1].request_id

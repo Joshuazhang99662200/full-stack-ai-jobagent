@@ -19,7 +19,8 @@ def read_model(path: Path, model: type[ModelT]) -> ModelT:
         return model.model_validate_json(path.read_bytes())
     except (OSError, ValidationError) as error:
         raise ContractValidationError(
-            "Private input does not satisfy the contract.", details={"contract": model.__name__}
+            "Private input does not satisfy the contract.",
+            details={"file_name": path.name, "contract": model.__name__},
         ) from error
 
 

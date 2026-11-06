@@ -185,7 +185,7 @@ const DECISION_KIND_LABELS: Record<string, string> = {
   close: "关闭岗位",
   reopen: "继续推进这个岗位",
   resolve_block: "解除阻塞（你已判定）",
-  approve_text: "文案没问题（未批准）",
+  approve_text: "认可这版招呼语",
 };
 
 type MainTab = "progress" | "runs" | "comms" | "about";
@@ -1837,15 +1837,6 @@ function TodoDialog({
               }),
           },
           {
-            label: "文案没问题（先不批准）",
-            kind: "approve_text",
-            caption: "只记录你对文案的意见，不批准，也不会发送。",
-            run: () =>
-              void decide("approve_text", {
-                resultText: "文案没问题。这只是意见，还没有批准。",
-              }),
-          },
-          {
             label: "招呼语要改",
             kind: "accept_revise",
             caption: "记录修改意见，等新稿写好再给你看；旧稿保留。",
@@ -2731,7 +2722,6 @@ function ExecConfirmView({
           返回岗位详情
         </button>
       </div>
-
 
       {isDelivery ? (
         <section
@@ -3636,20 +3626,6 @@ function JobDetailDialog({
                     批准这份材料
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  aria-label="文案没问题（先不批准）"
-                  disabled={decisionBlocked("approve_text")}
-                  title={policy.disabledDecisions?.approve_text}
-                  className="rounded-[var(--radius)] border border-[var(--border)] px-4 py-2.5 text-sm disabled:opacity-50"
-                  onClick={() =>
-                    void decide("approve_text", {
-                      resultText: "文案没问题。这只是意见，还没有批准。",
-                    })
-                  }
-                >
-                  文案没问题（先不批准）
-                </button>
                 <button
                   type="button"
                   aria-label="招呼语要改"

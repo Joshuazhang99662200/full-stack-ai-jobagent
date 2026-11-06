@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import HttpUrl
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.schemas.host_migration import LegacyBackfillBinding
 from jobagent.schemas.pipeline import PipelineJob, PipelineMeta

@@ -87,8 +87,7 @@ class SqlitePublicCareersRepository:
     def reserve_http(self, run: PublicCareerRun, source: str) -> str:
         """Atomically debit shared channel/day/source/round before dispatch."""
         now = datetime.now(UTC).astimezone(SOURCING_DAY).isoformat()
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             provider = source.split(":")[1]
             stopped = connection.execute(
                 "SELECT 1 FROM public_career_stops WHERE candidate_id=? AND provider=?",
@@ -156,8 +155,7 @@ class SqlitePublicCareersRepository:
         from jobagent.jobs.normalization import JobNormalizer
         from jobagent.storage.job_repository import SqliteJobRepository
 
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             exists = (
                 connection.execute(
                     "SELECT 1 FROM public_career_records WHERE candidate_id=? "

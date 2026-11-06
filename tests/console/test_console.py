@@ -39,7 +39,7 @@ def test_missing_database_is_not_created_or_reported_as_complete(tmp_path):
 
 def test_projection_preserves_fields_history_scope_and_database_bytes(tmp_path):
     from jobagent.console.projection import definitions, snapshot
-    from jobagent.jobs.jd_snapshot import text_digest
+    from jobagent.digest import text_digest
 
     store = repo(tmp_path)
     text = "Synthetic full JD <script>external data</script>"

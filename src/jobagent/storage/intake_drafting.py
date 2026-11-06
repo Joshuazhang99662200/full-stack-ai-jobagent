@@ -3,8 +3,8 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from jobagent.digest import canonical_digest
 from jobagent.jobs.hard_filter import HardFilterEngine
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.outreach.service import OutreachService, contacted_job_ids
 from jobagent.schemas.job_intake import IntakeBatch, IntakeDraft, IntakeRecord, IntakeReview

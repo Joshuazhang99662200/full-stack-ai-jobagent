@@ -10,7 +10,7 @@ TEXT = "您好，这是一条合成测试招呼，方便交流吗？"
 
 
 def outreach_records():
-    from jobagent.jobs.jd_snapshot import canonical_digest
+    from jobagent.digest import canonical_digest
     from jobagent.outreach.service import policy_digest
     from jobagent.schemas.applications import ApprovalChannel
     from jobagent.schemas.outreach import (

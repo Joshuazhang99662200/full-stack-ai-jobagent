@@ -3,8 +3,8 @@
 import sqlite3
 from datetime import datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.sent_tracking import ACTIVE, advance, check_due_at, start_tracking
 from jobagent.schemas.conversation import Conversation, ConversationEvent
 from jobagent.schemas.sent_tracking import (
@@ -77,8 +77,7 @@ class SqliteSentTrackingRepository:
             + ([next_poll_at.isoformat()] if next_poll_at else [])
         )
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 self._require_legacy_authority(connection, candidate_id)
                 old = connection.execute(
                     "SELECT creation_digest FROM sent_tracking_roots WHERE tracking_id = ?",
@@ -127,8 +126,7 @@ class SqliteSentTrackingRepository:
     ) -> SentTrackingRecord:
         digest = canonical_digest(event.model_dump(mode="json"))
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 self._require_legacy_authority(connection, event.candidate_id)
                 state = self._current(connection, event.tracking_id, event.candidate_id)
                 old = connection.execute(

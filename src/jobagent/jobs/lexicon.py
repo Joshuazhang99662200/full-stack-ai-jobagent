@@ -6,8 +6,8 @@ import json
 import yaml
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.schemas.lexicon import Lexicon
 
 DIMENSIONS = ("domain", "scenario", "tech", "role", "hard", "negative")

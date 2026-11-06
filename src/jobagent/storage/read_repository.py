@@ -1,9 +1,9 @@
 """Atomic attempt-based read budgets; reservations are never refunded."""
 
-import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError
 from jobagent.schemas.sourcing import ReadOutcome, ReadReceipt, ReadReservation
 from jobagent.storage.database import Database
@@ -34,9 +34,8 @@ class SqliteReadRepository:
                     (request.profile != "standard" or daily_cap > 50))):
             raise ContractValidationError("Requested profile/cap differs from effective budget.")
         body = json.dumps(request.model_dump(mode="json"), sort_keys=True)
-        digest = "sha256:" + hashlib.sha256(body.encode()).hexdigest()
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        digest = text_digest(body)
+        with self.database.transaction() as connection:
             if connection.execute(
                 "SELECT 1 FROM sourcing_attempts WHERE attempt_id = ?", (request.attempt_id,),
             ).fetchone():
@@ -104,8 +103,7 @@ class SqliteReadRepository:
     def record(self, outcome: ReadOutcome, *, now: datetime) -> None:
         observed_day = platform_day(now)
         body = outcome.model_dump_json()
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             row = connection.execute(
                 "SELECT * FROM sourcing_read_attempts WHERE attempt_id = ?", (outcome.attempt_id,),
             ).fetchone()

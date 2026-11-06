@@ -102,6 +102,7 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 站点租约 | 已落地 | `jobagent outreach lease`(一个站同一时间只允许一个会话发送) |
 | 发送前复核 | 已落地 | `jobagent outreach next`(租约、审批时效、当天叫停、最小间隔 30 秒、每站每日上限 50) |
 | 发送记账 | 已落地 | `jobagent outreach record`(每条一行,只追加;失败或风控即叫停该站当天;`withdrawn` 表示已批但决定不发,不叫停、不算联系过) |
+| 逐条反馈登记 | 已落地 | `jobagent outreach feedback`(宿主中立:按已提问清单逐条登记本人的回绝、改写或已批准信号及原话;绑定提问、条目与准确文字,同一条只能有一个决定,重放幂等;批准信号必须已有 `approve` 登记。只供偏好记忆与下一轮找岗策略使用,不批准、不发送) |
 | 作废审批单 | 已落地 | `jobagent outreach withdraw`(作废还没人批的审批单,须写原因;作废后不能再批) |
 | 进度 | 已落地 | `jobagent outreach status` |
 | 跟进回复 | 已落地 | 见下方「对话跟进」 |
@@ -173,7 +174,7 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 
 ## 消息与投递(Message / Application / Cluster)
 
-回绝与改写反馈的读取侧仍在：`bridge.sourcing_feedback.next_fetch_strategy` 与偏好记忆可消费已保存的 `sourcing_feedback_events`，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。原飞书卡片写入方已移除，当前没有宿主中立的反馈登记入口（未开始）。
+回绝与改写反馈的读取侧仍在：`bridge.sourcing_feedback.next_fetch_strategy` 与偏好记忆可消费已保存的 `sourcing_feedback_events`，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。写入方为宿主中立的 `jobagent outreach feedback`；旧飞书卡片留下的历史反馈仍按原绑定读取。
 
 | 能力 | 状态 | 入口 |
 |---|---|---|

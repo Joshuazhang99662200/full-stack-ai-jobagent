@@ -19,7 +19,7 @@ from jobagent.schemas.jobs import (
     RequirementPriority,
 )
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
-from jobagent.storage.database import Database
+from jobagent.storage.database import LATEST_SCHEMA_VERSION, Database
 from jobagent.storage.job_repository import SqliteJobRepository
 
 
@@ -85,7 +85,7 @@ def test_v1_database_upgrades_to_latest_without_losing_candidate(tmp_path: Path)
 
     assert SqliteCandidateRepository(database).get_profile("CAND_001") == profile
     with database.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 34
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA_VERSION
         assert (
             connection.execute(
                 "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='normalized_jobs'"

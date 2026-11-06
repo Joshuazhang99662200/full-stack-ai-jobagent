@@ -16,7 +16,7 @@ from jobagent.schemas.applications import (
     SendResultStatus,
 )
 from jobagent.storage.application_repository import SqliteApplicationAuditRepository
-from jobagent.storage.database import Database
+from jobagent.storage.database import LATEST_SCHEMA_VERSION, Database
 
 from .conftest import FIXED_NOW, PackageFactory
 
@@ -174,7 +174,7 @@ def test_migration_creates_the_audit_table(tmp_path: Path) -> None:
             ).fetchall()
         }
 
-    assert version == 34
+    assert version == LATEST_SCHEMA_VERSION
     assert "application_audits" in tables
 
 

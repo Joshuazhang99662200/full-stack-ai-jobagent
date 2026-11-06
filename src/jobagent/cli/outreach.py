@@ -15,7 +15,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 
 from jobagent.bridge.greeting_freshness import verify_greeting_sources
-from jobagent.cli.private_io import fail
+from jobagent.cli.private_io import fail, read_model
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.evals.versioning import read_harness_version
 from jobagent.jobs.preferences import preference_score
@@ -29,10 +29,12 @@ from jobagent.schemas.outreach import (
     OutreachDraft,
     OutreachResult,
 )
+from jobagent.schemas.sourcing_feedback import OutreachFeedbackRequest
 from jobagent.skill_resources import default_skill_root
 from jobagent.storage.candidate_repository import SqliteCandidateRepository
 from jobagent.storage.database import Database
 from jobagent.storage.evals_repository import SqliteEvalsRepository
+from jobagent.storage.feedback_repository import SqliteFeedbackRepository
 from jobagent.storage.job_repository import SqliteJobRepository
 from jobagent.storage.outreach_repository import SqliteOutreachRepository
 
@@ -218,6 +220,25 @@ def approve(
         )
         store.save_approval(approval)
         _emit(approval)
+    except JobAgentError as error:
+        fail(error)
+
+
+@outreach_app.command("feedback")
+def feedback(
+    request_path: Annotated[
+        Path, typer.Argument(help="OutreachFeedbackRequest JSON with the person's own words.")
+    ],
+    database: DatabaseOption = DEFAULT_DATABASE,
+) -> None:
+    """Record the person's per-item feedback on an asked list. Approves and sends nothing.
+
+    Declines and revisions feed preference memory and the next fetch strategy; an
+    approve signal only mirrors an approval already registered with `approve`.
+    """
+    try:
+        request = read_model(request_path, OutreachFeedbackRequest)
+        _emit(SqliteFeedbackRepository(_database(database)).record_outreach_feedback(request))
     except JobAgentError as error:
         fail(error)
 

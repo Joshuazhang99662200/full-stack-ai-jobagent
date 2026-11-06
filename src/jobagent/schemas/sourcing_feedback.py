@@ -3,11 +3,12 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
 from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
 from jobagent.schemas.jobs import JobId
+from jobagent.schemas.outreach import ItemNumber, OutreachAskId, OutreachBatchId
 
 FeedbackReason = Literal[
     "job_dislike", "salary", "location", "direction", "level", "copy", "facts", "later", "other"
@@ -98,3 +99,66 @@ class JobDecisionDetail(ContractModel):
     match_version: str | None = None
     strengths: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
+
+
+class OutreachFeedbackItem(ContractModel):
+    """The person's decision on one numbered item of a list that was put to them."""
+
+    number: ItemNumber
+    action: Literal["approve", "revise", "decline"]
+    reason_category: FeedbackReason = "other"
+    free_text: Annotated[str, Field(max_length=1000)] = ""
+    revised_text: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
+
+    @model_validator(mode="after")
+    def revision_carries_words(self) -> "OutreachFeedbackItem":
+        if (self.action == "revise") != (self.revised_text is not None):
+            raise ValueError("Only a revision carries revised words, and it must carry them.")
+        return self
+
+
+class OutreachFeedbackRequest(ContractModel):
+    """Host-neutral record of owner feedback; it approves and sends nothing."""
+
+    batch_id: OutreachBatchId
+    ask_id: OutreachAskId
+    candidate_id: CandidateId
+    actor_id: NonEmptyString
+    # The person's own words, verbatim, as they answered the list.
+    attestation: NonEmptyString
+    occurred_at: AwareDatetime
+    query_strategy_version: NonEmptyString = "unversioned"
+    items: list[OutreachFeedbackItem] = Field(min_length=1, max_length=50)
+
+    @model_validator(mode="after")
+    def one_decision_per_item(self) -> "OutreachFeedbackRequest":
+        numbers = [item.number for item in self.items]
+        if len(numbers) != len(set(numbers)):
+            raise ValueError("Each listed item takes at most one decision.")
+        return self
+
+
+class OutreachFeedbackLink(ContractModel):
+    """Binds one feedback event to the exact asked item and words it judged."""
+
+    event_id: NonEmptyString
+    batch_id: OutreachBatchId
+    ask_id: OutreachAskId
+    item_number: ItemNumber
+    words: NonEmptyString
+    attestation: NonEmptyString
+
+
+class OutreachFeedbackOutcome(ContractModel):
+    number: ItemNumber
+    event_id: NonEmptyString
+    status: Literal["stored", "duplicate"]
+
+
+class OutreachFeedbackReceipt(ContractModel):
+    batch_id: OutreachBatchId
+    ask_id: OutreachAskId
+    items: list[OutreachFeedbackOutcome]
+    # Feedback shapes future priorities and drafts only.
+    grants_approval: Literal[False] = False
+    grants_send: Literal[False] = False

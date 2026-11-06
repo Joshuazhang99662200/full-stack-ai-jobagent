@@ -10,7 +10,7 @@ from jobagent.schemas.sourcing import (
     SourcingResultRequest,
     SourcingRunRequest,
 )
-from jobagent.storage.database import Database
+from jobagent.storage.database import LATEST_SCHEMA_VERSION, Database
 from jobagent.storage.read_repository import SqliteReadRepository
 from jobagent.storage.sourcing_repository import SqliteSourcingRepository
 
@@ -113,7 +113,7 @@ def test_published_schema_26_upgrades_without_losing_existing_facts(tmp_path):
         connection.commit()
     db.migrate()
     with db.connect() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 34
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA_VERSION
         assert connection.execute("SELECT count(*) FROM sourcing_runs").fetchone()[0] == 1
         assert connection.execute("SELECT count(*) FROM dynamic_rule_versions").fetchone()[0] == 0
 

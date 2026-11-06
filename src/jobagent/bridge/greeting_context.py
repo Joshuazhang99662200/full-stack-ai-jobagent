@@ -20,8 +20,8 @@ from jobagent.schemas.greeting import (
 )
 from jobagent.schemas.jobs import NormalizedJob
 from jobagent.schemas.outreach import OutreachApproval, OutreachAsk, OutreachBatch, OutreachItem
-from jobagent.schemas.sourcing_feedback import PagedCardState, SourcingFeedback
 from jobagent.skill_resources import read_reference
+from jobagent.storage.feedback_repository import bound_feedback
 
 _INCOMPLETE = frozenset({
     "JD_MISSING", "MISSING_JD", "JD_TRUNCATED", "TRUNCATED_JD", "LISTING_ONLY",
@@ -116,56 +116,33 @@ def _history(
     return interests, feedback
 
 
-def _card_feedback(
+def _owner_feedback(
     connection: sqlite3.Connection,
     candidate_id: str,
     jobs: Mapping[str, NormalizedJob],
     owned_ids: set[str],
 ) -> list[str]:
-    tables = {row[0] for row in connection.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    )}
-    if not {"sourcing_feedback_events", "paged_card_events", "paged_card_states"} <= tables:
-        return []
-    rows = connection.execute(
-        "SELECT f.event_json, s.state_json, b.batch_json, q.ask_json "
-        "FROM sourcing_feedback_events f "
-        "JOIN paged_card_events e ON e.event_id = f.event_id "
-        "JOIN paged_card_states s ON s.message_id = e.message_id "
-        "JOIN outreach_batches b ON b.batch_id = json_extract(s.state_json, '$.batch_id') "
-        "JOIN outreach_asks q ON q.ask_id = json_extract(s.state_json, '$.ask_id') "
-        "ORDER BY f.occurred_at DESC, f.event_id DESC"
-    )
+    """Newest bound owner decisions first, whichever host recorded them."""
+    decision_of = {"approve": "approved", "revise": "revision_requested", "decline": "declined"}
     result = []
-    for row in rows:
-        try:
-            event = SourcingFeedback.model_validate_json(row[0])
-            state = PagedCardState.model_validate_json(row[1])
-            batch = OutreachBatch.model_validate_json(row[2])
-            ask = OutreachAsk.model_validate_json(row[3])
-        except ValidationError:
-            continue
+    for bound in reversed(bound_feedback(connection)):
+        event, batch, ask = bound.event, bound.batch, bound.ask
         job = jobs.get(event.job_id)
-        if (state.candidate_id != candidate_id or state.demo_mode or job is None
+        if (bound.owner_id != candidate_id or bound.demo_mode or job is None
                 or (event.candidate_id is not None and event.candidate_id != candidate_id)
                 or not _real_job(job) or ask.batch_id != batch.batch_id
                 or ask.batch_digest != batch.batch_digest
                 or ask.policy_digest != batch.policy_digest):
             continue
-        for item in batch.items:
-            words = state.drafts.get(str(item.number), item.text)
-            # A card event is useful as feedback only when its provenance binds
-            # the same candidate, exact words, source, job and recorded decision.
+        for item, words, decision in bound.choices:
+            # Feedback is useful only when its provenance binds the same
+            # candidate, exact words, source, job and recorded decision.
             if (item.job_id != event.job_id or item.platform != event.source
                     or not _owned(item, owned_ids)
                     or (event.original_text is not None and event.original_text != item.text)
                     or (event.action == "revise" and event.revised_text != words)
-                    or state.decisions.get(str(item.number)) != {
-                        "approve": "approved", "revise": "revision_requested",
-                        "decline": "declined",
-                    }[event.action]
-                    or text_digest(words)
-                    != event.content_digest):
+                    or decision != decision_of[event.action]
+                    or text_digest(words) != event.content_digest):
                 continue
             note = (f"{event.event_id}: {event.action}/{event.reason_category}: "
                     f"{event.free_text}")
@@ -238,7 +215,7 @@ def load_greeting_request(
                 interests.insert(0, GreetingInterest(job=_job_view(selected_job),
                                                       selection_id="owner_selection:" + selected))
             interests = interests[:16]
-            notes.extend(_card_feedback(connection, settings.candidate_id, jobs, historical_ids))
+            notes.extend(_owner_feedback(connection, settings.candidate_id, jobs, historical_ids))
             if feedback and feedback.strip():
                 notes.insert(0, feedback.strip())
             job = jobs.get(job_id) if job_id is not None else None

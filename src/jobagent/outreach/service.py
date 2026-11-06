@@ -14,7 +14,6 @@ from collections.abc import Collection, Mapping, Sequence
 from datetime import UTC, datetime, timedelta, timezone
 
 from jobagent.errors import ApprovalRequiredError, StaleApprovalError
-from jobagent.outreach.rules import first_greeting_problems
 from jobagent.schemas.applications import ApprovalChannel
 from jobagent.schemas.jobs import NormalizedJob
 from jobagent.schemas.outreach import (
@@ -221,7 +220,7 @@ class OutreachService:
             return ["already_contacted"]
         if draft.job_id in listed:
             return ["duplicate_in_batch"]
-        reasons = first_greeting_problems(draft.text)
+        reasons: list[str] = []
         if any(evidence not in confirmed_evidence_ids for evidence in draft.evidence_ids):
             reasons.append("unconfirmed_evidence")
         return reasons

@@ -84,7 +84,7 @@ def test_batch_lists_valid_drafts_and_rejects_the_rest_with_reasons() -> None:
     report = build(
         [
             draft(0),
-            draft(1, text="专家修订率降到 26%。方便聊聊吗？"),
+            draft(1, evidence_ids=["EVID_UNCONFIRMED"]),
             draft(2, platform="boss"),
             draft(0),
             OutreachDraft(job_id="JOB_UNKNOWN", platform="boss", text=GREETING),
@@ -94,7 +94,7 @@ def test_batch_lists_valid_drafts_and_rejects_the_rest_with_reasons() -> None:
     assert report.batch is not None
     assert [item.job_id for item in report.batch.items] == [IDS[0]]
     reasons = {rejection.index: rejection.reasons for rejection in report.rejected}
-    assert "contains_number" in reasons[1] and "banned_phrase:修订率" in reasons[1]
+    assert reasons[1] == ["unconfirmed_evidence"]
     assert reasons[2] == ["platform_mismatch"]
     assert reasons[3] == ["duplicate_in_batch"]
     assert reasons[4] == ["job_not_stored"]

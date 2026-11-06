@@ -1,21 +1,20 @@
 # 巡检与轮询
 
-> 本页保留旧本机巡检契约与个人时段。Muse 默认使用 hosts/personal-ai/tasks.md 和 [sourcing-budget.md](sourcing-budget.md) 的宿主任务、本人时段及程序预算；不得把下述维护者时段、飞书或本机浏览器流程作为 Muse 前置。
+> 本页保留旧本机巡检契约。Muse 默认使用 hosts/personal-ai/tasks.md 和 [sourcing-budget.md](sourcing-budget.md) 的宿主任务、本人时段及程序预算；不得把本机浏览器流程作为 Muse 前置。
 
 巡检由本机定时任务唤醒，宿主在用户自己已登录的 Chrome 里读页面；仓库只回答“现在该不该查”，并记账。巡检**从不自行发送**：首条招呼与回复都先问人，人回复“可行”或编号后才发。
 
-## 节奏（用户定义，仓库确定性判断）
+## 节奏（本人私有配置，仓库确定性判断）
 
-- 时段（上海时间）：周日 20:00–24:00，周一至周四全天，周五 00:00–20:00。其余时间不查。
-- 每小时查一次。
-- 快照对比：本次读到的对方消息若比库里记录的新（新来信、新回复），用 `conversations inbound` / `open` / `adopt` 记下。只要一小时内有新来信，`patrol next` 自动切到每 15 分钟一次；一小时内没有新来信，回到每小时一次。
-- 定时任务可以每 15 分钟唤醒一次，先跑 `jobagent patrol next`：`due: false` 就直接结束，不打开任何页面。`due: true` 时先 `jobagent patrol record`（记下返回的 `check_id`），再按下面的顺序做；全部做完后把汇报原文写进一个文件，跑 `jobagent patrol finish <check_id> --report <汇报文件>`；配置了飞书推送时，汇报原文会连同账本里的新变化一起推到用户飞书。
+- 巡检时段与间隔只来自本人私有的 `PatrolSchedule` JSON（`windows`、`base_interval_minutes`、`escalated_interval_minutes`，可选 `escalation_minutes`、`slack_minutes`、`stale_minutes`），放在 `candidate/private/` 或 `.jobagent/` 下。仓库不内置任何人的时段；缺文件或不符合契约时 `patrol next` 报错停止，不换默认。
+- 快照对比：本次读到的对方消息若比库里记录的新（新来信、新回复），用 `conversations inbound` / `open` / `adopt` 记下。`escalation_minutes` 内有新来信时，`patrol next` 切到加密间隔，否则回到基础间隔。
+- 定时任务唤醒后先跑 `jobagent patrol next --schedule <私有文件>`：`due: false` 就直接结束，不打开任何页面。`due: true` 时先 `jobagent patrol record --schedule <私有文件>`（记下返回的 `check_id`），再按下面的顺序做；全部做完后跑 `jobagent patrol finish <check_id>`，汇报由宿主按自己的通知通道送达。
 
 ## 中途断掉（额度用完、应用关闭、会话出错）
 
 - 状态都在本地库里：审批、发送记账、对话事件都是只追加的，断在哪一步都不会丢已记下的内容。站点租约 30 分钟自动过期。
-- 开工后 45 分钟内未完工，`patrol next` 返回 `in_progress_check_id`，这次唤醒不再开跑，避免两个巡检同时操作浏览器。
-- 超过 45 分钟仍未完工，视为中断，`patrol next` 返回 `due: true` 和 `abandoned_check_id`。新一次巡检照常开工，并在汇报开头写明“上次巡检中断，已续查”。
+- 开工后 `stale_minutes` 内未完工，`patrol next` 返回 `in_progress_check_id`，这次唤醒不再开跑，避免两个巡检同时操作浏览器。
+- 超过 `stale_minutes` 仍未完工，视为中断，`patrol next` 返回 `due: true` 和 `abandoned_check_id`。新一次巡检照常开工，并在汇报开头写明“上次巡检中断，已续查”。
 - 续查时最要紧的是**不重复发送**：额度可能恰好在“浏览器里已发出、仓库还没记账”之间用完。所以第 2 步发送任何已批准的条目前，先打开对应会话核对：
   - 原文已经在会话里，用 `outreach record --result duplicate_found` 或 `conversations record-reply --result sent` 补记，不再发；
   - 没有，才发送。
@@ -30,11 +29,11 @@
 
 
 1. `jobs sourcing-budget` 看各站剩余额度。额度用完的站这次跳过。
-2. `jobs search-plan --filter-context candidate/private/filter_context.json --candidate CAND_001 --per-site 3` 取这一轮每站要用的检索词（默认 3 个：两个按轮换、一个按历史产出）。不要自己挑词。
-3. 按 [browser-sourcing.md](browser-sourcing.md) 在三个站用这些词逐个搜索，每个词看前两页（不超过清单 `max_pages_per_session`，翻页间隔按清单），城市按筛选配置。只为**库里没有的**职位打开详情；每站每轮最多读 10 个详情，且不超过 `sourcing-budget` 的剩余额度（用户拉起的 HC 读 JD 也计入当天额度）。
+2. `jobs search-plan --filter-context candidate/private/filter_context.json --candidate <候选人ID> --per-site <本人确认的每站查询数>` 取这一轮每站要用的检索词。不要自己挑词。
+3. 按 [browser-sourcing.md](browser-sourcing.md) 在三个站用这些词逐个搜索，每个词看前两页（不超过清单 `max_pages_per_session`，翻页间隔按清单），城市按筛选配置。只为**库里没有的**职位打开详情；每站每轮详情数以本人确认的 `DETAIL_ATTEMPTS_PER_SITE_PER_ROUND` 为上限，且不超过 `sourcing-budget` 的剩余额度（用户拉起的 HC 读 JD 也计入当天额度）。
 4. 每搜完一个词就记一笔：`jobs search-log <站> "<检索词>" --results <列出几条> --new <其中库里没有的几条>`，零结果也要记，否则下一轮还会重复选它。
 5. `jobs import-observations`（每条带上 `search_term`）→ `jobs triage`。**工作单必须当轮写完**：交给子代理为每个职位写需求与匹配，再跑一次 triage，直到新入库的职位都有匹配档位；没写完的在汇报里写明原因。不允许把职位留在“未评估”。
-6. 被硬条件拒掉的不展示。按匹配度级联：强匹配、可能匹配的职位列进汇报（job_id、档位、偏好分、JD 核心原文），由主会话按 [message-generation.md](message-generation.md) 起草首条招呼并 `outreach draft-batch --candidate … --filter-context …` → `outreach ask`；巡检本身不写招呼（用户 2026-10-19 的分工：文字由主会话写，执行可交给较低档模型）。弱匹配和不匹配只在汇报【新职位】里列出档位与理由。
+6. 被硬条件拒掉的不展示。按匹配度级联：强匹配、可能匹配的职位列进汇报（job_id、档位、偏好分、JD 核心原文），由主会话按 [message-generation.md](message-generation.md) 起草首条招呼并 `outreach draft-batch --candidate … --filter-context …` → `outreach ask`；巡检本身不写招呼。弱匹配和不匹配只在汇报【新职位】里列出档位与理由。
 
 ### 2. 发已经批准的
 
@@ -68,9 +67,9 @@
 
 按 [conversation.md](conversation.md)：L1/L2 起草，并 `draft-reply` 生成提问；L3、危险、约面试、交换联系方式只摘要给人；对方要简历的，按 [resume-pipeline.md](resume-pipeline.md) 为该职位定向生成。
 
-### 5. 汇报（推到手机）
+### 5. 汇报
 
-每次巡检以**一条消息**结束。同一份原文写进文件交给 `patrol finish --report`，经飞书 bot 推到用户手机（见 [capability-catalog.md](capability-catalog.md)「手机推送」）；待批的首条招呼另有飞书审批卡片，用户在卡片上勾选、改字、提交即可，也可以回到对话里回复。没有任何新内容时只回一句“本次无新职位、无新回复”。有内容时按下面的结构：
+每次巡检以**一条消息**结束，由宿主按本人配置的通知通道送达；仓库不内置推送通道。用户回到对话里回复即可审批。没有任何新内容时只回一句“本次无新职位、无新回复”。有内容时按下面的结构：
 
 ```text
 【新职位 N 条】每条：平台｜公司｜职位｜薪资｜匹配档位与分数｜一句理由｜JD 核心原文｜拟发招呼原文

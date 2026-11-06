@@ -16,7 +16,6 @@ from datetime import date, datetime, timedelta
 
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, StaleApprovalError
 from jobagent.jobs.hard_filter import excluded_role_term
-from jobagent.outreach.rules import BANNED_PHRASES
 from jobagent.outreach.service import PLATFORM_DAY
 from jobagent.schemas.conversation import (
     HUMAN_ONLY_LEVELS,
@@ -442,10 +441,6 @@ class ConversationService:
         )
         if len("".join(draft.text.split())) > limit:
             problems.append("too_long")
-        folded = draft.text.casefold()
-        problems.extend(
-            f"banned_phrase:{phrase}" for phrase in BANNED_PHRASES if phrase.casefold() in folded
-        )
         if draft.kind is ReplyKind.RESUME and self._attached_resume(events) is None:
             problems.append("no_verified_resume")
         return problems

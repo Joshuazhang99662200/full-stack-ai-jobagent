@@ -1,12 +1,26 @@
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta, timezone
 
 import pytest
 
 from jobagent.patrol.schedule import decide
-from jobagent.schemas.patrol import PatrolMode, PatrolSchedule
+from jobagent.schemas.patrol import PatrolMode, PatrolSchedule, PatrolWindow
 
 SHANGHAI = timezone(timedelta(hours=8))
-SCHEDULE = PatrolSchedule()
+# Synthetic windows: Sunday evening, Monday to Thursday all day, Friday until 20:00.
+SCHEDULE = PatrolSchedule(
+    windows=[
+        PatrolWindow(weekday=6, start=time(20, 0)),
+        *(PatrolWindow(weekday=day, start=time(0, 0)) for day in range(4)),
+        PatrolWindow(weekday=4, start=time(0, 0), end=time(20, 0)),
+    ],
+    base_interval_minutes=60,
+    escalated_interval_minutes=15,
+)
+
+
+def test_schedule_has_no_personal_default() -> None:
+    with pytest.raises(ValueError):
+        PatrolSchedule()  # type: ignore[call-arg]
 
 
 def at(day: int, hour: int, minute: int = 0) -> datetime:

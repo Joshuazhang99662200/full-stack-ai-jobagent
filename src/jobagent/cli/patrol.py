@@ -14,6 +14,7 @@ from typing import Annotated, Never
 import typer
 from pydantic import TypeAdapter, ValidationError
 
+from jobagent.cli.private_io import read_model
 from jobagent.errors import ContractValidationError, JobAgentError
 from jobagent.patrol.receipts import receipts_from_snapshot
 from jobagent.patrol.schedule import decide
@@ -38,6 +39,13 @@ DatabaseOption = Annotated[Path, typer.Option("--database", help="Local SQLite p
 DEFAULT_DATABASE = Path(".jobagent/jobagent.sqlite3")
 NowOption = Annotated[
     str | None, typer.Option("--now", help="ISO time to judge at; defaults to now.")
+]
+ScheduleOption = Annotated[
+    Path,
+    typer.Option(
+        "--schedule",
+        help="Private PatrolSchedule JSON with the person's own windows and cadence.",
+    ),
 ]
 
 
@@ -89,6 +97,7 @@ def _receipts(
 
 def _decide(
     moment: datetime,
+    schedule: PatrolSchedule,
     checks: SqlitePatrolRepository,
     conversations: SqliteConversationRepository,
 ) -> PatrolDecision:
@@ -96,7 +105,7 @@ def _decide(
     still_open = checks.latest_open()
     return decide(
         moment,
-        PatrolSchedule(),
+        schedule,
         last_check_at=finished.checked_at if finished else None,
         last_inbound_at=conversations.latest_recruiter_message_at(),
         open_check=(still_open.check_id, still_open.checked_at) if still_open else None,
@@ -104,24 +113,32 @@ def _decide(
 
 
 @patrol_app.command("next")
-def next_check(database: DatabaseOption = DEFAULT_DATABASE, now: NowOption = None) -> None:
+def next_check(
+    schedule: ScheduleOption,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    now: NowOption = None,
+) -> None:
     """Say whether a patrol check is due now, at which rhythm, and when the next one is."""
     try:
         moment = _now(now)
         checks, conversations = _stores(database)
-        decision = _decide(moment, checks, conversations)
+        decision = _decide(moment, read_model(schedule, PatrolSchedule), checks, conversations)
         _emit(decision.model_dump(mode="json"))
     except (JobAgentError, ValueError) as error:
         _fail(error if isinstance(error, JobAgentError) else ContractValidationError(str(error)))
 
 
 @patrol_app.command("record")
-def record(database: DatabaseOption = DEFAULT_DATABASE, now: NowOption = None) -> None:
+def record(
+    schedule: ScheduleOption,
+    database: DatabaseOption = DEFAULT_DATABASE,
+    now: NowOption = None,
+) -> None:
     """Record that a check starts now; refused when none is due."""
     try:
         moment = _now(now)
         checks, conversations = _stores(database)
-        decision = _decide(moment, checks, conversations)
+        decision = _decide(moment, read_model(schedule, PatrolSchedule), checks, conversations)
         if not decision.due:
             raise ContractValidationError(
                 "No patrol check is due now.",

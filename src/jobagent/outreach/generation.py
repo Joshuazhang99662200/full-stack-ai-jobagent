@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from jobagent.capabilities import ReasoningOutputT, ReasoningProvider
 from jobagent.errors import InvalidProviderOutputError
-from jobagent.outreach.rules import first_greeting_problems
 from jobagent.schemas.greeting import (
     GreetingAttempt,
     GreetingDraft,
@@ -45,7 +44,7 @@ class GreetingGenerator:
                 prompt_id=DRAFT_PROMPT, context=context, output_type=GreetingDraft,
             )
             self._validate_draft(request, draft, identity)
-            problems = first_greeting_problems(draft.text)
+            problems: list[str] = []
             if attempts and draft.text == attempts[-1].draft.text:
                 problems.append("unchanged_revision")
             review: GreetingReview | None = None

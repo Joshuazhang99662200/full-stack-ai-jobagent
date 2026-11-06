@@ -34,7 +34,7 @@ Personal AI 默认入口见 [宿主接入](../../../hosts/personal-ai/README.md)
 | 效果判定模拟 | 已落地 | `jobagent memory simulate`：在已知真实效果的合成数据上重复判定，给出检出率、误报率与反向误判率，用于估计需要多少样本；固定种子可复现 |
 | 角色扮演工作区 | 已落地(仅合成) | `jobagent roleplay init`：在当前目录 `.jobagent/roleplay` 建立独立合成工作区：合成候选人、经 `confirm` 确认的合成证据与合成岗位；已存在即拒绝 |
 | 模拟本人人设 | 已落地(仅合成) | `jobagent roleplay persona`：只给扮演本人的会话看人设与隐藏偏好；生成方的任何请求都不包含这些内容 |
-| 角色扮演一轮生成 | 已落地(仅合成) | `jobagent roleplay round`：须带私有 `--gemini-config`。刷新偏好记忆、选规则，由本机 Gemini CLI 起草并独立复核招呼，入清单并提问；上一轮未决定时拒绝。Gemini 回执须报告工具调用为 0，否则失败不重试 |
+| 角色扮演一轮生成 | 已落地(仅合成) | `jobagent roleplay round`：须带私有 `--gemini-config`。刷新偏好记忆、选规则，由本机 Gemini CLI 起草并独立复核招呼，入清单并提问；上一轮未决定时拒绝。Gemini 回执须证明没有工具调用（Gemini CLI 报告次数为 0，或 agy 事件流中无工具步骤），否则失败不重试 |
 | 模拟本人决定 | 已落地(仅合成) | `jobagent roleplay decide`：批准走原审批门禁，改写与回绝走 `outreach feedback`；理由写在 note，否则单次决定不能成为通用偏好。不发送 |
 | 角色扮演验收报告 | 已落地(仅合成) | `jobagent roleplay report`：六项不变式（决定均入账、生成前记忆已消费、规则只引用已记录事件、每稿记录记忆来源、批准只对应批准决定、所选规则进入账本），隐藏偏好捕获情况与前后半程通过率 |
 

@@ -1,5 +1,12 @@
 # 版本记录
 
+## 未发布 — 精简核心包与移除个人默认值
+
+- **不兼容**：移除核心包内的飞书桥接（`jobagent notify feishu`、`notify feishu-listen`、`outreach ask` / `patrol finish` 后的自动推送及 `patrol finish --report`）。通知改由宿主自带的飞书插件、MCP 或 CLI 按本人意愿发送，通知不构成审批。已保存的反馈记录仍可被偏好记忆读取；宿主中立的反馈登记入口尚未实现。
+- **不兼容**：`patrol next` 与 `patrol record` 必须通过 `--schedule` 读取本人私有的 `PatrolSchedule`；仓库不再内置维护者的巡检时段与间隔，缺失时停止。
+- 删除内置的个人招呼禁用词与数字写法检查；写作偏好改由私有 `GreetingSettings` 驱动生成与独立复核，证据确认、去重与逐项审批不变。
+- 内部整理：摘要统一由 `jobagent.digest` 计算且字节不变；写事务统一为 `Database.transaction()`；CLI 共用失败输出与私有输入读取；删除无引用的 `pipeline_sql.py` 与猎聘投递连接器中不起作用的参数和校验。
+
 ## 未发布 — 品牌与入口对齐
 
 - 产品统一为 CareerHarness，GitHub 仓库更名为 `career-harness`；Python 分发包、CLI、模块和 Skill 标识继续兼容，已有安装与私有数据无需因品牌改名迁移。

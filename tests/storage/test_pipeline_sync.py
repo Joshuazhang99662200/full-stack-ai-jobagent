@@ -3,8 +3,8 @@ from datetime import timedelta
 
 import pytest
 
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import text_digest
 from jobagent.schemas.pipeline import PipelineTransition, PipelineVerifiedEvidence
 from jobagent.storage.pipeline_service import PipelineService
 from tests.storage.test_job_intake_service import NOW, command, draft_payload, policy, setup

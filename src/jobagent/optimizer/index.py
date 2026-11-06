@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Sequence
 from pathlib import Path
 from typing import NoReturn
@@ -12,6 +10,7 @@ import yaml
 from pydantic import ValidationError
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import CapabilityRegistryError
 from jobagent.schemas.optimizer_registry import (
     CapabilityIndexDocument,
@@ -98,13 +97,7 @@ class CapabilityRegistryCompiler:
         self._validate_unique_ids(entries)
         self._validate_references(entries)
 
-        canonical = json.dumps(
-            [entry.model_dump(mode="json") for entry in entries],
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
-        digest = f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+        digest = canonical_digest([entry.model_dump(mode="json") for entry in entries])
         return CapabilityRegistrySnapshot(entries=tuple(entries), digest=digest)
 
     @staticmethod

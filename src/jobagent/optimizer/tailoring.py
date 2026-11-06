@@ -12,11 +12,11 @@ emphasis, ordering and wording; it never licenses a new fact, so it cannot relax
 anything enforced here.
 """
 
-import hashlib
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from jobagent.capabilities import ReasoningProvider
+from jobagent.digest import bytes_digest
 from jobagent.errors import ContractValidationError
 from jobagent.optimizer.context import select_evidence
 from jobagent.optimizer.diffing import ResumeDiffBuilder
@@ -116,4 +116,4 @@ class ResumeTailor:
 def _digest(lens_body: str, source_digest: str) -> str:
     """Bind a variant to the exact lens text and base resume that produced it."""
     payload = f"{system_prompt(PROMPT_ID)}\n{source_digest}\n{lens_body}".encode()
-    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+    return bytes_digest(payload)

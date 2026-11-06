@@ -1,20 +1,15 @@
 """Tell profile versions apart from the snapshots a patrol keeps."""
 
 import hashlib
-import json
 from collections.abc import Sequence
 
+from jobagent.digest import canonical_digest
 from jobagent.schemas.profile import ProfileField, ProfileSnapshot, ProfileVersion
 
 
 def profile_digest(fields: Sequence[ProfileField]) -> str:
     """The same sections with the same words give the same digest, in any order."""
-    canonical = json.dumps(
-        sorted((field.name, field.text) for field in fields),
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
-    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+    return canonical_digest(sorted((field.name, field.text) for field in fields))
 
 
 def _changed(before: ProfileSnapshot, after: ProfileSnapshot) -> list[str]:

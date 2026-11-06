@@ -7,7 +7,7 @@ pipeline's exact normalized provider job/URL within the same private database.
 from datetime import datetime
 
 from jobagent.conversation.service import ConversationService
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline import context
 from jobagent.jobs.sent_tracking import reply_proof

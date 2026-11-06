@@ -1,18 +1,17 @@
 """Check extracted text, order and page budget against a verified variant."""
 
-import hashlib
 import io
 from pathlib import Path
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
+from jobagent.digest import bytes_digest, canonical_digest
 from jobagent.harness.artifact_rules import (
     compare_variant_text,
     internal_note_issues,
     pdf_review_issues,
 )
-from jobagent.optimizer.review import content_digest
 from jobagent.schemas.harness import PdfCheckReport, ResumeHeader
 from jobagent.schemas.optimizer import ResumeVariant
 
@@ -43,10 +42,10 @@ def check_pdf(
         issues.append("unreadable_pdf")
     return PdfCheckReport(
         variant_id=variant.id,
-        variant_digest=content_digest(variant.model_dump(mode="json")),
-        pdf_digest="sha256:" + hashlib.sha256(content).hexdigest(),
+        variant_digest=canonical_digest(variant.model_dump(mode="json")),
+        pdf_digest=bytes_digest(content),
         page_count=pages,
         passed=not issues,
         issues=issues,
-        header_digest=None if header is None else content_digest(header.model_dump(mode="json")),
+        header_digest=None if header is None else canonical_digest(header.model_dump(mode="json")),
     )

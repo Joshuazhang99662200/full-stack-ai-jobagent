@@ -2,8 +2,8 @@ from datetime import timedelta
 
 import pytest
 
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import text_digest
 from tests.jobs.test_pipeline_contracts import NOW, row
 
 

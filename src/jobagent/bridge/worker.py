@@ -5,7 +5,6 @@ The host executor must obey its own access checks and report uncertain results.
 """
 
 import hashlib
-import json
 import sqlite3
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
@@ -13,6 +12,7 @@ from uuid import uuid4
 
 from jobagent.bridge.greeting_freshness import verify_greeting_sources
 from jobagent.connectors.observations import check_observation
+from jobagent.digest import spaced_json_digest
 from jobagent.errors import ApprovalRequiredError, ContractValidationError, JobAgentError
 from jobagent.jobs.normalization import JobNormalizer
 from jobagent.outreach.service import OutreachService, contacted_job_ids
@@ -49,8 +49,7 @@ from jobagent.storage.worker_repository import SqliteWorkerRepository, WorkerSta
 
 
 def _digest(value: ContractModel) -> str:
-    body = json.dumps(value.model_dump(mode="json"), sort_keys=True, ensure_ascii=False)
-    return "sha256:" + hashlib.sha256(body.encode()).hexdigest()
+    return spaced_json_digest(value.model_dump(mode="json"))
 
 
 def _event_id(task_id: str) -> str:

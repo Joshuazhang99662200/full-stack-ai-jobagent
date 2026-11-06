@@ -1,10 +1,10 @@
 """Offline orchestration for read-only Job Intelligence."""
 
-import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from jobagent.candidate.ports import CandidateRepository
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError
 from jobagent.jobs.deduplication import JobDeduplicator
 from jobagent.jobs.hard_filter import HardFilterEngine
@@ -37,13 +37,11 @@ from jobagent.schemas.jobs import (
 
 
 def _digest_model(value: ContractModel) -> str:
-    content = value.model_dump_json()
-    return f"sha256:{hashlib.sha256(content.encode('utf-8')).hexdigest()}"
+    return text_digest(value.model_dump_json())
 
 
 def _digest_models(values: Sequence[ContractModel]) -> str:
-    content = "\n".join(item.model_dump_json() for item in values)
-    return f"sha256:{hashlib.sha256(content.encode('utf-8')).hexdigest()}"
+    return text_digest("\n".join(item.model_dump_json() for item in values))
 
 
 class JobIntelligenceWorkflow:

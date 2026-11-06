@@ -4,8 +4,9 @@ import json
 import sqlite3
 from datetime import UTC, datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
-from jobagent.jobs.jd_snapshot import canonical_digest, make_snapshot, snapshot_content_digest
+from jobagent.jobs.jd_snapshot import make_snapshot, snapshot_content_digest
 from jobagent.jobs.lexicon import lexicon_digest, serialize_lexicon
 from jobagent.schemas.jd_snapshot import (
     JDSnapshot,

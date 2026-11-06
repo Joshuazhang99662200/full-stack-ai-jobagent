@@ -9,8 +9,8 @@ import typer
 from pydantic import ValidationError
 
 from jobagent.cli.private_io import fail, open_database, read_model
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, JobAgentError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import next_actions, public_state
 from jobagent.jobs.lexicon import parse_lexicon
 from jobagent.schemas.common import ContractModel

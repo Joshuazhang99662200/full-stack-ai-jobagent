@@ -230,7 +230,7 @@ def test_detail_attempt_report_uses_completed_results_not_planned_capacity(tmp_p
 
 
 def pipeline_report_record(service, payload, number=1, *, at=None):
-    from jobagent.jobs.jd_snapshot import text_digest
+    from jobagent.digest import text_digest
     from jobagent.schemas.pipeline import PipelineMeta
     from jobagent.storage.pipeline_repository import PipelineRepository
     from tests.jobs.test_pipeline_contracts import row
@@ -338,7 +338,7 @@ def test_authority_report_uses_pipeline_snapshots_at_completion_not_legacy_or_la
 
 
 def test_pipeline_report_counts_unproven_legacy_snapshot_without_fabricating_check_times(tmp_path):
-    from jobagent.jobs.jd_snapshot import canonical_digest
+    from jobagent.digest import canonical_digest
     from jobagent.schemas.pipeline import PipelineHistory
 
     reporter, service, payload = round_evidence(tmp_path)

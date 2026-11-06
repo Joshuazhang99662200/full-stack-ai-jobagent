@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.message_diff import CATEGORIES, compare
 from jobagent.schemas.message_diff import (

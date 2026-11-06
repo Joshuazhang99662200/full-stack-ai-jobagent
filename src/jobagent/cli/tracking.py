@@ -8,8 +8,8 @@ from typing import Annotated
 import typer
 
 from jobagent.cli.private_io import fail, open_database, read_model
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError, JobAgentError
-from jobagent.jobs.jd_snapshot import text_digest
 from jobagent.jobs.sent_tracking import (
     outreach_proof,
     pending_execution,

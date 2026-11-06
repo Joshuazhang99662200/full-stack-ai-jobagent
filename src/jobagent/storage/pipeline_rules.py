@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime
 from decimal import Decimal
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.schemas.pipeline_metrics import (
     ConfirmedPipelineMetricRule,

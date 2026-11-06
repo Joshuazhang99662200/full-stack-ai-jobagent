@@ -1,10 +1,10 @@
 """SQLite adapter for Job Intelligence artifacts."""
 
-import hashlib
 import sqlite3
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
+from jobagent.digest import text_digest
 from jobagent.errors import ContractValidationError, StorageError
 from jobagent.schemas.job_intelligence import (
     JobSearchHit,
@@ -23,10 +23,6 @@ from jobagent.storage.database import Database
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
-
-
-def _digest(value: str) -> str:
-    return f"sha256:{hashlib.sha256(value.encode('utf-8')).hexdigest()}"
 
 
 class SqliteJobRepository:
@@ -69,7 +65,7 @@ class SqliteJobRepository:
             body = job.model_dump_json()
             connection.execute(
                 "INSERT OR IGNORE INTO job_observations VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (_digest(body), job.id, None, None, body, "normalized_only",
+                (text_digest(body), job.id, None, None, body, "normalized_only",
                  job.collected_at.isoformat()),
             )
         for item in job.provenance:
@@ -266,7 +262,7 @@ class SqliteJobRepository:
 
     def save_requirements(self, profile: JobRequirementProfile) -> str:
         content = profile.model_dump_json()
-        content_digest = _digest(content)
+        content_digest = text_digest(content)
         try:
             with self.database.connect() as connection, connection:
                 connection.execute(

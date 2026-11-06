@@ -6,8 +6,8 @@ from typer.testing import CliRunner
 
 from jobagent.cli.greetings import greetings_app
 from jobagent.cli.jobs import jobs_app
+from jobagent.digest import canonical_digest
 from jobagent.errors import UserInterventionRequiredError
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.greeting import GreetingRequest
 from jobagent.schemas.preference_memory import PreferenceMemory, PreferenceRule, PreferenceSelection
 from jobagent.storage.database import Database
@@ -38,7 +38,7 @@ def request(job_id=None):
            "url": "https://jobs.example.test/role", "jd_raw": raw}
     return GreetingRequest.model_validate({
         "candidate_id": "CAND_TEST", "display_name": "Alex",
-        "policy_digest": content_digest("synthetic policy"),
+        "policy_digest": canonical_digest("synthetic policy"),
         "mode": "targeted" if job_id else "default", "job": job if job_id else None,
         "interests": [{"job": job, "selection_id": "OAPPROVAL_TEST"}],
         "evidence": [{"id": "EVID_TEST", "type": "project", "statement": "Built agents.",
@@ -83,7 +83,7 @@ def fixture(tmp_path, monkeypatch, *, enabled=True):
                 rule_id = "FINANCE" if "financial" in context else "DOCUMENTS"
                 rules = [rule for rule in current.rules if rule.rule_id == rule_id]
             return PreferenceSelection(
-                memory_version=current.version, memory_digest=content_digest(current.model_dump(
+                memory_version=current.version, memory_digest=canonical_digest(current.model_dump(
                     mode="json")), rules=rules,
                 search_queries=["Enterprise Agent PM"] if task == "search" else [],
             )
@@ -265,7 +265,7 @@ def test_search_preserves_base_queries_when_memory_selects_no_replacement(tmp_pa
         def select(self, current, **kwargs):
             return PreferenceSelection(
                 memory_version=current.version,
-                memory_digest=content_digest(current.model_dump(mode="json")),
+                memory_digest=canonical_digest(current.model_dump(mode="json")),
             )
 
     monkeypatch.setattr("jobagent.cli.jobs.PreferenceLearner", EmptySelection)

@@ -5,9 +5,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
 from jobagent.harness.runtime import runtime_fingerprint
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.mcp_calls import bind_mcp_round
 from jobagent.jobs.sourcing import SOURCING_DAY, refusal_reason
 from jobagent.schemas.mcp_calls import (

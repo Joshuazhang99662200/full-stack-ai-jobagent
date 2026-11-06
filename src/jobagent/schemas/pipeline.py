@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import AwareDatetime, Field, HttpUrl, field_validator, model_validator
 
-from jobagent.jobs.jd_snapshot import text_digest
+from jobagent.digest import text_digest
 from jobagent.schemas.candidate import CandidateId
 from jobagent.schemas.common import ContractModel, Digest, NonEmptyString
 

@@ -14,8 +14,8 @@ from pydantic import ValidationError
 
 from jobagent.bridge.greeting_context import _owned, _real_job
 from jobagent.capabilities import ReasoningProvider
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import content_digest
 from jobagent.outreach.preference_memory import PreferenceLearner, memory_digest
 from jobagent.outreach.service import policy_digest
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem
@@ -292,7 +292,7 @@ def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFe
                         or ask.batch_digest != batch.batch_digest
                         or ask.policy_digest != batch.policy_digest
                         or policy_digest(batch.policy) != batch.policy_digest
-                        or content_digest([[i.number, i.item_digest] for i in batch.items])
+                        or canonical_digest([[i.number, i.item_digest] for i in batch.items])
                         != batch.batch_digest
                         or batch.created_at > ask.asked_at
                         or not ask.asked_at <= event.occurred_at < state.expires_at
@@ -319,7 +319,7 @@ def load_preference_events(database: Path, candidate_id: str) -> list[SourcingFe
                             or item.text not in ask.question
                             or event.original_text != item.text
                             or state.decisions.get(key) != decision
-                            or "sha256:" + hashlib.sha256(words.encode()).hexdigest()
+                            or text_digest(words)
                             != event.content_digest
                             or (event.action == "revise" and event.revised_text != words)
                             or (event.action != "revise" and event.revised_text is not None)

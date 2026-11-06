@@ -3,8 +3,8 @@
 import sqlite3
 from datetime import datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.query_selection import select_query_results
 from jobagent.jobs.sourcing import SOURCING_DAY
 from jobagent.schemas.sourcing import (

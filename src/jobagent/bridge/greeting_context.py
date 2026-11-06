@@ -1,6 +1,5 @@
 """Read-only, candidate-scoped context for whole-message greeting generation."""
 
-import hashlib
 import sqlite3
 from collections.abc import Mapping
 from contextlib import closing
@@ -9,8 +8,8 @@ from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import content_digest
 from jobagent.outreach.service import policy_digest
 from jobagent.schemas.candidate import CandidateProfile, EvidenceItem
 from jobagent.schemas.greeting import (
@@ -72,7 +71,7 @@ def _valid_binding(batch: OutreachBatch, ask: OutreachAsk, approval: OutreachApp
         return False
     # Recompute the same item-digest list used by OutreachService, without treating
     # today's job text as the text the owner saw historically.
-    if content_digest([[x.number, x.item_digest] for x in batch.items]) != batch.batch_digest:
+    if canonical_digest([[x.number, x.item_digest] for x in batch.items]) != batch.batch_digest:
         return False
     numbers = {item.number for item in batch.items}
     return (set(approval.approved_numbers) <= numbers
@@ -165,7 +164,7 @@ def _card_feedback(
                         "approve": "approved", "revise": "revision_requested",
                         "decline": "declined",
                     }[event.action]
-                    or "sha256:" + hashlib.sha256(words.encode()).hexdigest()
+                    or text_digest(words)
                     != event.content_digest):
                 continue
             note = (f"{event.event_id}: {event.action}/{event.reason_category}: "
@@ -251,7 +250,7 @@ def load_greeting_request(
                 job=_job_view(job) if job is not None else None,
                 evidence=current_evidence, interests=interests, feedback=notes[:20],
                 guidance=settings.guidance, corrections=settings.corrections,
-                policy_digest=content_digest(read_reference("references/greeting-ai.md")),
+                policy_digest=canonical_digest(read_reference("references/greeting-ai.md")),
             )
     except (sqlite3.Error, ValidationError, ValueError) as error:
         raise ContractValidationError(

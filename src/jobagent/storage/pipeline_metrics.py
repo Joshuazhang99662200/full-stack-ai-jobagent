@@ -6,8 +6,8 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline_diagnosis import diagnose
 from jobagent.jobs.pipeline_metrics import compute_metrics, salary_band

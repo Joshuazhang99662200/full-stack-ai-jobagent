@@ -1,6 +1,6 @@
 import pytest
 
-from jobagent.jobs.jd_snapshot import text_digest
+from jobagent.digest import text_digest
 from tests.storage.test_job_intake import NOW
 
 CATEGORIES = [

@@ -2,10 +2,10 @@
 
 from datetime import UTC, datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
 from jobagent.memory.ports import SnapshotStore, SourceReader
 from jobagent.memory.selection import select
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.memory import (
     MemoryConfig,
     MemoryContextBundle,
@@ -16,7 +16,7 @@ from jobagent.schemas.memory import (
 
 
 def _bound(bundle: MemoryContextBundle) -> MemoryContextBundle:
-    bundle.context_digest = content_digest(
+    bundle.context_digest = canonical_digest(
         bundle.model_dump(mode="json", exclude={"context_digest"})
     )
     return bundle
@@ -48,8 +48,8 @@ class MemoryService:
 
     def compile(self) -> MemorySnapshot:
         sources = [r.source for r in self._read()]
-        config_digest = content_digest(self.config.model_dump(mode="json"))
-        identity = content_digest(
+        config_digest = canonical_digest(self.config.model_dump(mode="json"))
+        identity = canonical_digest(
             {
                 "candidate_id": self.config.candidate_id,
                 "config_digest": config_digest,
@@ -87,7 +87,7 @@ class MemoryService:
                 )
             )
         snapshot = self.store.get(snapshot_id, candidate_id)
-        if snapshot.config_digest != content_digest(self.config.model_dump(mode="json")):
+        if snapshot.config_digest != canonical_digest(self.config.model_dump(mode="json")):
             bundle.diagnostics.append("config_changed")
             return _bound(bundle)
         reads = self._read()

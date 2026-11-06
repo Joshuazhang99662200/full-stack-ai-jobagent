@@ -11,8 +11,8 @@ from pathlib import Path
 
 from pydantic import AwareDatetime, HttpUrl, TypeAdapter, ValidationError
 
+from jobagent.digest import bytes_digest, canonical_digest, text_digest
 from jobagent.errors import ContractValidationError
-from jobagent.jobs.jd_snapshot import canonical_digest, text_digest
 from jobagent.jobs.job_intake import public_state, reject
 from jobagent.schemas.host_migration import (
     LegacyMappedRow,
@@ -28,7 +28,7 @@ from jobagent.storage.sent_tracking_repository import SqliteSentTrackingReposito
 
 
 def file_digest(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    return bytes_digest(path.read_bytes())
 
 
 def database_digest(path: Path) -> str:

@@ -3,8 +3,8 @@
 import json
 from datetime import datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.jobs.host_checks import page_decision
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.sent_tracking import ACTIVE
 from jobagent.schemas.host_checks import HostPageObservation

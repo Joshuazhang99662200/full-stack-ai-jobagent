@@ -3,7 +3,7 @@
 from difflib import SequenceMatcher
 from typing import get_args
 
-from jobagent.jobs.jd_snapshot import text_digest
+from jobagent.digest import text_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.schemas.message_diff import (
     DiffCategory,

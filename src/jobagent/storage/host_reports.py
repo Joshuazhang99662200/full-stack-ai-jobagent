@@ -7,7 +7,7 @@ from typing import get_args
 
 from pydantic import ValidationError
 
-from jobagent.jobs.jd_snapshot import canonical_digest
+from jobagent.digest import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline import silence_deadline
 from jobagent.schemas.host_checks import HostQueryExecution, HostRoundInput, HostTwoRoundInput

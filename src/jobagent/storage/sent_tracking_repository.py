@@ -3,8 +3,8 @@
 import sqlite3
 from datetime import datetime
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.sent_tracking import ACTIVE, advance, check_due_at, start_tracking
 from jobagent.schemas.conversation import Conversation, ConversationEvent
 from jobagent.schemas.sent_tracking import (

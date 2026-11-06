@@ -3,8 +3,8 @@
 from datetime import datetime
 from typing import TypeVar
 
+from jobagent.digest import canonical_digest
 from jobagent.jobs.jd_factorization import factorize
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.lexicon import lexicon_digest
 from jobagent.outreach.service import contacted_job_ids

@@ -8,8 +8,8 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import reject
 from jobagent.jobs.pipeline import advance_pipeline, observe_pipeline, silence_deadline
 from jobagent.schemas.pipeline import (

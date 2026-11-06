@@ -7,8 +7,8 @@ from datetime import datetime
 
 from pydantic_core import to_jsonable_python
 
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError, StorageError
-from jobagent.jobs.jd_snapshot import canonical_digest
 from jobagent.jobs.job_intake import target_key
 from jobagent.schemas.job_intake import IntakeHistory, IntakeRecord, IntakeRequest
 from jobagent.schemas.search_learning import SearchSignal

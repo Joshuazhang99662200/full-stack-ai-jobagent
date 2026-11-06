@@ -302,7 +302,8 @@ def test_a_withdrawn_item_neither_halts_the_platform_nor_counts_as_contact() -> 
 
 
 def test_strategy_tags_ride_on_the_item_and_bind_its_digest() -> None:
-    from jobagent.outreach.service import _digest, _job_content
+    from jobagent.digest import canonical_digest
+    from jobagent.outreach.service import _job_content
 
     plain = build([draft(0)])
     tagged = build(
@@ -319,7 +320,7 @@ def test_strategy_tags_ride_on_the_item_and_bind_its_digest() -> None:
     assert item.item_digest != plain.batch.items[0].item_digest
     # An untagged item keeps the digest it always had, so stored batches stay valid.
     job = JOBS[IDS[0]]
-    assert plain.batch.items[0].item_digest == _digest(
+    assert plain.batch.items[0].item_digest == canonical_digest(
         {"job": _job_content(job), "platform": "boss", "text": GREETING}
     )
 

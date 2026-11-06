@@ -4,8 +4,8 @@ from typing import Any
 import pytest
 
 from jobagent.bridge.greeting_generation import CodexGreetingProvider
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import content_digest
 from jobagent.schemas.greeting import GreetingDraft, GreetingRequest, GreetingReview
 
 
@@ -15,7 +15,7 @@ def source_request() -> GreetingRequest:
             "candidate_id": "CAND_SYNTHETIC",
             "display_name": "Alex",
             "mode": "targeted",
-            "policy_digest": content_digest("Policy"),
+            "policy_digest": canonical_digest("Policy"),
             "job": {
                 "job_id": "JOB_SYNTHETIC",
                 "company": "Synthetic",
@@ -80,7 +80,7 @@ def test_adapter_keeps_jd_in_data_and_uses_only_new_policy(monkeypatch):
     runner = Runner()
     provider = CodexGreetingProvider(runner)
     payload = source_request().model_dump(mode="json")
-    context = {"request": payload, "input_digest": content_digest(payload)}
+    context = {"request": payload, "input_digest": canonical_digest(payload)}
     result = provider.generate(
         prompt_id="greeting.ai.draft.v1", context=context, output_type=GreetingDraft
     )
@@ -97,7 +97,7 @@ def test_adapter_keeps_jd_in_data_and_uses_only_new_policy(monkeypatch):
 def test_adapter_rejects_unregistered_or_tampered_input(monkeypatch, mutation):
     monkeypatch.setattr("jobagent.bridge.greeting_generation.read_reference", lambda _: "Policy")
     payload = source_request().model_dump(mode="json")
-    context = {"request": payload, "input_digest": content_digest(payload)}
+    context = {"request": payload, "input_digest": canonical_digest(payload)}
     prompt = "greeting.ai.draft.v1"
     output_type = GreetingDraft
     if mutation == "unknown_prompt":
@@ -121,7 +121,7 @@ def test_review_has_distinct_instruction_and_no_generation_angle(monkeypatch):
     runner = Runner()
     provider = CodexGreetingProvider(runner)
     payload = source_request().model_dump(mode="json")
-    initial = {"request": payload, "input_digest": content_digest(payload)}
+    initial = {"request": payload, "input_digest": canonical_digest(payload)}
     draft = provider.generate(
         prompt_id="greeting.ai.draft.v1", context=initial, output_type=GreetingDraft
     )
@@ -130,7 +130,7 @@ def test_review_has_distinct_instruction_and_no_generation_angle(monkeypatch):
         output_type=GreetingReview,
         context={
             **initial,
-            "draft_digest": content_digest(draft.model_dump(mode="json")),
+            "draft_digest": canonical_digest(draft.model_dump(mode="json")),
             "draft": draft.model_dump(mode="json", exclude={"angle"}),
         },
     )
@@ -149,7 +149,7 @@ def test_policy_change_is_rejected_before_model_call(monkeypatch):
     with pytest.raises(ContractValidationError, match="policy changed"):
         CodexGreetingProvider(runner).generate(
             prompt_id="greeting.ai.draft.v1",
-            context={"request": payload, "input_digest": content_digest(payload)},
+            context={"request": payload, "input_digest": canonical_digest(payload)},
             output_type=GreetingDraft,
         )
     assert not runner.calls
@@ -159,7 +159,7 @@ def test_large_source_context_is_chunked_without_altering_text(monkeypatch):
     monkeypatch.setattr("jobagent.bridge.greeting_generation.read_reference", lambda _: "Policy")
     payload = source_request().model_dump(mode="json")
     payload["job"]["jd_raw"] = "Build agents." + "A" * 55000
-    context = {"request": payload, "input_digest": content_digest(payload)}
+    context = {"request": payload, "input_digest": canonical_digest(payload)}
     runner = Runner()
     CodexGreetingProvider(runner).generate(
         prompt_id="greeting.ai.draft.v1", context=context, output_type=GreetingDraft

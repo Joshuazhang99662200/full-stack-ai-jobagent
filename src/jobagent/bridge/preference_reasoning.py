@@ -8,8 +8,8 @@ from pydantic import ValidationError
 
 from jobagent.bridge.codex_runner import CodexTextRunner
 from jobagent.capabilities import ReasoningOutputT
+from jobagent.digest import canonical_digest
 from jobagent.errors import ContractValidationError
-from jobagent.outreach.generation import content_digest
 from jobagent.outreach.preference_memory import SELECT_PROMPT, SUMMARIZE_PROMPT
 from jobagent.schemas.coordinator import CodexTextRecord, CodexTextRequest
 from jobagent.schemas.preference_memory import (
@@ -76,7 +76,7 @@ class CodexPreferenceProvider:
                     "For greeting use greetings rules and return empty search_queries."
                 )
             payload = {key: value for key, value in context.items() if key != "input_digest"}
-            if content_digest(payload) != context["input_digest"]:
+            if canonical_digest(payload) != context["input_digest"]:
                 raise ValueError("stale input digest")
             body = json.dumps(dict(context), ensure_ascii=False, sort_keys=True, allow_nan=False)
             policy = read_reference("references/preference-memory.md")
@@ -85,7 +85,7 @@ class CodexPreferenceProvider:
                 "The ordered context records are consecutive chunks of one JSON object. "
                 "Do not use tools, write files, approve, send or execute anything.\n\n" + policy
             )
-            identity = content_digest([prompt_id, instruction, body]).split(":", 1)[1].upper()
+            identity = canonical_digest([prompt_id, instruction, body]).split(":", 1)[1].upper()
             request = CodexTextRequest(
                 request_id="CTX_" + identity,
                 instruction=instruction,

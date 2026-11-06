@@ -62,7 +62,11 @@ def _item_digest(job: NormalizedJob, draft: OutreachDraft) -> str:
     if draft.written_by == "person":
         content["written_by"] = "person"
     if draft.source_binding is not None:
-        content["source_binding"] = draft.source_binding.model_dump(mode="json")
+        binding = draft.source_binding.model_dump(mode="json")
+        # Bindings stored before generation provenance existed keep their digest.
+        if binding.get("generation") is None:
+            binding.pop("generation", None)
+        content["source_binding"] = binding
     return canonical_digest(content)
 
 

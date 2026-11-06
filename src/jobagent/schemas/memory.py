@@ -87,3 +87,34 @@ class MemoryContextBundle(ContractModel):
     usage_verified: Literal[False] = False
     learning_updated: Literal[False] = False
     injection_evidence: Literal["not_recorded"] = "not_recorded"
+
+
+class UsageCounts(ContractModel):
+    drafted: int = Field(default=0, ge=0)
+    approved: int = Field(default=0, ge=0)
+    sent: int = Field(default=0, ge=0)
+
+
+class MemoryVersionUsage(UsageCounts):
+    memory_version: NonEmptyString | None
+    dynamic_rules_version: NonEmptyString | None
+
+
+class PreferenceRuleUsage(UsageCounts):
+    rule_id: NonEmptyString
+    memory_version: NonEmptyString
+
+
+class MemoryUsageReport(ContractModel):
+    """Ledger evidence of which memory and rules reached real outreach items.
+
+    Counts only items whose source binding records the generation provenance;
+    older or hand-written items are reported as unattributed, not guessed.
+    """
+
+    candidate_id: CandidateId
+    memory_versions: list[MemoryVersionUsage] = Field(default_factory=list)
+    rules: list[PreferenceRuleUsage] = Field(default_factory=list)
+    unattributed: UsageCounts = Field(default_factory=UsageCounts)
+    evidence: Literal["outreach_ledger"] = "outreach_ledger"
+    grants_approval: Literal[False] = False

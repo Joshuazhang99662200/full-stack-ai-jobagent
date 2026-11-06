@@ -14,7 +14,7 @@ from jobagent.schemas.greeting import (
     GreetingRequest,
     GreetingReview,
 )
-from jobagent.schemas.outreach import OutreachDraft, OutreachSourceBinding
+from jobagent.schemas.outreach import GenerationProvenance, OutreachDraft, OutreachSourceBinding
 
 DRAFT_PROMPT = "greeting.ai.draft.v1"
 REVIEW_PROMPT = "greeting.ai.review.v1"
@@ -62,6 +62,7 @@ class GreetingGenerator:
             revision = {"draft": draft.model_dump(mode="json"), "problems": problems}
         passed = not attempts[-1].problems
         outreach = None
+        memory = request.preference_memory
         if passed and request.job is not None:
             draft = attempts[-1].draft
             outreach = OutreachDraft(
@@ -74,6 +75,14 @@ class GreetingGenerator:
                     evidence_digest=canonical_digest(payload["evidence"]),
                     job_digest=canonical_digest(request.job.model_dump(mode="json")),
                     text_digest=canonical_digest(draft.text), policy_digest=request.policy_digest,
+                    generation=GenerationProvenance(
+                        input_digest=identity,
+                        memory_version=memory.memory_version if memory else None,
+                        memory_digest=memory.memory_digest if memory else None,
+                        preference_rule_ids=sorted(rule.rule_id for rule in memory.rules)
+                        if memory else [],
+                        dynamic_rules_version=request.dynamic_rules_version,
+                    ),
                 ),
             )
         return GreetingReport(

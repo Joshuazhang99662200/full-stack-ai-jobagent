@@ -5,6 +5,8 @@
 - **不兼容**：移除核心包内的飞书桥接（`jobagent notify feishu`、`notify feishu-listen`、`outreach ask` / `patrol finish` 后的自动推送及 `patrol finish --report`）。通知改由宿主自带的飞书插件、MCP 或 CLI 按本人意愿发送，通知不构成审批。已保存的反馈记录仍可被偏好记忆读取；宿主中立的反馈登记入口尚未实现。
 - **不兼容**：`patrol next` 与 `patrol record` 必须通过 `--schedule` 读取本人私有的 `PatrolSchedule`；仓库不再内置维护者的巡检时段与间隔，缺失时停止。
 - 删除内置的个人招呼禁用词与数字写法检查；写作偏好改由私有 `GreetingSettings` 驱动生成与独立复核，证据确认、去重与逐项审批不变。
+- 新增 `jobagent outreach feedback`：宿主中立地按条登记本人对已提问清单的回绝、改写与已批准信号，绑定提问、条目与准确文字，供偏好记忆与下一轮找岗策略使用；不批准、不发送。
+- 新增 `jobagent memory usage`：招呼定向稿在来源绑定中记录生成时的记忆版本、所选偏好规则与动态规则版本，可从外联账本核对它们实际进入起草、批准与发送的条目；旧稿的条目摘要保持不变。
 - 内部整理：摘要统一由 `jobagent.digest` 计算且字节不变；写事务统一为 `Database.transaction()`；CLI 共用失败输出与私有输入读取；删除无引用的 `pipeline_sql.py` 与猎聘投递连接器中不起作用的参数和校验。
 
 ## 未发布 — 品牌与入口对齐

@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { MuseActions, MuseRecordDecisionRequest } from "./contracts";
+import { refreshAfterWrite } from "./refresh";
 
 /** The zip's save -> fresh job -> decision-id readback sequence, exposed to the current view. */
 export async function saveMuseDecision(
@@ -31,7 +32,7 @@ export async function saveMuseDecision(
         status: "unknown" as const,
         message: "还不能确定决定有没有保存成功，先别重复提交。",
       };
-    await client.invalidateQueries();
+    await refreshAfterWrite(client, { ranks: [request.rank] });
     return {
       status: "saved" as const,
       message: result.message ?? "已记录决定。",

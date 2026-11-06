@@ -22,6 +22,7 @@ import {
   MaterialList,
 } from "./MuseApp";
 import { saveMuseDecision } from "./decisions";
+import { refreshAfterWrite } from "./refresh";
 import "./current.css";
 import { ChannelTag } from "./ChannelTag";
 import {
@@ -1114,6 +1115,7 @@ function CurrentExecution({
   });
   function execute() {
     if (busy || dispatched || echo.batchId == null) return;
+    const ranks = echo.items.map((item) => item.rank);
     setDispatched(true);
     onWatch(echo.batchId);
     onClose();
@@ -1121,11 +1123,11 @@ function CurrentExecution({
       .confirmExecution({ batchId: echo.batchId })
       .then((r) => {
         onNotice(r.message ?? "执行结果待核验");
-        void client.invalidateQueries();
+        void refreshAfterWrite(client, { ranks, batchId: echo.batchId });
       })
       .catch(() => {
         onNotice("执行请求结果未知，请先核验，不重复执行。");
-        void client.invalidateQueries();
+        void refreshAfterWrite(client, { ranks, batchId: echo.batchId });
       });
   }
 

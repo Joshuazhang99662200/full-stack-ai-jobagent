@@ -171,18 +171,9 @@ Cowork 前端通过本地 MCP 桥 `jobagent`(`python -m jobagent.bridge.mcp_serv
 | 给 Cowork 留言 | 已落地 | `jobagent mailbox notify`(Cowork 用 MCP `notes_from_claude_code` 读) |
 | 登记会话身份 | 已落地 | `jobagent mailbox register-session` / `jobagent mailbox peers`(哪个会话担任 claude_code / cowork;回执与留言带上 session_id) |
 
-## 手机推送(飞书 bot)
-
-账本有新东西时,经飞书 bot(`lark-cli im +messages-send --as bot`)给本人推一条消息。会触发推送的有：待审批问题(含招呼原文)、招聘方新来信、新入库的强匹配和可能匹配职位、当天被叫停的站。巡检完成只会捎带进消息，单独不会触发推送。每一项按键去重，发送成功才记入 `.jobagent/feishu_push_state.json`，失败的下次重试，重跑不会重复发。接收人写在 `.jobagent/feishu_push.json`，三选一：`chat_id`、`user_id`(应用 bot，经 lark-cli 发)，或 `webhook` 加可选 `secret`(群自定义机器人，不需要建应用，也不需要企业认证)。没有这个文件就不推送。**推送本身只是告知**；审批可回到对话里回复，也可在飞书审批卡片上提交(见下表)。
-
-| 能力 | 状态 | 入口 |
-|---|---|---|
-| 推送更新 | 已落地 | `jobagent notify feishu`(`--dry-run` 只打印不发、不记)。`patrol finish`(可带 `--report <文件>`，把巡检汇报原文一并推送，超过 6000 字截断)与 `outreach ask` 结束后在配置存在时自动推送，结果写到 stderr，失败不影响原命令 |
-| 飞书卡片审批 | 已落地 | 应用 bot 配置下，`outreach ask` 后自动给每个待批问题发一张审批卡片(勾选 + 可改原文 + 提交)，`jobagent notify feishu` 也会补发。`jobagent notify feishu-listen`(`--hours 8`)在本机监听提交：只认 `user_id`/`owner` 本人、只认本机发出且未处理的卡片、每张卡只登记一次；勾选即批准、没有第二轮：未改的条目以提交内容为原话登记；改过的条目按本人改写生成新批次，并以卡片里的原文为原话当场登记(仍须过首条招呼规则，不过则卡片写明原因、可改后重交)。卡片不触发发送，发送仍由浏览器会话按租约和节奏执行 |
-
 ## 消息与投递(Message / Application / Cluster)
 
-原生逐岗位首条招呼卡片已支持上一条/下一条、编辑草稿留存、单项批准与显式回绝，宿主入口为 `feishu_approval.send_question_card`；旧卡兼容。回绝反馈可由 `bridge.sourcing_feedback.next_fetch_strategy` 在下一次显式采集前消费，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。`demo_mode=True` 仅用于合成 UI 验证，不产生真实审批或偏好。详见 `docs/feishu-paged-approval-2026-10-26.md`。此能力不包含定向简历的原生卡片审批桥或通用自进化编排。
+回绝与改写反馈的读取侧仍在：`bridge.sourcing_feedback.next_fetch_strategy` 与偏好记忆可消费已保存的 `sourcing_feedback_events`，生成有版本的优先级计划；不启动轮询、不改变硬筛选或发送许可。原飞书卡片写入方已移除，当前没有宿主中立的反馈登记入口（未开始）。
 
 | 能力 | 状态 | 入口 |
 |---|---|---|

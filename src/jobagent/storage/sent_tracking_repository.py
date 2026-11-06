@@ -77,8 +77,7 @@ class SqliteSentTrackingRepository:
             + ([next_poll_at.isoformat()] if next_poll_at else [])
         )
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 self._require_legacy_authority(connection, candidate_id)
                 old = connection.execute(
                     "SELECT creation_digest FROM sent_tracking_roots WHERE tracking_id = ?",
@@ -127,8 +126,7 @@ class SqliteSentTrackingRepository:
     ) -> SentTrackingRecord:
         digest = canonical_digest(event.model_dump(mode="json"))
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 self._require_legacy_authority(connection, event.candidate_id)
                 state = self._current(connection, event.tracking_id, event.candidate_id)
                 old = connection.execute(

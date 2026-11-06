@@ -363,8 +363,7 @@ class PipelineMetricsService:
             public = PipelineMetricsComputeInput.model_validate(data)
         except ValidationError as error:
             raise ContractValidationError("Stored metric request is invalid.") from error
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             request = PipelineMetricRequest(
                 candidate_id=public.candidate_id,
                 window_start=public.window_start,
@@ -406,8 +405,7 @@ class PipelineMetricsService:
             )
         except ValidationError as error:
             raise ContractValidationError("Stored diagnosis request is invalid.") from error
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             require_pipeline_policy(connection, public.candidate_id, "diagnosis", now=now)
             current = [
                 self._metric(connection, key, public.candidate_id)

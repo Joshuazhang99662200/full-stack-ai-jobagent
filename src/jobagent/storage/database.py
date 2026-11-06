@@ -70,6 +70,13 @@ class Database:
         finally:
             connection.close()
 
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """One write transaction: take the write lock first, commit or roll back as a unit."""
+        with self.connect() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            yield connection
+
     def migrate(self) -> None:
         try:
             with self.connect() as connection:

@@ -44,8 +44,7 @@ class SqliteMcpRepository:
     @contextmanager
     def _write(self) -> Iterator[sqlite3.Connection]:
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 yield connection
         except sqlite3.Error as error:
             raise StorageError("MCP ledger unavailable; no automatic retry.") from error

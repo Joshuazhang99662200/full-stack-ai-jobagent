@@ -25,8 +25,7 @@ class HostPageService:
         digest = canonical_digest(observation.model_dump(mode="json"))
         if observation.observed_at > now:
             reject("Page evidence cannot come from the future.")
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             old = connection.execute(
                 "SELECT * FROM host_page_observations WHERE observation_id = ?",
                 (observation.observation_id,),

@@ -42,8 +42,7 @@ class SqliteJDSnapshotRepository:
         if connection is not None:
             return self._capture_in(connection, request)
         try:
-            with self.database.connect() as own, own:
-                own.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as own:
                 return self._capture_in(own, request)
         except sqlite3.Error as error:
             raise StorageError("JD snapshot ledger unavailable.") from error

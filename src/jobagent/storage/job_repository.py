@@ -83,8 +83,7 @@ class SqliteJobRepository:
     ) -> None:
         if connection is None:
             try:
-                with self.database.connect() as own, own:
-                    own.execute("BEGIN IMMEDIATE")
+                with self.database.transaction() as own:
                     self.save_observation(record, job, connection=own)
                 return
             except sqlite3.Error as error:

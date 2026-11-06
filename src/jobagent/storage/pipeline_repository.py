@@ -226,8 +226,7 @@ class PipelineRepository:
             [job.model_dump(mode="json"), meta.model_dump(mode="json"), evidence_reference]
         )
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 old = self.replay(connection, event_id, job.candidate_id, digest)
                 if old:
                     return old
@@ -274,8 +273,7 @@ class PipelineRepository:
         data = event.model_dump(mode="json")
         digest = input_digest or canonical_digest(data)
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 old = self.replay(connection, event.event_id, event.candidate_id, digest)
                 if old:
                     return old

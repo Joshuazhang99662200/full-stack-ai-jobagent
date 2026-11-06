@@ -40,8 +40,7 @@ class SqliteFeedbackRepository:
     ) -> str:
         """Atomically persist the one decision, its exact approval and dedup key."""
         try:
-            with self.database.connect() as connection, connection:
-                connection.execute("BEGIN IMMEDIATE")
+            with self.database.transaction() as connection:
                 if connection.execute(
                     "SELECT 1 FROM paged_card_events WHERE event_id = ?", (event_id,),
                 ).fetchone():
@@ -94,8 +93,7 @@ class SqliteFeedbackRepository:
         return [SourcingFeedback.model_validate_json(row[0]) for row in rows]
 
     def save_strategy(self, strategy: FeedbackSearchStrategy) -> None:
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             scope = json.dumps([strategy.candidate_id, strategy.actor_id, strategy.source])
             head = connection.execute(
                 "SELECT version FROM feedback_strategy_heads WHERE scope_key = ?", (scope,),

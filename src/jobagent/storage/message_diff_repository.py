@@ -28,8 +28,7 @@ class MessageDiffRepository:
         if SqliteJobRepository(self.database).get_job(request.job_id) is None:
             reject("Comparison needs the actual cached job identity.")
         digest = canonical_digest(request.model_dump(mode="json"))
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             old = connection.execute(
                 "SELECT * FROM message_diff_events WHERE event_id = ?", (request.event_id,)
             ).fetchone()

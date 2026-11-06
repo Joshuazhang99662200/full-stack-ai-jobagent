@@ -145,8 +145,7 @@ class PipelineRuleService:
     def propose(self, data: dict[str, object], *, now: datetime) -> dict[str, object]:
         request = PipelineRuleProposalInput.model_validate(data)
         digest = canonical_digest(request.model_dump(mode="json"))
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             old = self.existing(connection, request.proposal_id, request.candidate_id, digest)
             if old:
                 return old
@@ -251,8 +250,7 @@ class PipelineRuleService:
     def confirm(self, data: dict[str, object], *, now: datetime) -> dict[str, object]:
         request = PipelineRuleConfirmationInput.model_validate(data)
         digest = canonical_digest(request.model_dump(mode="json"))
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             old = connection.execute(
                 "SELECT * FROM message_rule_confirmations WHERE confirmation_id = ?",
                 (request.confirmation_id,),
@@ -360,8 +358,7 @@ class PipelineRuleService:
     def review(self, data: dict[str, object], *, now: datetime) -> dict[str, object]:
         request = PipelineRuleReviewInput.model_validate(data)
         digest = canonical_digest(request.model_dump(mode="json"))
-        with self.database.connect() as connection, connection:
-            connection.execute("BEGIN IMMEDIATE")
+        with self.database.transaction() as connection:
             old = connection.execute(
                 "SELECT * FROM pipeline_rule_reviews WHERE review_id = ?", (request.review_id,)
             ).fetchone()

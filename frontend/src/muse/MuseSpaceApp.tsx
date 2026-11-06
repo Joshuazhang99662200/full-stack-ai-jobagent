@@ -8,10 +8,8 @@ import {
 } from "./context";
 import { ChannelTag } from "./ChannelTag";
 import "./space.css";
-import { saveMuseDecision } from "./decisions";
+import { saveExactDecision, saveMuseDecision } from "./decisions";
 import { refreshAfterWrite } from "./refresh";
-import type { MuseActions } from "./contracts";
-import type { QueryClient } from "@tanstack/react-query";
 
 const SUBMITTED_NOTICE =
   "已提交，正在后台发送。可以继续处理别的岗位，结果核实后会更新到对应岗位。";
@@ -34,40 +32,6 @@ function fmtTime(value: string | null | undefined): string {
 function withPeriod(text: string | null | undefined): string {
   const t = (text ?? "").trim().replace(/[。．.；;，,、\s]+$/u, "");
   return t ? `${t}。` : "";
-}
-
-async function saveExactDecision(
-  api: MuseActions,
-  queryClient: QueryClient,
-  req: {
-    rank: number;
-    kind: DecisionKindArg;
-    note: string | null;
-    original: string;
-    text: string | null;
-  },
-): Promise<{ status: "saved" | "unknown" | "failed"; message: string }> {
-  const approving = req.kind === "accept_original";
-  if (approving && req.text != null && req.text !== req.original) {
-    const saved = await api.saveGreetingDraft({
-      rank: req.rank,
-      text: req.text,
-    });
-    if (!saved.ok)
-      return {
-        status: saved.error === "outcome_unknown" ? "unknown" : "failed",
-        message: saved.message ?? "修改没有保存成功，还没有批准。",
-      };
-    const fresh = await api.getJob({ rank: req.rank });
-    if (fresh.draftGreeting !== req.text)
-      return { status: "unknown", message: UNKNOWN_NOTICE };
-  }
-  return saveMuseDecision(api, queryClient, {
-    rank: req.rank,
-    kind: req.kind,
-    note: req.note,
-    greetingText: approving ? (req.text ?? req.original) : null,
-  });
 }
 
 type TodosResp = ApiResponse<typeof api, "getTodos">;
@@ -1790,11 +1754,11 @@ function TodoDialog({
         original: d?.approvedGreeting ?? d?.draftGreeting ?? "",
         text: opts.greetingText ?? null,
       });
-      if (r.status !== "saved") {
+      if (r.status !== "saved" && r.status !== "revised") {
         setPhase(r.status);
         return;
       }
-      setSavedText(opts.resultText);
+      setSavedText(r.status === "revised" ? r.message : opts.resultText);
       setPhase("saved");
       try {
         const freshTodos = await api.getTodos({});
@@ -2618,6 +2582,12 @@ function ExecConfirmView({
         original: p.greetingText ?? "",
         text: isDelivery ? null : textValue,
       });
+      if (r.status === "revised") {
+        setText(null);
+        setPhase("idle");
+        setResultMsg(r.message);
+        return;
+      }
       if (r.status !== "saved") {
         setPhase(r.status === "unknown" ? "unknown" : "failed");
         setResultMsg(r.message);
@@ -3048,13 +3018,14 @@ function JobDetailDialog({
         original: greetingOriginal,
         text: opts.greetingText ?? null,
       });
-      if (r.status !== "saved") {
+      if (r.status !== "saved" && r.status !== "revised") {
         setPhase(r.status);
         return;
       }
+      if (r.status === "revised") setLastReviewKind("accept_revise");
       setGreetingEdit(null);
       setNote("");
-      setSavedMsg(opts.resultText);
+      setSavedMsg(r.status === "revised" ? r.message : opts.resultText);
       setPhase("saved");
     } catch {
       setPhase("unknown");

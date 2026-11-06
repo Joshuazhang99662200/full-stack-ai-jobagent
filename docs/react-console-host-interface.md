@@ -34,8 +34,10 @@ Muse 等宿主的适配器可把三项接口接到同版本 CLI，替代已删�
 | 面板接口 | CLI | 行为 |
 |---|---|---|
 | `getMaterials` | `jobagent console materials --candidate <ID> --contact <PIPE_*>` | 仍待本人决定的首条招呼准确全文；`revision` 为条目摘要 |
-| `recordDecision` | `jobagent console decide <HostDecisionRequest.json> --actor <操作人>` | `approve_text`：仅原文，单条清单上走原审批门禁；`save_draft`：改写反馈，待重新生成复核；`decline`：回绝反馈。其他种类返回 rejected |
+| `recordDecision` | `jobagent console decide <HostDecisionRequest.json> --actor <操作人>` | `approve_material`：仅原文，单条清单上走原审批门禁；`save_draft`：改写反馈，待重新生成复核；`decline`：回绝反馈。`approve_text` 只是文案意见，不构成批准，返回 rejected 且不保存；其他种类同样返回 rejected |
 | `getOperation` | `jobagent console operation <operation_key> --candidate <ID>` | 按操作键回读；无记录即未保存，可重新提交 |
+
+`approve_material` 与 `approve_text` 的含义和前端、演示宿主保持一致：只有前者是批准。宿主状态里当前材料的 `revision` 必须取 `console materials` 返回的值，否则决定会因材料已变化被拒绝。前端在改稿后先保存草稿再批准；接 CLI 时草稿保存为改写反馈、原文不变，前端据此提示需重新生成复核，不会批准改动后的文字。
 
 回执状态为 saved 时退出码为 0，rejected 为 1，JSON 回执始终输出。决定都不发送；已批准的条目仍由现有租约与 `outreach next` 节奏发送并回读。
 

@@ -26,8 +26,9 @@ def test_snapshot_shows_awaiting_declined_approved_withdrawn_and_sent_items(tmp_
     record(path, decision(path, "decline"))
     store = SqliteOutreachRepository(Database(path))
     second = store.get_batch("OBATCH_TWO").items[1]
-    approved = record(path, decision(path, "approve_text", key="OP_2", revision=second.item_digest,
-                                     job_id="fixture-role"))
+    approved = record(path, decision(
+        path, "approve_material", key="OP_2", revision=second.item_digest, job_id="fixture-role"
+    ))
     assert approved.status == "rejected"  # item 2 belongs to another job than this contact
 
     current = snapshot(path, tmp_path, "CAND_TEST", now=NOW).approvals
@@ -41,7 +42,7 @@ def test_panel_approval_and_send_result_are_visible_once(tmp_path):
     from tests.bridge.test_panel_decisions import setup
 
     path, job_id = setup(tmp_path)
-    assert record(path, decision(path, "approve_text")).status == "saved"
+    assert record(path, decision(path, "approve_material")).status == "saved"
     store = SqliteOutreachRepository(Database(path))
     child = next(b for b in store.list_batches() if b.batch_id != "OBATCH_FIXTURE")
     approval = store.get_approval(child.batch_id)
